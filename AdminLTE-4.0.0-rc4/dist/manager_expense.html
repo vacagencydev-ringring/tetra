@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Tetra Portal | 현장 지출 등록</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="./css/adminlte.css" />
+    <link rel="stylesheet" href="./css/typography-ko.css" />
+    <link rel="stylesheet" href="./css/tetra-brand.css" />
+    <script src="./js/utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" crossorigin="anonymous"></script>
+    <style>
+      .expense-scaffold .form-card { max-width: 42rem; margin-left: auto; margin-right: auto; background: #fff; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+      .expense-scaffold .form-card .card-body { padding: 1.5rem 1.75rem; }
+      .staff-checklist { max-height: 12rem; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 0.5rem 0.75rem 0.5rem 0.75rem; background: #f8f9fa; font-size: 0.875rem; }
+      .staff-checklist .form-check { padding: 0.25rem 0.5rem 0.25rem 1.75em; margin-bottom: 0; }
+      .staff-checklist .form-check:hover { background: rgba(0,123,255,0.08); border-radius: 0.25rem; }
+    </style>
+  </head>
+  <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
+    <div class="app-wrapper expense-scaffold">
+      <nav class="app-header navbar navbar-expand bg-body shadow-sm">
+        <div class="container-fluid">
+          <ul class="navbar-nav">
+            <li class="nav-item"><a class="nav-link" data-lte-toggle="sidebar" href="#" role="button"><i class="bi bi-list"></i></a></li>
+            <li class="nav-item d-none d-md-block"><a href="./manager.html" class="nav-link fw-semibold">현장 지출 등록</a></li>
+          </ul>
+          <ul class="navbar-nav ms-auto align-items-center gap-2">
+            <li class="nav-item"><span class="nav-link text-dark" id="header-role-label">-</span></li>
+            <li class="nav-item"><button type="button" class="btn btn-outline-secondary btn-sm" id="logout-btn">로그아웃</button></li>
+          </ul>
+        </div>
+      </nav>
+
+      <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark" id="tetra-sidebar-aside">
+        <div id="tetra-sidebar-inject"></div>
+      </aside>
+
+      <main class="app-main">
+        <div class="app-content-header">
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-sm-6"><h3 class="mb-0">현장 지출 등록</h3></div>
+              <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-end mb-0">
+                  <li class="breadcrumb-item"><a href="./home.html">홈</a></li>
+                  <li class="breadcrumb-item"><a href="./manager.html">현장 운영</a></li>
+                  <li class="breadcrumb-item active">지출 등록</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="app-content">
+          <div class="container-fluid">
+            <div class="row justify-content-center py-4">
+              <div class="col-12">
+                <div class="card form-card shadow-sm">
+                  <div class="card-header bg-white border-0 pt-4 pb-0">
+                    <h4 class="card-title mb-0"><i class="bi bi-wallet2 text-primary me-2"></i>현장 지출 등록</h4>
+                  </div>
+                  <div class="card-body">
+                    <form id="expense-form" class="needs-validation" novalidate>
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label for="expenseDate" class="form-label">지출 일자</label>
+                          <input type="date" class="form-control form-control-lg" id="expenseDate" name="date" placeholder="YYYY-MM-DD" required />
+                        </div>
+                        <div class="col-md-6">
+                          <label for="expenseCategory" class="form-label">구분</label>
+                          <select class="form-select form-select-lg" id="expenseCategory" name="category" required>
+                            <option value="">선택</option>
+                            <option value="Food">식대</option>
+                            <option value="Supplies">비품</option>
+                            <option value="Rent">임대료</option>
+                            <option value="Electricity">전기</option>
+                            <option value="Internet">인터넷</option>
+                            <option value="Others">기타</option>
+                          </select>
+                        </div>
+                        <div class="col-12">
+                          <label class="form-label">직원 선택 <span class="text-danger">*</span> <small class="text-muted">(식대 등 여러 명 선택 가능)</small></label>
+                          <div id="staffChecklist" class="staff-checklist">
+                            <div class="text-muted text-center py-3">로딩 중...</div>
+                          </div>
+                          <div id="staffSelectedSummary" class="small mt-1 text-muted"></div>
+                        </div>
+                        <div class="col-md-6">
+                          <label for="expenseItem" class="form-label">항목</label>
+                          <input type="text" class="form-control form-control-lg" id="expenseItem" name="item" placeholder="지출 항목명" required />
+                        </div>
+                        <div class="col-md-6">
+                          <label for="expenseCost" class="form-label">금액 (PHP)</label>
+                          <input type="number" class="form-control form-control-lg" id="expenseCost" name="cost" placeholder="0" min="0" step="0.01" required />
+                        </div>
+                        <div class="col-md-6">
+                          <label for="expenseRemarks" class="form-label">비고</label>
+                          <input type="text" class="form-control form-control-lg" id="expenseRemarks" name="remarks" placeholder="선택 입력" />
+                        </div>
+                        <div class="col-12 pt-2">
+                          <button type="submit" class="btn btn-primary btn-lg" id="submitBtn"><i class="bi bi-check2-square me-1"></i>등록</button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="app-footer">
+        <div class="float-end d-none d-sm-inline">Tetra Portal</div>
+        <strong>Copyright &copy; 2014-2025 <a href="https://adminlte.io" class="text-decoration-none">AdminLTE.io</a>.</strong>
+      </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script src="./js/routes.js"></script>
+    <script src="./js/adminlte.js"></script>
+    <script src="./js/sidebar-master.js"></script>
+    <script src="./js/sidebar-static.js"></script>
+    <script src="./js/header-role.js"></script>
+    <script>
+      (function () {
+        const role = localStorage.getItem('role');
+        if (!role || role === 'Worker') { location.href = './login.html'; return; }
+      })();
+
+      const API_URL = 'https://script.google.com/macros/s/AKfycbzFf_YuMxN3hkpPW6sFRKoblztRRf9yfrUMo6BJZ-WeFzYUNQHq4FybW3R_LnzwP9IxxA/exec';
+
+      // 우측 상단 역할/이름은 header-role.js에서 표시
+      document.getElementById('logout-btn').addEventListener('click', function () {
+        localStorage.removeItem('userName'); localStorage.removeItem('role'); localStorage.removeItem('userId');
+        location.href = './login.html';
+      });
+
+      document.getElementById('expenseDate').value = new Date().toISOString().slice(0, 10);
+
+      var staffList = [];
+
+      function sortStaffByRoleThenName(arr) {
+        var roleOrder = { Admin: 0, Manager: 1, Worker: 2 };
+        return arr.slice().sort(function (a, b) {
+          var ra = roleOrder[(a.role || '').toString().trim()] !== undefined ? roleOrder[(a.role || '').toString().trim()] : 3;
+          var rb = roleOrder[(b.role || '').toString().trim()] !== undefined ? roleOrder[(b.role || '').toString().trim()] : 3;
+          if (ra !== rb) return ra - rb;
+          var na = (a.name || a.userName || a.user_name || a.userId || '').toString().trim();
+          var nb = (b.name || b.userName || b.user_name || b.userId || '').toString().trim();
+          return (na || '').localeCompare(nb || '', 'ko');
+        });
+      }
+
+      async function loadStaffList() {
+        const el = document.getElementById('staffChecklist');
+        try {
+          const res = await fetch(API_URL + '?action=getApprovedUsers');
+          const data = await res.json();
+          const users = data.users || data.data || [];
+          var list = Array.isArray(users) ? users : [];
+          const curUserId = (localStorage.getItem('userId') || '').toString().trim();
+          const curName = (localStorage.getItem('userName') || '').toString().trim();
+          if (!list.some(function (u) { return (u.userId || u.user_id || '').toString().trim() === curUserId; }) && curUserId) {
+            list = [{ userId: curUserId, name: curName || curUserId }, ...list];
+          }
+          staffList = sortStaffByRoleThenName(list);
+          if (staffList.length === 0) {
+            el.innerHTML = '<div class="text-muted text-center py-3">등록된 직원이 없습니다.</div>';
+            return;
+          }
+          el.innerHTML = staffList.map(function (u) {
+            const id = (u.userId || u.user_id || u.id || '').toString();
+            const name = (u.name || u.userName || u.user_name || id).toString().replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            return '<div class="form-check"><input class="form-check-input" type="checkbox" value="' + id.replace(/"/g, '&quot;') + '" data-name="' + name + '" id="staff_' + id.replace(/[^a-zA-Z0-9_]/g, '_') + '" /><label class="form-check-label" for="staff_' + id.replace(/[^a-zA-Z0-9_]/g, '_') + '">' + name + ' (' + (id || '-') + ')</label></div>';
+          }).join('');
+          el.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+            cb.addEventListener('change', updateStaffSummary);
+          });
+          updateStaffSummary();
+        } catch (e) {
+          console.error('loadStaffList:', e);
+          el.innerHTML = '<div class="text-danger text-center py-3">직원 목록을 불러올 수 없습니다.</div>';
+        }
+      }
+
+      function updateStaffSummary() {
+        const checks = document.querySelectorAll('#staffChecklist input[type="checkbox"]:checked');
+        const names = Array.from(checks).map(function (c) { return c.dataset.name || c.value; });
+        const el = document.getElementById('staffSelectedSummary');
+        el.textContent = names.length > 0 ? '선택됨: ' + names.join(', ') : '';
+      }
+
+      document.getElementById('expense-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const checks = document.querySelectorAll('#staffChecklist input[type="checkbox"]:checked');
+        const ids = Array.from(checks).map(function (c) { return c.value; });
+        const names = Array.from(checks).map(function (c) { return c.dataset.name || c.value; });
+        if (ids.length === 0) {
+          if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: '직원 선택 필요', text: '지출 발생 직원을 1명 이상 선택해 주세요.' });
+          else alert('지출 발생 직원을 1명 이상 선택해 주세요.');
+          return;
+        }
+        const date = document.getElementById('expenseDate').value;
+        const category = document.getElementById('expenseCategory').value;
+        const item = document.getElementById('expenseItem').value.trim();
+        const cost = document.getElementById('expenseCost').value;
+        const remarks = document.getElementById('expenseRemarks').value.trim();
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>등록 중...';
+        const fd = new FormData();
+        fd.append('action', 'upsertExpense');
+        fd.append('date', date);
+        fd.append('category', category);
+        fd.append('item', item);
+        fd.append('cost', cost);
+        fd.append('remarks', remarks);
+        fd.append('staff_id', ids.join(','));
+        fd.append('staff_name', names.join(','));
+        try {
+          const res = await fetch(API_URL, { method: 'POST', body: fd });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error || '등록 실패');
+          var successText = data.warning ? data.warning : '지출이 등록되었습니다.';
+          if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: '등록 완료', text: successText, timer: data.warning ? 4000 : 2000, showConfirmButton: false });
+          else alert(successText);
+          document.getElementById('expense-form').reset();
+          document.getElementById('expenseDate').value = new Date().toISOString().slice(0, 10);
+          document.querySelectorAll('#staffChecklist input[type="checkbox"]').forEach(function (c) { c.checked = false; });
+          updateStaffSummary();
+          loadStaffList();
+        } catch (err) {
+          if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: '등록 실패', text: err.message || '다시 시도해 주세요.' });
+          else alert(err.message || '등록에 실패했습니다.');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-check2-square me-1"></i>등록';
+        }
+      });
+
+      if (typeof TetraUtils !== 'undefined' && TetraUtils.fetchLatestExchangeRate) TetraUtils.fetchLatestExchangeRate(API_URL).catch(function () {});
+      loadStaffList();
+    </script>
+  </body>
+</html>

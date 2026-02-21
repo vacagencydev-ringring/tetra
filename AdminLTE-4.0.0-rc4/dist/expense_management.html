@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="ko">
+  <!--begin::Head-->
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Tetra Portal | 지출 관리</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#1e3a5f" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
+    <link rel="preload" href="./css/adminlte.css" as="style" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css"
+      integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q="
+      crossorigin="anonymous"
+      media="print"
+      onload="this.media='all'"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
+      crossorigin="anonymous"
+    />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="./css/adminlte.css" />
+    <link rel="stylesheet" href="./css/typography-ko.css" />
+    <link rel="stylesheet" href="./css/tetra-brand.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/apexcharts@3.37.1/dist/apexcharts.css"
+      crossorigin="anonymous"
+    />
+    <script src="./js/utils.js"></script>
+    <script src="./js/currencyManager.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" crossorigin="anonymous"></script>
+    <style>
+      .expense-management .card { border-radius: 0.5rem; border: none; box-shadow: 0 0.125rem 0.5rem rgba(0,0,0,0.06); }
+      .expense-management .total-expense-card { background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); border-radius: 0.75rem; color: #fff; }
+      .expense-management .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .filter-bar { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.75rem 1rem; }
+      .filter-bar .form-control, .filter-bar .form-select { background: #f8fafc; border-color: #e2e8f0; font-size: 0.875rem; }
+      .filter-bar .form-control:focus, .filter-bar .form-select:focus { background: #fff; border-color: #10B981; }
+      .th-sortable { cursor: pointer; user-select: none; transition: color 0.2s; }
+      .th-sortable:hover { color: #10B981 !important; }
+      .th-sortable.active { color: #10B981 !important; font-weight: 600; }
+      .zero-state { color: #94a3b8; padding: 3rem 1rem; text-align: center; }
+      .receipt-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #dee2e6; vertical-align: middle; }
+      .receipt-thumb-link { display: inline-flex; align-items: center; justify-content: center; }
+      .receipt-fallback-icon { font-size: 1.5rem; color: #6c757d; }
+    </style>
+  </head>
+  <!--end::Head-->
+  <!--begin::Body-->
+  <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
+    <div class="app-wrapper expense-management">
+      <nav class="app-header navbar navbar-expand bg-body shadow-sm">
+        <div class="container-fluid">
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button"><i class="bi bi-list"></i></a>
+            </li>
+            <li class="nav-item d-none d-md-block"><a href="./admin.html" class="nav-link fw-semibold">지출 관리</a></li>
+          </ul>
+          <ul class="navbar-nav ms-auto align-items-center gap-2">
+            <li class="nav-item d-none d-md-flex align-items-center" id="currency-toggle-container"></li>
+            <li class="nav-item">
+              <button type="button" class="btn btn-link p-2 text-dark d-none d-md-inline-block" id="density-toggle-btn" title="화면 밀도 (Compact/Comfortable)">
+                <i class="bi bi-aspect-ratio"></i>
+              </button>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link text-dark" id="header-role-label">-</span>
+            </li>
+            <li class="nav-item">
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="logout-btn">로그아웃</button>
+            </li>
+          </ul>
+        </div>
+      </nav>
+
+      <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark" id="tetra-sidebar-aside">
+        <div id="tetra-sidebar-inject"></div>
+      </aside>
+
+      <main class="app-main">
+        <div class="app-content-header">
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-sm-6"><h3 class="mb-0">지출 관리</h3></div>
+              <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-end mb-0">
+                  <li class="breadcrumb-item"><a href="./home.html">홈</a></li>
+                  <li class="breadcrumb-item"><a href="./admin.html">관리 콘솔</a></li>
+                  <li class="breadcrumb-item active" aria-current="page">지출 관리</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="app-content">
+          <div class="container-fluid">
+            <div class="row g-4">
+              <!-- Expense Input Form -->
+              <div class="col-12">
+                <div class="card card-primary card-outline">
+                  <div class="card-header">
+                    <h3 class="card-title"><i class="bi bi-plus-circle-fill me-2"></i>지출 추가 / 수정</h3>
+                    <div class="card-tools">
+                      <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse">
+                        <i data-lte-icon="expand" class="bi bi-plus-lg"></i>
+                        <i data-lte-icon="collapse" class="bi bi-dash-lg"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <form id="expense-form">
+                      <input type="hidden" name="action" value="upsertExpense" />
+                      <input type="hidden" name="expenseId" id="expenseId" />
+                      <div class="row g-3">
+                        <div class="col-md-6 col-lg-2">
+                          <label for="expenseDate" class="form-label">날짜</label>
+                          <input type="date" class="form-control form-control-lg" id="expenseDate" name="date" required />
+                        </div>
+                        <div class="col-md-6 col-lg-2">
+                          <label for="category" class="form-label">구분</label>
+                          <select class="form-select form-select-lg" id="category" name="category" required>
+                            <option value="">선택</option>
+                            <option value="Salary">직원 급여</option>
+                            <option value="Food">식대</option>
+                            <option value="Supplies">비품</option>
+                            <option value="Rent">임대료</option>
+                            <option value="Electricity">전기</option>
+                            <option value="Internet">인터넷</option>
+                            <option value="AdminWithdrawal" id="cat-admin-withdrawal">관리자 인출 (Admin)</option>
+                            <option value="Others">기타</option>
+                          </select>
+                        </div>
+                        <div class="col-md-6 col-lg-2">
+                          <label for="staffSelect" class="form-label">직원 선택 <span class="text-danger">*</span></label>
+                          <select class="form-select form-select-lg" id="staffSelect" required>
+                            <option value="">선택</option>
+                          </select>
+                          <input type="hidden" name="staff_id" id="staffIdInput" />
+                          <input type="hidden" name="staff_name" id="staffNameInput" />
+                        </div>
+                        <div class="col-md-6 col-lg-2">
+                          <label for="item" class="form-label">항목</label>
+                          <input type="text" class="form-control form-control-lg" id="item" name="item" placeholder="항목명" required />
+                        </div>
+                        <div class="col-md-6 col-lg-2">
+                          <label for="cost" class="form-label">금액 (PHP)</label>
+                          <input type="number" class="form-control form-control-lg" id="cost" name="cost" placeholder="0" min="0" step="0.01" required />
+                        </div>
+                        <div class="col-md-6 col-lg-2">
+                          <label for="remarks" class="form-label">비고</label>
+                          <input type="text" class="form-control form-control-lg" id="remarks" name="remarks" placeholder="선택 입력" />
+                        </div>
+                        <div class="col-md-6 col-lg-2 d-flex align-items-end">
+                          <button type="submit" class="btn btn-primary btn-lg w-100">
+                            <i class="bi bi-check2-square me-1"></i>지출 저장
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 이번 달 총지출 상세 (P&L) -->
+              <div class="col-12 mb-4">
+                <div class="card border-0 shadow-sm overflow-hidden">
+                  <div class="card-header bg-white border-0 py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <h5 class="card-title mb-0"><i class="bi bi-graph-up-arrow text-primary me-2"></i>이번 달 총지출 상세</h5>
+                    <button type="button" class="btn btn-primary btn-sm" id="confirm-settlement-btn">
+                      <i class="bi bi-check-circle me-1"></i>정산 확정
+                    </button>
+                  </div>
+                  <div class="card-body">
+                    <div class="row g-3">
+                      <div class="col-12 col-md-4">
+                        <div class="stat-item d-flex align-items-center justify-content-between p-3 rounded border">
+                          <div>
+                            <div class="text-muted small">예상 급여</div>
+                            <div class="fs-4 fw-bold text-primary" id="display-estimatedPayroll">-</div>
+                            <div class="small">PHP</div>
+                          </div>
+                          <i class="bi bi-currency-exchange fs-1 text-primary opacity-25"></i>
+                        </div>
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <div class="stat-item d-flex align-items-center justify-content-between p-3 rounded border">
+                          <div>
+                            <div class="text-muted small">운영비</div>
+                            <div class="fs-4 fw-bold text-warning" id="display-expensePHP">-</div>
+                            <div class="small">PHP</div>
+                          </div>
+                          <i class="bi bi-receipt fs-1 text-warning opacity-25"></i>
+                        </div>
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <div class="stat-item d-flex align-items-center justify-content-between p-3 rounded border">
+                          <div>
+                            <div class="text-muted small">총 지출</div>
+                            <div class="fs-4 fw-bold text-danger" id="display-totalExpenditure">-</div>
+                            <div class="small">PHP</div>
+                          </div>
+                          <i class="bi bi-wallet2 fs-1 text-danger opacity-25"></i>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Total Expense Summary & Pie Chart -->
+              <div class="col-lg-4 mb-4" id="expense-summary-section">
+                <div class="card total-expense-card">
+                  <div class="card-body text-center py-4">
+                    <div class="small opacity-75">총 현장지출액</div>
+                    <h2 class="mb-0 fw-bold" id="display-totalExpense">0</h2>
+                    <div class="small">PHP</div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-8 mb-4" id="expense-chart-section">
+                <div class="card">
+                  <div class="card-header bg-white border-0 pt-3">
+                    <h5 class="card-title mb-0"><i class="bi bi-pie-chart-fill text-primary me-2"></i>지출 항목별 비중 <span class="small fw-normal text-muted">(Expense Breakdown)</span></h5>
+                  </div>
+                  <div class="card-body">
+                    <div id="expense-pie-chart"></div>
+                  </div>
+                </div>
+                <div class="card mt-3">
+                  <div class="card-header bg-white border-0 pt-3">
+                    <h5 class="card-title mb-0"><i class="bi bi-person-lines-fill text-success me-2"></i>사용자별 지출 비중 <span class="small fw-normal text-muted">(By Staff)</span></h5>
+                  </div>
+                  <div class="card-body">
+                    <div id="expense-staff-chart"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Expense List Table -->
+              <div class="col-12" id="expense-list-section">
+                <div class="card card-secondary card-outline">
+                  <div class="card-header d-flex flex-wrap align-items-center gap-2">
+                    <h3 class="card-title mb-0"><i class="bi bi-receipt me-2"></i>지출 내역</h3>
+                    <div class="card-tools">
+                      <button type="button" class="btn btn-tool" id="refresh-expense-btn" title="새로고침"><i class="bi bi-arrow-clockwise"></i></button>
+                      <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse">
+                        <i data-lte-icon="expand" class="bi bi-plus-lg"></i>
+                        <i data-lte-icon="collapse" class="bi bi-dash-lg"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="filter-bar mx-3 mt-3 mb-0 d-flex flex-wrap align-items-center gap-3">
+                    <div class="input-group" style="max-width: 220px;">
+                      <span class="input-group-text bg-white border-end-0"><i class="bi bi-calendar3 text-muted"></i></span>
+                      <input type="date" class="form-control form-control-sm border-start-0" id="expense-date-start" title="시작일" />
+                      <span class="input-group-text bg-white border-start-0 border-end-0 px-1 text-muted">~</span>
+                      <input type="date" class="form-control form-control-sm border-end-0" id="expense-date-end" title="종료일" />
+                    </div>
+                    <select class="form-select form-select-sm" id="expense-staff-filter" style="max-width: 180px;">
+                      <option value="">담당 직원: 전체</option>
+                    </select>
+                    <select class="form-select form-select-sm" id="expense-category-filter" style="max-width: 160px;">
+                      <option value="">구분: 전체</option>
+                      <option value="Salary">직원 급여</option>
+                      <option value="Food">식대</option>
+                      <option value="Supplies">비품</option>
+                      <option value="Rent">임대료</option>
+                      <option value="Electricity">전기</option>
+                      <option value="Internet">인터넷</option>
+                      <option value="AdminWithdrawal">관리자 인출</option>
+                      <option value="Others">기타</option>
+                    </select>
+                  </div>
+                  <div class="card-body p-0">
+                    <div class="table-responsive">
+                      <table class="table table-bordered table-hover table-striped mb-0">
+                        <thead class="table-dark">
+                          <tr>
+                            <th class="th-sortable" data-sort="date" data-default="desc">날짜 <span class="sort-arrow">▼</span></th>
+                            <th>구분</th>
+                            <th>직원</th>
+                            <th>항목</th>
+                            <th class="th-sortable" data-sort="cost">금액 (PHP) <span class="sort-arrow"></span></th>
+                            <th>비고</th>
+                            <th class="text-center">영수증</th>
+                            <th>작업</th>
+                          </tr>
+                        </thead>
+                        <tbody id="expense-tbody">
+                          <tr>
+                            <td colspan="8" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>로딩 중...</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="app-footer">
+        <div class="float-end d-none d-sm-inline">지출 관리</div>
+        <strong>Copyright &copy; 2014-2025 <a href="https://adminlte.io" class="text-decoration-none">AdminLTE.io</a>.</strong> All rights reserved.
+      </footer>
+    </div>
+
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display: none;"></iframe>
+
+    <script src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/browser/overlayscrollbars.browser.es6.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
+    <script src="./js/routes.js"></script>
+    <script src="./js/adminlte.js"></script>
+    <script src="./js/sidebar-master.js"></script>
+    <script src="./js/sidebar-static.js"></script>
+    <script src="./js/header-role.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.37.1/dist/apexcharts.min.js" crossorigin="anonymous"></script>
+    <script>
+      (function () {
+        const role = localStorage.getItem('role');
+        if (!role || (role !== 'Manager' && role !== 'Admin')) {
+          Swal.fire({ icon: 'error', title: '접근 거부', text: '관리자 권한이 필요합니다.' }).then(() => { location.href = './login.html'; });
+          return;
+        }
+        if (role === 'Manager') {
+          if (typeof Swal !== 'undefined') Swal.fire({ icon: 'info', title: '지출 등록으로 이동', text: '매니저는 지출 등록 페이지를 이용해 주세요.', toast: true, position: 'top-end', showConfirmButton: false, timer: 2500, timerProgressBar: true });
+          else alert('접근 권한이 없습니다.');
+          location.replace('./expense_registration.html');
+          return;
+        }
+      })();
+    </script>
+    <script>
+      const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
+      const Default = { scrollbarTheme: 'os-theme-light', scrollbarAutoHide: 'leave', scrollbarClickScroll: true };
+      document.addEventListener('DOMContentLoaded', function () {
+        const sw = document.querySelector(SELECTOR_SIDEBAR_WRAPPER);
+        if (sw && OverlayScrollbarsGlobal?.OverlayScrollbars) {
+          OverlayScrollbarsGlobal.OverlayScrollbars(sw, { scrollbars: { theme: Default.scrollbarTheme, autoHide: Default.scrollbarAutoHide, clickScroll: Default.scrollbarClickScroll } });
+        }
+        const userName = localStorage.getItem('userName');
+        // 우측 상단 역할/이름은 header-role.js에서 표시
+      });
+
+      document.getElementById('logout-btn').addEventListener('click', function () {
+        localStorage.removeItem('userName');
+        localStorage.removeItem('role');
+        location.href = './login.html';
+      });
+
+      const API_URL = 'https://script.google.com/macros/s/AKfycbzFf_YuMxN3hkpPW6sFRKoblztRRf9yfrUMo6BJZ-WeFzYUNQHq4FybW3R_LnzwP9IxxA/exec';
+      const CATEGORIES = ['Food', 'Supplies', 'Rent', 'Electricity', 'Internet', 'Others'];
+      const CATEGORY_COLORS = ['#0d6efd', '#20c997', '#ffc107', '#d63384', '#6f42c1', '#adb5bd'];
+      let staffList = [];
+      let staffChart = null;
+
+      function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = String(s ?? '');
+        return d.innerHTML;
+      }
+      function escapeAttr(s) {
+        return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+      }
+      function getVal(obj, ...keys) {
+        if (obj == null) return '';
+        for (const k of keys) {
+          const v = obj[k];
+          if (v !== undefined && v !== null && v !== '') return v;
+        }
+        return '';
+      }
+      function formatNum(n) {
+        if (n == null || n === '' || isNaN(n)) return '0';
+        return Number(n).toLocaleString('en-US');
+      }
+      function receiptImageUrl(url) {
+        if (!url || typeof url !== 'string') return '';
+        var u = url.trim();
+        if (!/^https?:\/\//i.test(u)) return '';
+        if (/action=getReceipt/i.test(u)) return ''; // 시트 저장 영수증은 썸네일 없이 링크만(HTML 페이지라 img src 불가)
+        var driveMatch = u.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (driveMatch) return 'https://drive.google.com/uc?export=view&id=' + driveMatch[1];
+        return u;
+      }
+      function isPdfUrl(url) {
+        return /\.pdf(\?|$)/i.test(String(url || '')) || /pdf/i.test(String(url || '').split('?')[0]);
+      }
+      function receiptCellHtml(receiptUrl) {
+        var url = (receiptUrl || '').toString().trim();
+        if (!url || url === 'attached') return '<span class="text-muted">—</span>';
+        var imgSrc = receiptImageUrl(url);
+        var isPdf = isPdfUrl(url);
+        if (isPdf) {
+          return '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener" class="text-decoration-none" title="영수증 보기"><i class="bi bi-file-earmark-pdf text-danger fs-5"></i></a>';
+        }
+        if (imgSrc) {
+          return '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener" class="receipt-thumb-link" title="영수증 크게 보기"><img src="' + escapeAttr(imgSrc) + '" alt="영수증" class="receipt-thumb" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'inline\';"><i class="bi bi-image receipt-fallback-icon" style="display:none;"></i></a>';
+        }
+        return '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener" class="small">보기</a>';
+      }
+
+      let expenseList = [];
+      let pieChart = null;
+
+      function populateStaffFilter() {
+        const filterSel = document.getElementById('expense-staff-filter');
+        if (!filterSel) return;
+        const seen = {};
+        const options = [{ id: '', name: '전체' }];
+        staffList.forEach((u) => {
+          const id = (u.userId || u.user_id || u.id || '').toString().trim();
+          if (id && !seen[id]) {
+            seen[id] = true;
+            options.push({ id, name: u.name || u.userName || u.user_name || id });
+          }
+        });
+        expenseList.forEach((e) => {
+          const id = (getVal(e, 'staff_id', 'staffId') || '').toString().trim();
+          const name = getVal(e, 'staff_name', 'staffName') || id;
+          if (id && !seen[id]) {
+            seen[id] = true;
+            options.push({ id, name: name || id });
+          }
+        });
+        filterSel.innerHTML = options.map((o) => `<option value="${escapeAttr(o.id)}">${escapeHtml(o.name)}</option>`).join('');
+      }
+
+      function sortStaffByRoleThenName(arr) {
+        const roleOrder = { Admin: 0, Manager: 1, Worker: 2 };
+        return [...arr].sort((a, b) => {
+          const ra = roleOrder[(a.role || '').toString().trim()] ?? 3;
+          const rb = roleOrder[(b.role || '').toString().trim()] ?? 3;
+          if (ra !== rb) return ra - rb;
+          const na = (a.name || a.userName || a.user_name || a.userId || '').toString().trim();
+          const nb = (b.name || b.userName || b.user_name || b.userId || '').toString().trim();
+          return (na || '').localeCompare(nb || '', 'ko');
+        });
+      }
+
+      async function loadStaffList() {
+        try {
+          const res = await fetch(API_URL + '?action=getApprovedUsers');
+          const data = await res.json();
+          const users = data.users || data.data || [];
+          let list = Array.isArray(users) ? users : [];
+          const curUserId = localStorage.getItem('userId') || '';
+          const curName = localStorage.getItem('userName') || '';
+          const inList = list.some((u) => (u.userId || u.user_id || '').toString().trim() === curUserId);
+          if (!inList && curUserId && (localStorage.getItem('role') === 'Admin' || localStorage.getItem('role') === 'Manager')) {
+            list = [{ userId: curUserId, name: curName || curUserId }, ...list];
+          }
+          staffList = sortStaffByRoleThenName(list);
+          const sel = document.getElementById('staffSelect');
+          sel.innerHTML = '<option value="">선택</option>' + staffList.map((u) => {
+            const id = u.userId || u.user_id || u.id || '';
+            const name = u.name || u.userName || u.user_name || id;
+            return `<option value="${escapeAttr(id)}" data-name="${escapeAttr(name)}">${escapeHtml(name)} (${escapeHtml(id)})</option>`;
+          }).join('');
+          populateStaffFilter();
+          sel.onchange = function () {
+            const opt = this.options[this.selectedIndex];
+            document.getElementById('staffIdInput').value = this.value || '';
+            document.getElementById('staffNameInput').value = opt?.dataset?.name || '';
+          };
+          if (localStorage.getItem('role') === 'Admin' || localStorage.getItem('role') === 'Manager') {
+            const idx = staffList.findIndex((u) => (u.userId || u.user_id || '').toString().trim() === curUserId);
+            if (idx >= 0) {
+              sel.selectedIndex = idx + 1;
+              sel.dispatchEvent(new Event('change'));
+            }
+          }
+        } catch (e) {
+          console.error('loadStaffList failed:', e);
+        }
+      }
+
+      let expenseSort = { key: 'date', order: 'desc' };
+      function getFilteredExpenses() {
+        const staffVal = document.getElementById('expense-staff-filter')?.value || '';
+        const catVal = document.getElementById('expense-category-filter')?.value || '';
+        const startVal = document.getElementById('expense-date-start')?.value || '';
+        const endVal = document.getElementById('expense-date-end')?.value || '';
+        return expenseList.filter((e) => {
+          if (staffVal) {
+            const sid = getVal(e, 'staff_id', 'staffId');
+            if (!sid || sid.toString().trim() !== staffVal) return false;
+          }
+          if (catVal) {
+            const cat = getVal(e, 'category', 'Category') || '';
+            if (cat !== catVal) return false;
+          }
+          if (startVal || endVal) {
+            const d = getVal(e, 'date', 'Date') || '';
+            if (startVal && d < startVal) return false;
+            if (endVal && d > endVal) return false;
+          }
+          return true;
+        });
+      }
+      function getSortedExpenses(list) {
+        const arr = [...list];
+        const k = expenseSort.key;
+        const asc = expenseSort.order === 'asc';
+        arr.sort((a, b) => {
+          let va, vb;
+          if (k === 'date') {
+            va = getVal(a, 'date', 'Date') || '';
+            vb = getVal(b, 'date', 'Date') || '';
+            return asc ? (va > vb ? 1 : va < vb ? -1 : 0) : (va < vb ? 1 : va > vb ? -1 : 0);
+          }
+          if (k === 'cost') {
+            va = parseFloat(getVal(a, 'cost', 'Cost')) || 0;
+            vb = parseFloat(getVal(b, 'cost', 'Cost')) || 0;
+            return asc ? va - vb : vb - va;
+          }
+          return 0;
+        });
+        return arr;
+      }
+
+      function getCurrentMonthRange() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        return { start: y + '-' + m + '-01', end: y + '-' + m + '-' + String(new Date(y, now.getMonth() + 1, 0).getDate()).padStart(2, '0') };
+      }
+
+      function updateTotalExpense() {
+        const { start, end } = getCurrentMonthRange();
+        const total = expenseList
+          .filter((e) => {
+            const d = getVal(e, 'date', 'Date');
+            return d >= start && d <= end;
+          })
+          .reduce((sum, e) => sum + (parseFloat(getVal(e, 'cost', 'Cost')) || 0), 0);
+        var totEl = document.getElementById('display-totalExpense');
+        totEl.setAttribute('data-amount-php', total);
+        totEl.textContent = typeof TetraCurrency !== 'undefined' ? TetraCurrency.formatForDisplay(total) : formatNum(total);
+        totEl.classList.add('currency-amount');
+      }
+
+      function updatePieChart() {
+        const filtered = getFilteredExpenses();
+        const byCat = {};
+        const role = localStorage.getItem('role');
+        const SENSITIVE_CATS = ['AdminWithdrawal', 'Admin'];
+        filtered.forEach((e) => {
+          let cat = getVal(e, 'category', 'Category') || 'Others';
+          if (role === 'Manager' && SENSITIVE_CATS.includes(cat)) cat = '비공개 항목';
+          if (!byCat[cat]) byCat[cat] = 0;
+          byCat[cat] += parseFloat(getVal(e, 'cost', 'Cost')) || 0;
+        });
+        const labels = Object.keys(byCat).filter((k) => byCat[k] > 0);
+        const series = labels.map((k) => byCat[k]);
+        const colors = labels.map((_, i) => CATEGORY_COLORS[i % CATEGORY_COLORS.length]);
+        if (series.length === 0) {
+          series.push(1);
+          labels.push('데이터 없음');
+          colors.push('#adb5bd');
+        }
+        const opt = {
+          series,
+          chart: { type: 'pie', height: 280 },
+          labels,
+          colors,
+          dataLabels: { enabled: true },
+          legend: { position: 'bottom' },
+        };
+        if (pieChart) pieChart.updateOptions(opt); else pieChart = new ApexCharts(document.querySelector('#expense-pie-chart'), opt);
+        pieChart.render();
+      }
+
+      function updateStaffChart() {
+        const filtered = getFilteredExpenses();
+        const byStaff = {};
+        const role = localStorage.getItem('role');
+        const SENSITIVE_CATS = ['AdminWithdrawal', 'Admin'];
+        filtered.forEach((e) => {
+          let cat = getVal(e, 'category', 'Category') || '';
+          if (role === 'Manager' && SENSITIVE_CATS.includes(cat)) return;
+          const name = getVal(e, 'staff_name', 'staffName') || getVal(e, 'staff_id', 'staffId') || '미지정';
+          if (!byStaff[name]) byStaff[name] = 0;
+          byStaff[name] += parseFloat(getVal(e, 'cost', 'Cost')) || 0;
+        });
+        const labels = Object.keys(byStaff).filter((k) => byStaff[k] > 0);
+        const series = labels.map((k) => byStaff[k]);
+        const barColors = ['#10B981', '#0d6efd', '#fd7e14', '#6f42c1', '#20c997', '#ffc107'];
+        const opt = {
+          series: [{ name: '지출액', data: series }],
+          chart: { type: 'bar', height: 240 },
+          plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+          dataLabels: { enabled: true },
+          xaxis: { categories: labels },
+          colors: barColors,
+        };
+        const el = document.querySelector('#expense-staff-chart');
+        if (!el) return;
+        if (staffChart) staffChart.updateOptions(opt); else staffChart = new ApexCharts(el, opt);
+        staffChart.render();
+      }
+
+      function initExpenseSortUI() {
+        const dateTh = document.querySelector('.th-sortable[data-sort="date"]');
+        if (dateTh) { dateTh.classList.add('active'); const arr = dateTh.querySelector('.sort-arrow'); if (arr) arr.textContent = '▼'; }
+      }
+      function renderExpenseTable() {
+        const tbody = document.getElementById('expense-tbody');
+        const filtered = getFilteredExpenses();
+        const sorted = getSortedExpenses(filtered);
+        const role = localStorage.getItem('role');
+        const SENSITIVE_CATS = ['AdminWithdrawal', 'Admin'];
+        const isSensitive = (c) => SENSITIVE_CATS.includes(String(c || '').trim());
+        const maskForManager = (val, cat) => (role === 'Manager' && isSensitive(cat) ? '비공개 항목' : (val || '-'));
+        if (sorted.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8"><div class="zero-state"><i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>조건에 맞는 데이터가 없습니다.</div></td></tr>';
+          return;
+        }
+        tbody.innerHTML = sorted
+          .map((r) => {
+            const id = getVal(r, 'id', 'expenseId', 'ID');
+            const date = getVal(r, 'date', 'Date');
+            const cat = getVal(r, 'category', 'Category');
+            const staffId = getVal(r, 'staff_id', 'staffId');
+            const staffName = getVal(r, 'staff_name', 'staffName') || staffId || '-';
+            const item = getVal(r, 'item', 'Item');
+            const cost = getVal(r, 'cost', 'Cost');
+            const remarks = getVal(r, 'remarks', 'Remarks');
+            const receiptUrl = getVal(r, 'receipt_url', 'receiptUrl');
+            const rowData = JSON.stringify({ id, date, category: cat, staff_id: staffId, staff_name: staffName, item, cost, remarks, receipt_url: receiptUrl });
+            const dispCat = maskForManager(cat, cat);
+            const dispItem = maskForManager(item, cat);
+            const dispRemarks = maskForManager(remarks, cat);
+            const sensitive = role === 'Manager' && isSensitive(cat);
+            const staffLink = staffId ? `<a href="./staff_management.html?targetId=${encodeURIComponent(staffId)}" class="text-decoration-none" title="직원 프로필"><span class="badge bg-light text-dark border">${escapeHtml(staffName)}</span></a>` : escapeHtml(staffName);
+            const actionBtns = sensitive ? '<span class="text-muted small">—</span>' : `
+              <button type="button" class="btn btn-sm btn-info edit-expense-btn me-1" data-row="${escapeAttr(rowData)}">수정</button>
+              <button type="button" class="btn btn-sm btn-danger delete-expense-btn" data-id="${escapeAttr(id)}" data-item="${escapeAttr(item)}">삭제</button>`;
+            const receiptHtml = receiptCellHtml(receiptUrl);
+            return `
+              <tr>
+                <td>${escapeHtml(date || '-')}</td>
+                <td>${escapeHtml(dispCat)}</td>
+                <td>${staffLink}</td>
+                <td>${escapeHtml(dispItem)}</td>
+                <td class="text-end amount-cell"><span data-amount-php="${parseFloat(cost) || 0}" class="currency-amount">${typeof TetraCurrency !== 'undefined' ? TetraCurrency.formatForDisplay(parseFloat(cost) || 0) : escapeHtml(formatNum(cost))}</span></td>
+                <td>${escapeHtml(dispRemarks)}</td>
+                <td class="text-center">${receiptHtml}</td>
+                <td>${actionBtns}</td>
+              </tr>
+            `;
+          })
+          .join('');
+        tbody.querySelectorAll('.edit-expense-btn').forEach((btn) => {
+          btn.addEventListener('click', function () {
+            const row = JSON.parse(this.dataset.row);
+            document.getElementById('expenseId').value = row.id || '';
+            document.getElementById('expenseDate').value = row.date || '';
+            document.getElementById('category').value = row.category || '';
+            document.getElementById('staffIdInput').value = row.staff_id || '';
+            document.getElementById('staffNameInput').value = row.staff_name || '';
+            const staffSel = document.getElementById('staffSelect');
+            for (let i = 0; i < staffSel.options.length; i++) {
+              if (staffSel.options[i].value === (row.staff_id || '')) {
+                staffSel.selectedIndex = i;
+                break;
+              }
+            }
+            document.getElementById('item').value = row.item || '';
+            document.getElementById('cost').value = row.cost || '';
+            document.getElementById('remarks').value = row.remarks || '';
+            document.getElementById('expense-form').scrollIntoView({ behavior: 'smooth' });
+          });
+        });
+        tbody.querySelectorAll('.delete-expense-btn').forEach((btn) => {
+          btn.addEventListener('click', function () {
+            const id = this.dataset.id;
+            const item = this.dataset.item || 'this item';
+            Swal.fire({
+              icon: 'warning',
+              title: '지출 삭제',
+              text: '이 항목을 삭제하시겠습니까?',
+              showCancelButton: true,
+              confirmButtonText: '삭제',
+              cancelButtonText: '취소',
+            }).then(async (r) => {
+              if (r.isConfirmed) {
+                try {
+                  let res = await fetch(API_URL + '?action=deleteExpense&expenseId=' + encodeURIComponent(id), { method: 'GET' });
+                  let data = await res.json().catch(() => ({}));
+                  if (data.error) throw new Error(data.error);
+                  await loadExpenseList();
+                  Swal.fire({ icon: 'success', title: '삭제됨', timer: 1500, showConfirmButton: false });
+                } catch (err) {
+                  Swal.fire({ icon: 'error', title: '삭제 실패', text: err.message || '지출 삭제에 실패했습니다.' });
+                }
+              }
+            });
+          });
+        });
+      }
+
+      async function loadExpenseList() {
+        const tbody = document.getElementById('expense-tbody');
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>로딩 중...</td></tr>';
+        try {
+          const res = await fetch(API_URL + '?action=getExpenseList');
+          const data = await res.json();
+          const rows = data.expenses || data.expenseList || data.data || data.rows || data || [];
+          expenseList = Array.isArray(rows) ? rows : [];
+          renderExpenseTable();
+          updateTotalExpense();
+          updatePieChart();
+          updateStaffChart();
+          populateStaffFilter();
+        } catch (err) {
+          console.error('Load expense list failed:', err);
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">데이터를 불러오지 못했습니다.</td></tr>';
+        }
+      }
+
+      document.getElementById('refresh-expense-btn')?.addEventListener('click', loadExpenseList);
+      ['expense-staff-filter', 'expense-category-filter', 'expense-date-start', 'expense-date-end'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', function () { renderExpenseTable(); updatePieChart(); updateStaffChart(); });
+        if (id.startsWith('expense-date')) el.addEventListener('input', function () { renderExpenseTable(); updatePieChart(); updateStaffChart(); });
+      });
+      document.querySelectorAll('.th-sortable').forEach((th) => {
+        th.addEventListener('click', function () {
+          const key = this.dataset.sort;
+          if (!key) return;
+          const isActive = expenseSort.key === key;
+          expenseSort = { key, order: isActive && expenseSort.order === 'desc' ? 'asc' : 'desc' };
+          document.querySelectorAll('.th-sortable').forEach((t) => {
+            t.classList.remove('active');
+            const arr = t.querySelector('.sort-arrow');
+            if (arr) arr.textContent = '';
+          });
+          this.classList.add('active');
+          const arr = this.querySelector('.sort-arrow');
+          if (arr) arr.textContent = expenseSort.order === 'desc' ? '▼' : '▲';
+          renderExpenseTable();
+        });
+      });
+      document.getElementById('expenseDate').value = new Date().toISOString().slice(0, 10);
+      loadStaffList();
+      if (localStorage.getItem('role') === 'Admin') { loadExpenseList(); initExpenseSortUI(); }
+
+      let expenditureData = { estimatedPayroll: 0, expensePHP: 0, totalExpenditure: 0 };
+      async function loadPLExpenditure() {
+        try {
+          const m = new Date().toISOString().slice(0, 7);
+          const res = await fetch(API_URL + '?action=getPLDashboard&month=' + encodeURIComponent(m));
+          const data = await res.json();
+          const payroll = Number(data.estimatedPayroll ?? data.estimated_payroll ?? 0);
+          const operating = Number(data.expensePHP ?? data.operatingExpenses ?? data.expense_php ?? 0);
+          const total = payroll + operating;
+          expenditureData = { estimatedPayroll: payroll, expensePHP: operating, totalExpenditure: total };
+          document.getElementById('display-estimatedPayroll').setAttribute('data-amount-php', payroll);
+          document.getElementById('display-estimatedPayroll').textContent = typeof TetraCurrency !== 'undefined' ? TetraCurrency.formatForDisplay(payroll) : formatNum(payroll);
+          document.getElementById('display-expensePHP').setAttribute('data-amount-php', operating);
+          document.getElementById('display-expensePHP').textContent = typeof TetraCurrency !== 'undefined' ? TetraCurrency.formatForDisplay(operating) : formatNum(operating);
+          document.getElementById('display-totalExpenditure').setAttribute('data-amount-php', total);
+          document.getElementById('display-totalExpenditure').textContent = typeof TetraCurrency !== 'undefined' ? TetraCurrency.formatForDisplay(total) : formatNum(total);
+        } catch (e) {
+          document.getElementById('display-estimatedPayroll').textContent = '-';
+          document.getElementById('display-expensePHP').textContent = '-';
+          document.getElementById('display-totalExpenditure').textContent = '-';
+        }
+      }
+      document.getElementById('confirm-settlement-btn')?.addEventListener('click', function () {
+        const total = expenditureData.totalExpenditure;
+        const totalStr = typeof total === 'number' ? total.toLocaleString('ko-KR') : String(total ?? '-');
+        Swal.fire({ icon: 'question', title: '정산 확정', text: '이번 달 총 지출은 ' + totalStr + ' 페소입니다. 확정하시겠습니까?', showCancelButton: true, confirmButtonText: '확정', cancelButtonText: '취소' }).then((r) => {
+          if (r.isConfirmed) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = API_URL;
+            form.target = 'hidden_iframe';
+            [{ name: 'action', value: 'confirmSettlement' }, { name: 'estimatedPayroll', value: expenditureData.estimatedPayroll }, { name: 'expensePHP', value: expenditureData.expensePHP }, { name: 'totalExpenditure', value: expenditureData.totalExpenditure }].forEach((f) => {
+              const inp = document.createElement('input');
+              inp.type = 'hidden';
+              inp.name = f.name;
+              inp.value = f.value;
+              form.appendChild(inp);
+            });
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+            Swal.fire({ icon: 'success', title: '확정 완료', text: '정산이 확정되었습니다.', timer: 2000, showConfirmButton: false });
+          }
+        });
+      });
+      if (localStorage.getItem('role') === 'Admin') {
+        if (typeof TetraCurrency !== 'undefined') TetraCurrency.init(API_URL);
+        else if (typeof TetraUtils !== 'undefined' && TetraUtils.fetchLatestExchangeRate) TetraUtils.fetchLatestExchangeRate(API_URL).catch(function(){});
+        loadPLExpenditure();
+      }
+
+      document.getElementById('expense-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const form = e.target;
+        const sel = document.getElementById('staffSelect');
+        const opt = sel.options[sel.selectedIndex];
+        document.getElementById('staffIdInput').value = sel.value || '';
+        document.getElementById('staffNameInput').value = (opt && opt.dataset && opt.dataset.name) ? opt.dataset.name : (opt ? opt.text : '');
+        if (!sel.value) {
+          Swal.fire({ icon: 'warning', title: '직원 선택 필요', text: '지출 발생 직원을 선택해 주세요.' });
+          return;
+        }
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const origText = submitBtn ? submitBtn.innerHTML : '';
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>저장 중...'; }
+        try {
+          const formData = new FormData(form);
+          formData.set('action', 'upsertExpense');
+          const res = await fetch(API_URL, { method: 'POST', body: formData });
+          const data = await res.json().catch(function () { return {}; });
+          if (data.error) throw new Error(data.error);
+          form.reset();
+          document.getElementById('expenseId').value = '';
+          document.getElementById('expenseDate').value = new Date().toISOString().slice(0, 10);
+          var role = localStorage.getItem('role');
+          var curUserId = localStorage.getItem('userId') || '';
+          if (role === 'Admin' || role === 'Manager') {
+            var staffSel = document.getElementById('staffSelect');
+            var idx = staffList.findIndex(function (u) { return (u.userId || u.user_id || '').toString().trim() === curUserId; });
+            if (idx >= 0 && staffSel) {
+              staffSel.selectedIndex = idx + 1;
+              staffSel.dispatchEvent(new Event('change'));
+            }
+          }
+          var savedText = data.warning ? data.warning : '지출이 저장되었습니다.';
+          var approvedText = data.warning ? data.warning : '지출 내역은 관리자 승인 후 리포트에 반영됩니다.';
+          if (role === 'Admin') {
+            loadPLExpenditure();
+            Swal.fire({ icon: 'success', title: '저장됨', text: savedText, timer: data.warning ? 4000 : 2000, showConfirmButton: false });
+          } else {
+            Swal.fire({
+              icon: 'success',
+              title: '등록 완료',
+              text: approvedText,
+              timer: data.warning ? 4000 : 3000,
+              showConfirmButton: false
+            });
+          }
+        } catch (err) {
+          Swal.fire({ icon: 'error', title: '저장 실패', text: (err && err.message) || '지출 저장에 실패했습니다.' });
+        } finally {
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = origText; }
+        }
+      });
+    </script>
+  </body>
+</html>
