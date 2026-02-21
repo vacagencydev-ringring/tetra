@@ -1673,6 +1673,15 @@ function getRevenueRole(doc, userId) {
   return '';
 }
 
+function isMasterAdminUser(doc, userId, roleHint) {
+  var masterId = 'vac.agency.official';
+  var uid = String(userId || '').trim().toLowerCase();
+  if (!uid || uid !== masterId) return false;
+  var role = (roleHint || '').toString().trim();
+  if (!role) role = getRevenueRole(doc, userId);
+  return String(role || '').trim() === 'Admin';
+}
+
 /** 주주 지분율 조회. 시트 없으면 빈 배열 반환. */
 function handleGetShareholders(doc, params) {
   var userId = (params.userId || '').toString().trim();
@@ -1701,7 +1710,9 @@ function handleUpsertShareholders(doc, params) {
   try {
     var userId = (params.userId || params.user_id || '').toString().trim();
     var role = getRevenueRole(doc, userId) || (params.role || '').toString().trim();
-    if (role === 'Manager') return { error: 'Forbidden', status: 403 };
+    if (!isMasterAdminUser(doc, userId, role)) {
+      return { error: 'Forbidden: 최고 관리자만 지분율을 수정할 수 있습니다.', status: 403 };
+    }
     var jsonStr = params.shareholders || params.shareholders_snapshot || '[]';
     var list;
     try { list = JSON.parse(jsonStr); } catch (e) { return { error: 'Invalid shareholders JSON' }; }

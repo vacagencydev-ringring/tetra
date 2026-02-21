@@ -59,6 +59,9 @@
                     <h5 class="card-title mb-0"><i class="bi bi-cash-coin me-2 text-primary"></i>투자금 입력 (분류 가능)</h5>
                   </div>
                   <div class="card-body">
+                    <div class="alert alert-info py-2 d-none" id="share-readonly-banner">
+                      <i class="bi bi-lock-fill me-1"></i>읽기 전용 모드: 최고 관리자 계정만 지분/투자금 수정이 가능합니다.
+                    </div>
                     <div class="row g-3 align-items-end">
                       <div class="col-md-3">
                         <label for="inv-investor" class="form-label">투자자명</label>
@@ -169,6 +172,9 @@
     <script>
       (function () {
         var role = localStorage.getItem('role');
+        var userId = (localStorage.getItem('userId') || '').toString().trim().toLowerCase();
+        var MASTER_ADMIN_USER_ID = 'vac.agency.official';
+        window.__isMasterAdmin = (role === 'Admin' && userId === MASTER_ADMIN_USER_ID);
         if (role !== 'Admin') {
           if (role === 'Manager') location.replace('./home_manager.html');
           else location.replace('./login.html');
@@ -177,6 +183,7 @@
 
       const API_URL = 'https://script.google.com/macros/s/AKfycbzFf_YuMxN3hkpPW6sFRKoblztRRf9yfrUMo6BJZ-WeFzYUNQHq4FybW3R_LnzwP9IxxA/exec';
       const INVEST_KEY = 'tetra_investments_v1';
+      const IS_MASTER_ADMIN = !!window.__isMasterAdmin;
       const CATEGORY_LABEL = {
         Initial: '초기 투자금',
         Operating: '운영자금',
@@ -242,12 +249,15 @@
           tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">입력된 투자금이 없습니다.</td></tr>';
         } else {
           tbody.innerHTML = list.map(function (r) {
+            var delCell = IS_MASTER_ADMIN
+              ? '<button type="button" class="btn btn-sm btn-outline-danger del-invest-btn" data-id="' + escapeHtml(r.id) + '"><i class="bi bi-trash"></i></button>'
+              : '<span class="text-muted small"><i class="bi bi-lock"></i></span>';
             return '<tr>' +
               '<td>' + escapeHtml(r.investor || '-') + '</td>' +
               '<td>' + escapeHtml(CATEGORY_LABEL[r.category] || r.category || '-') + '</td>' +
               '<td class="amount-cell">' + escapeHtml(formatMoney(r.amount || 0)) + '</td>' +
               '<td>' + escapeHtml(r.note || '-') + '</td>' +
-              '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger del-invest-btn" data-id="' + escapeHtml(r.id) + '"><i class="bi bi-trash"></i></button></td>' +
+              '<td class="text-center">' + delCell + '</td>' +
               '</tr>';
           }).join('');
         }
@@ -265,6 +275,10 @@
       }
 
       function addInvestment() {
+        if (!IS_MASTER_ADMIN) {
+          Swal.fire({ icon: 'warning', title: '권한 없음', text: '최고 관리자 계정만 투자금을 수정할 수 있습니다.' });
+          return;
+        }
         var investor = (document.getElementById('inv-investor').value || '').trim();
         var category = (document.getElementById('inv-category').value || '').trim();
         var amountRaw = (document.getElementById('inv-amount').value || '').trim();
@@ -297,6 +311,10 @@
       }
 
       async function syncShareholders() {
+        if (!IS_MASTER_ADMIN) {
+          Swal.fire({ icon: 'warning', title: '권한 없음', text: '최고 관리자 계정만 주주 DB 반영이 가능합니다.' });
+          return;
+        }
         var sum = calcInvestorTotals(loadInvestments());
         if (!sum.rows.length) {
           Swal.fire({ icon: 'warning', title: '반영 불가', text: '반영할 투자자 데이터가 없습니다.' });
@@ -328,9 +346,24 @@
         }
       }
 
+      function applyReadOnlyModeIfNeeded() {
+        if (IS_MASTER_ADMIN) return;
+        var banner = document.getElementById('share-readonly-banner');
+        if (banner) banner.classList.remove('d-none');
+        ['inv-investor', 'inv-category', 'inv-amount', 'inv-note'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.disabled = true;
+        });
+        ['add-investment-btn', 'reset-investments-btn', 'sync-shareholders-btn'].forEach(function (id) {
+          var btn = document.getElementById(id);
+          if (btn) btn.disabled = true;
+        });
+      }
+
       document.getElementById('add-investment-btn').addEventListener('click', addInvestment);
       document.getElementById('sync-shareholders-btn').addEventListener('click', syncShareholders);
       document.getElementById('reset-investments-btn').addEventListener('click', function () {
+        if (!IS_MASTER_ADMIN) return;
         Swal.fire({
           icon: 'warning',
           title: '전체 초기화',
@@ -345,6 +378,7 @@
         });
       });
       document.getElementById('investments-tbody').addEventListener('click', function (e) {
+        if (!IS_MASTER_ADMIN) return;
         var btn = e.target.closest('.del-invest-btn');
         if (!btn) return;
         var id = btn.dataset.id || '';
@@ -355,6 +389,7 @@
 
       if (typeof TetraUtils !== 'undefined' && TetraUtils.fetchLatestExchangeRate) TetraUtils.fetchLatestExchangeRate(API_URL).catch(function () {});
       renderAll();
+      applyReadOnlyModeIfNeeded();
     </script>
   </body>
 </html>
