@@ -50,9 +50,6 @@
       .th-sortable:hover { color: #10B981 !important; }
       .th-sortable.active { color: #10B981 !important; font-weight: 600; }
       .zero-state { color: #94a3b8; padding: 3rem 1rem; text-align: center; }
-      .receipt-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #dee2e6; vertical-align: middle; }
-      .receipt-thumb-link { display: inline-flex; align-items: center; justify-content: center; }
-      .receipt-fallback-icon { font-size: 1.5rem; color: #6c757d; }
     </style>
   </head>
   <!--end::Head-->
@@ -292,13 +289,12 @@
                             <th>항목</th>
                             <th class="th-sortable" data-sort="cost">금액 (PHP) <span class="sort-arrow"></span></th>
                             <th>비고</th>
-                            <th class="text-center">영수증</th>
                             <th>작업</th>
                           </tr>
                         </thead>
                         <tbody id="expense-tbody">
                           <tr>
-                            <td colspan="8" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>로딩 중...</td>
+                            <td colspan="7" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>로딩 중...</td>
                           </tr>
                         </tbody>
                       </table>
@@ -386,31 +382,6 @@
       function formatNum(n) {
         if (n == null || n === '' || isNaN(n)) return '0';
         return Number(n).toLocaleString('en-US');
-      }
-      function receiptImageUrl(url) {
-        if (!url || typeof url !== 'string') return '';
-        var u = url.trim();
-        if (!/^https?:\/\//i.test(u)) return '';
-        if (/action=getReceipt/i.test(u)) return ''; // 시트 저장 영수증은 썸네일 없이 링크만(HTML 페이지라 img src 불가)
-        var driveMatch = u.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-        if (driveMatch) return 'https://drive.google.com/uc?export=view&id=' + driveMatch[1];
-        return u;
-      }
-      function isPdfUrl(url) {
-        return /\.pdf(\?|$)/i.test(String(url || '')) || /pdf/i.test(String(url || '').split('?')[0]);
-      }
-      function receiptCellHtml(receiptUrl) {
-        var url = (receiptUrl || '').toString().trim();
-        if (!url || url === 'attached') return '<span class="text-muted">—</span>';
-        var imgSrc = receiptImageUrl(url);
-        var isPdf = isPdfUrl(url);
-        if (isPdf) {
-          return '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener" class="text-decoration-none" title="영수증 보기"><i class="bi bi-file-earmark-pdf text-danger fs-5"></i></a>';
-        }
-        if (imgSrc) {
-          return '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener" class="receipt-thumb-link" title="영수증 크게 보기"><img src="' + escapeAttr(imgSrc) + '" alt="영수증" class="receipt-thumb" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'inline\';"><i class="bi bi-image receipt-fallback-icon" style="display:none;"></i></a>';
-        }
-        return '<a href="' + escapeAttr(url) + '" target="_blank" rel="noopener" class="small">보기</a>';
       }
 
       let expenseList = [];
@@ -626,7 +597,7 @@
         const isSensitive = (c) => SENSITIVE_CATS.includes(String(c || '').trim());
         const maskForManager = (val, cat) => (role === 'Manager' && isSensitive(cat) ? '비공개 항목' : (val || '-'));
         if (sorted.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8"><div class="zero-state"><i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>조건에 맞는 데이터가 없습니다.</div></td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7"><div class="zero-state"><i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>조건에 맞는 데이터가 없습니다.</div></td></tr>';
           return;
         }
         tbody.innerHTML = sorted
@@ -639,8 +610,7 @@
             const item = getVal(r, 'item', 'Item');
             const cost = getVal(r, 'cost', 'Cost');
             const remarks = getVal(r, 'remarks', 'Remarks');
-            const receiptUrl = getVal(r, 'receipt_url', 'receiptUrl');
-            const rowData = JSON.stringify({ id, date, category: cat, staff_id: staffId, staff_name: staffName, item, cost, remarks, receipt_url: receiptUrl });
+            const rowData = JSON.stringify({ id, date, category: cat, staff_id: staffId, staff_name: staffName, item, cost, remarks });
             const dispCat = maskForManager(cat, cat);
             const dispItem = maskForManager(item, cat);
             const dispRemarks = maskForManager(remarks, cat);
@@ -649,7 +619,6 @@
             const actionBtns = sensitive ? '<span class="text-muted small">—</span>' : `
               <button type="button" class="btn btn-sm btn-info edit-expense-btn me-1" data-row="${escapeAttr(rowData)}">수정</button>
               <button type="button" class="btn btn-sm btn-danger delete-expense-btn" data-id="${escapeAttr(id)}" data-item="${escapeAttr(item)}">삭제</button>`;
-            const receiptHtml = receiptCellHtml(receiptUrl);
             return `
               <tr>
                 <td>${escapeHtml(date || '-')}</td>
@@ -658,7 +627,6 @@
                 <td>${escapeHtml(dispItem)}</td>
                 <td class="text-end amount-cell"><span data-amount-php="${parseFloat(cost) || 0}" class="currency-amount">${typeof TetraCurrency !== 'undefined' ? TetraCurrency.formatForDisplay(parseFloat(cost) || 0) : escapeHtml(formatNum(cost))}</span></td>
                 <td>${escapeHtml(dispRemarks)}</td>
-                <td class="text-center">${receiptHtml}</td>
                 <td>${actionBtns}</td>
               </tr>
             `;
@@ -715,7 +683,7 @@
 
       async function loadExpenseList() {
         const tbody = document.getElementById('expense-tbody');
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>로딩 중...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>로딩 중...</td></tr>';
         try {
           const res = await fetch(API_URL + '?action=getExpenseList');
           const data = await res.json();
@@ -728,7 +696,7 @@
           populateStaffFilter();
         } catch (err) {
           console.error('Load expense list failed:', err);
-          tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">데이터를 불러오지 못했습니다.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">데이터를 불러오지 못했습니다.</td></tr>';
         }
       }
 
