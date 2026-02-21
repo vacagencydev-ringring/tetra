@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Tetra Portal | 지분 관리</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" crossorigin="anonymous" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="./css/adminlte.css" />
+    <link rel="stylesheet" href="./css/typography-ko.css" />
+    <link rel="stylesheet" href="./css/tetra-brand.css" />
+    <script src="./js/utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" crossorigin="anonymous"></script>
+    <style>
+      .share-page .card { border-radius: 0.5rem; border: none; box-shadow: 0 0.125rem 0.5rem rgba(0,0,0,0.06); }
+      .share-page .amount-cell { font-family: Inter, system-ui, sans-serif; text-align: right; }
+      .share-page .pct-cell { font-family: Inter, system-ui, sans-serif; text-align: right; font-weight: 600; }
+      .share-page .summary-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem; }
+    </style>
+  </head>
+  <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
+    <div class="app-wrapper share-page">
+      <nav class="app-header navbar navbar-expand bg-body shadow-sm">
+        <div class="container-fluid">
+          <ul class="navbar-nav">
+            <li class="nav-item"><a class="nav-link" data-lte-toggle="sidebar" href="#" role="button"><i class="bi bi-list"></i></a></li>
+            <li class="nav-item d-none d-md-block"><a href="./share_management.html" class="nav-link fw-semibold">지분 관리</a></li>
+          </ul>
+          <ul class="navbar-nav ms-auto align-items-center gap-2">
+            <li class="nav-item"><span class="nav-link text-dark" id="header-role-label">-</span></li>
+            <li class="nav-item"><button type="button" class="btn btn-outline-secondary btn-sm" id="logout-btn">로그아웃</button></li>
+          </ul>
+        </div>
+      </nav>
+      <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark" id="tetra-sidebar-aside">
+        <div id="tetra-sidebar-inject"></div>
+      </aside>
+      <main class="app-main">
+        <div class="app-content-header">
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-sm-6"><h3 class="mb-0">지분 관리</h3></div>
+              <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-end mb-0">
+                  <li class="breadcrumb-item"><a href="./home.html">홈</a></li>
+                  <li class="breadcrumb-item"><a href="./admin.html">관리 콘솔</a></li>
+                  <li class="breadcrumb-item active">지분 관리</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="app-content">
+          <div class="container-fluid">
+            <div class="row g-4">
+              <div class="col-12">
+                <div class="card">
+                  <div class="card-header">
+                    <h5 class="card-title mb-0"><i class="bi bi-cash-coin me-2 text-primary"></i>투자금 입력 (분류 가능)</h5>
+                  </div>
+                  <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                      <div class="col-md-3">
+                        <label for="inv-investor" class="form-label">투자자명</label>
+                        <input type="text" class="form-control form-control-lg" id="inv-investor" placeholder="예: 투자자A" />
+                      </div>
+                      <div class="col-md-3">
+                        <label for="inv-category" class="form-label">분류</label>
+                        <select class="form-select form-select-lg" id="inv-category">
+                          <option value="Initial">초기 투자금</option>
+                          <option value="Operating">운영자금</option>
+                          <option value="Equipment">장비/시설</option>
+                          <option value="Marketing">마케팅</option>
+                          <option value="Loan">대여금</option>
+                          <option value="Others">기타</option>
+                        </select>
+                      </div>
+                      <div class="col-md-3">
+                        <label for="inv-amount" class="form-label">금액 (PHP)</label>
+                        <input type="number" class="form-control form-control-lg" id="inv-amount" min="0" step="0.01" placeholder="0" />
+                      </div>
+                      <div class="col-md-3">
+                        <label for="inv-note" class="form-label">메모</label>
+                        <input type="text" class="form-control form-control-lg" id="inv-note" placeholder="선택 입력" />
+                      </div>
+                      <div class="col-12 d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-primary btn-lg" id="add-investment-btn"><i class="bi bi-plus-circle me-1"></i>투자금 추가</button>
+                        <button type="button" class="btn btn-outline-danger btn-lg" id="reset-investments-btn">전체 초기화</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12 col-xl-7">
+                <div class="card">
+                  <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0"><i class="bi bi-list-ul me-2 text-secondary"></i>투자금 입력 내역</h5>
+                    <span class="small text-muted" id="investments-count-label">0건</span>
+                  </div>
+                  <div class="card-body p-0">
+                    <div class="table-responsive">
+                      <table class="table table-bordered table-hover mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th>투자자</th>
+                            <th>분류</th>
+                            <th class="text-end">금액</th>
+                            <th>메모</th>
+                            <th style="width:70px">삭제</th>
+                          </tr>
+                        </thead>
+                        <tbody id="investments-tbody">
+                          <tr><td colspan="5" class="text-center text-muted py-4">입력된 투자금이 없습니다.</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12 col-xl-5">
+                <div class="card">
+                  <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0"><i class="bi bi-pie-chart-fill me-2 text-success"></i>지분 계산 결과</h5>
+                    <button type="button" class="btn btn-success btn-sm" id="sync-shareholders-btn"><i class="bi bi-cloud-upload me-1"></i>주주 DB 반영</button>
+                  </div>
+                  <div class="card-body">
+                    <div class="summary-box p-3 mb-3">
+                      <div class="d-flex justify-content-between">
+                        <span class="text-muted">총 투자금</span>
+                        <strong id="total-investment-amount">0 PHP</strong>
+                      </div>
+                    </div>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th>투자자</th>
+                            <th class="text-end">투자금</th>
+                            <th class="text-end">지분율</th>
+                          </tr>
+                        </thead>
+                        <tbody id="share-summary-tbody">
+                          <tr><td colspan="3" class="text-center text-muted py-3">계산할 데이터가 없습니다.</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="small text-muted mt-2">지분율은 투자자별 누적 투자금 비율로 자동 계산됩니다.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      <footer class="app-footer">
+        <div class="float-end d-none d-sm-inline">지분 관리</div>
+        <strong>Copyright &copy; 2014-2025 <a href="https://adminlte.io" class="text-decoration-none">AdminLTE.io</a>.</strong>
+      </footer>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script src="./js/routes.js"></script>
+    <script src="./js/adminlte.js"></script>
+    <script src="./js/sidebar-master.js"></script>
+    <script src="./js/sidebar-static.js"></script>
+    <script src="./js/header-role.js"></script>
+    <script>
+      (function () {
+        var role = localStorage.getItem('role');
+        if (role !== 'Admin') {
+          if (role === 'Manager') location.replace('./home_manager.html');
+          else location.replace('./login.html');
+        }
+      })();
+
+      const API_URL = 'https://script.google.com/macros/s/AKfycbzFf_YuMxN3hkpPW6sFRKoblztRRf9yfrUMo6BJZ-WeFzYUNQHq4FybW3R_LnzwP9IxxA/exec';
+      const INVEST_KEY = 'tetra_investments_v1';
+      const CATEGORY_LABEL = {
+        Initial: '초기 투자금',
+        Operating: '운영자금',
+        Equipment: '장비/시설',
+        Marketing: '마케팅',
+        Loan: '대여금',
+        Others: '기타'
+      };
+
+      document.getElementById('logout-btn').addEventListener('click', function () {
+        localStorage.removeItem('userName');
+        localStorage.removeItem('role');
+        localStorage.removeItem('userId');
+        location.href = './login.html';
+      });
+
+      function escapeHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = String(s == null ? '' : s);
+        return d.innerHTML;
+      }
+      function formatMoney(n) {
+        return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' PHP';
+      }
+      function formatPct(n) {
+        return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+      }
+      function loadInvestments() {
+        try {
+          var raw = localStorage.getItem(INVEST_KEY);
+          var list = raw ? JSON.parse(raw) : [];
+          return Array.isArray(list) ? list : [];
+        } catch (e) {
+          return [];
+        }
+      }
+      function saveInvestments(list) {
+        localStorage.setItem(INVEST_KEY, JSON.stringify(list || []));
+      }
+      function calcInvestorTotals(list) {
+        var byInvestor = {};
+        (list || []).forEach(function (r) {
+          var name = String(r.investor || '').trim();
+          var amount = Number(r.amount) || 0;
+          if (!name || amount <= 0) return;
+          if (!byInvestor[name]) byInvestor[name] = 0;
+          byInvestor[name] += amount;
+        });
+        var rows = Object.keys(byInvestor).map(function (name) {
+          return { name: name, amount: byInvestor[name] };
+        }).sort(function (a, b) { return b.amount - a.amount; });
+        var total = rows.reduce(function (s, r) { return s + r.amount; }, 0);
+        rows.forEach(function (r) {
+          r.share = total > 0 ? (r.amount / total) * 100 : 0;
+        });
+        return { rows: rows, total: total };
+      }
+      function renderAll() {
+        var list = loadInvestments();
+        var tbody = document.getElementById('investments-tbody');
+        var countLabel = document.getElementById('investments-count-label');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">입력된 투자금이 없습니다.</td></tr>';
+        } else {
+          tbody.innerHTML = list.map(function (r) {
+            return '<tr>' +
+              '<td>' + escapeHtml(r.investor || '-') + '</td>' +
+              '<td>' + escapeHtml(CATEGORY_LABEL[r.category] || r.category || '-') + '</td>' +
+              '<td class="amount-cell">' + escapeHtml(formatMoney(r.amount || 0)) + '</td>' +
+              '<td>' + escapeHtml(r.note || '-') + '</td>' +
+              '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger del-invest-btn" data-id="' + escapeHtml(r.id) + '"><i class="bi bi-trash"></i></button></td>' +
+              '</tr>';
+          }).join('');
+        }
+        if (countLabel) countLabel.textContent = (list.length || 0) + '건';
+        var sum = calcInvestorTotals(list);
+        document.getElementById('total-investment-amount').textContent = formatMoney(sum.total);
+        var stBody = document.getElementById('share-summary-tbody');
+        if (!sum.rows.length) {
+          stBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">계산할 데이터가 없습니다.</td></tr>';
+        } else {
+          stBody.innerHTML = sum.rows.map(function (r) {
+            return '<tr><td>' + escapeHtml(r.name) + '</td><td class="amount-cell">' + escapeHtml(formatMoney(r.amount)) + '</td><td class="pct-cell">' + escapeHtml(formatPct(r.share)) + '</td></tr>';
+          }).join('');
+        }
+      }
+
+      function addInvestment() {
+        var investor = (document.getElementById('inv-investor').value || '').trim();
+        var category = (document.getElementById('inv-category').value || '').trim();
+        var amountRaw = (document.getElementById('inv-amount').value || '').trim();
+        var amount = Number(amountRaw);
+        var note = (document.getElementById('inv-note').value || '').trim();
+        if (!investor) {
+          Swal.fire({ icon: 'warning', title: '입력 확인', text: '투자자명을 입력해 주세요.' });
+          return;
+        }
+        if (!category) {
+          Swal.fire({ icon: 'warning', title: '입력 확인', text: '분류를 선택해 주세요.' });
+          return;
+        }
+        if (!(amount > 0)) {
+          Swal.fire({ icon: 'warning', title: '입력 확인', text: '금액은 0보다 커야 합니다.' });
+          return;
+        }
+        var list = loadInvestments();
+        list.push({
+          id: 'inv_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
+          investor: investor,
+          category: category,
+          amount: amount,
+          note: note
+        });
+        saveInvestments(list);
+        document.getElementById('inv-amount').value = '';
+        document.getElementById('inv-note').value = '';
+        renderAll();
+      }
+
+      async function syncShareholders() {
+        var sum = calcInvestorTotals(loadInvestments());
+        if (!sum.rows.length) {
+          Swal.fire({ icon: 'warning', title: '반영 불가', text: '반영할 투자자 데이터가 없습니다.' });
+          return;
+        }
+        var shareholders = sum.rows.map(function (r, i) {
+          return {
+            shareholder_id: 'sh' + String(i + 1).padStart(3, '0'),
+            name: r.name,
+            share_percentage: Math.round(r.share * 100) / 100
+          };
+        });
+        var totalPct = shareholders.reduce(function (s, x) { return s + (Number(x.share_percentage) || 0); }, 0);
+        var diff = Math.round((100 - totalPct) * 100) / 100;
+        if (Math.abs(diff) > 0.001 && shareholders.length > 0) {
+          shareholders[0].share_percentage = Math.round((shareholders[0].share_percentage + diff) * 100) / 100;
+        }
+        var fd = new FormData();
+        fd.append('action', 'upsertShareholders');
+        fd.append('userId', localStorage.getItem('userId') || '');
+        fd.append('shareholders', JSON.stringify(shareholders));
+        try {
+          var res = await fetch(API_URL, { method: 'POST', body: fd });
+          var data = await res.json();
+          if (data.error) throw new Error(data.error);
+          Swal.fire({ icon: 'success', title: '반영 완료', text: '계산된 지분율이 주주 DB에 반영되었습니다.', timer: 1800, showConfirmButton: false });
+        } catch (e) {
+          Swal.fire({ icon: 'error', title: '반영 실패', text: e.message || '주주 DB 반영 중 오류가 발생했습니다.' });
+        }
+      }
+
+      document.getElementById('add-investment-btn').addEventListener('click', addInvestment);
+      document.getElementById('sync-shareholders-btn').addEventListener('click', syncShareholders);
+      document.getElementById('reset-investments-btn').addEventListener('click', function () {
+        Swal.fire({
+          icon: 'warning',
+          title: '전체 초기화',
+          text: '저장된 투자금 입력 내역을 모두 삭제할까요?',
+          showCancelButton: true,
+          confirmButtonText: '초기화',
+          cancelButtonText: '취소'
+        }).then(function (r) {
+          if (!r.isConfirmed) return;
+          saveInvestments([]);
+          renderAll();
+        });
+      });
+      document.getElementById('investments-tbody').addEventListener('click', function (e) {
+        var btn = e.target.closest('.del-invest-btn');
+        if (!btn) return;
+        var id = btn.dataset.id || '';
+        var list = loadInvestments().filter(function (x) { return x.id !== id; });
+        saveInvestments(list);
+        renderAll();
+      });
+
+      if (typeof TetraUtils !== 'undefined' && TetraUtils.fetchLatestExchangeRate) TetraUtils.fetchLatestExchangeRate(API_URL).catch(function () {});
+      renderAll();
+    </script>
+  </body>
+</html>

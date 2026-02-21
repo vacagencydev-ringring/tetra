@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="ko">
+  <!--begin::Head-->
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Tetra Portal | 현장 관리</title>
+    <!--begin::Accessibility Meta Tags-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#007bff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+    <!--end::Accessibility Meta Tags-->
+    <link rel="preload" href="./css/adminlte.css" as="style" />
+    <!--begin::Fonts-->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css"
+      integrity="sha256-tXJfXfp6Ewt1ilPzLDtQnJV4hclT9XuaZUKyUvmyr+Q="
+      crossorigin="anonymous"
+      media="print"
+      onload="this.media='all'"
+    />
+    <!--end::Fonts-->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/styles/overlayscrollbars.min.css"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
+      crossorigin="anonymous"
+    />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="./css/adminlte.css" />
+    <link rel="stylesheet" href="./css/typography-ko.css" />
+    <link rel="stylesheet" href="./css/tetra-brand.css" />
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" crossorigin="anonymous"></script>
+  </head>
+  <!--end::Head-->
+  <!--begin::Body-->
+  <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary" id="app-body">
+    <!--begin::App Wrapper-->
+    <div class="app-wrapper manager-page">
+      <!--begin::Header-->
+      <nav class="app-header navbar navbar-expand bg-body">
+        <div class="container-fluid">
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button">
+                <i class="bi bi-list"></i>
+              </a>
+            </li>
+            <li class="nav-item d-none d-md-block"><a href="./manager.html" class="nav-link fw-semibold">현장 관리</a></li>
+          </ul>
+          <ul class="navbar-nav ms-auto align-items-center gap-2">
+            <li class="nav-item">
+              <button type="button" class="btn btn-link p-2 text-dark d-none d-md-inline-block" id="density-toggle-btn" title="화면 밀도 (Compact/Comfortable)">
+                <i class="bi bi-aspect-ratio"></i>
+              </button>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" data-lte-toggle="fullscreen">
+                <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
+                <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display: none"></i>
+              </a>
+            </li>
+            <li class="nav-item dropdown user-menu">
+              <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                <img
+                  src="./assets/img/user2-160x160.jpg"
+                  class="user-image rounded-circle shadow"
+                  alt="User Image"
+                />
+                <span class="d-none d-md-inline" id="header-role-label">매니저</span>
+              </a>
+              <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
+                <li class="user-header text-bg-primary">
+                  <img
+                    src="./assets/img/user2-160x160.jpg"
+                    class="rounded-circle shadow"
+                    alt="User Image"
+                  />
+                  <p>현장 관리</p>
+                </li>
+                <li class="user-footer">
+                  <a href="#" class="btn btn-default btn-flat">프로필</a>
+                  <a href="#" class="btn btn-default btn-flat float-end" id="logout-btn">로그아웃</a>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </nav>
+      <!--end::Header-->
+      <!--begin::Sidebar (마스터 사이드바 통합)-->
+      <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark" id="tetra-sidebar-aside">
+        <div id="tetra-sidebar-inject"></div>
+      </aside>
+      <!--end::Sidebar-->
+      <!--begin::App Main-->
+      <main class="app-main">
+        <div class="app-content-header">
+          <div class="container-fluid">
+            <div class="row">
+              <div class="col-sm-6"><h3 class="mb-0">현장 관리</h3></div>
+              <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-end mb-0">
+                  <li class="breadcrumb-item"><a href="./home.html">홈</a></li>
+                  <li class="breadcrumb-item active" aria-current="page">현장 관리</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="app-content">
+          <div class="container-fluid">
+            <div class="row g-4">
+              <!-- Daily Attendance Monitor Section -->
+              <div class="col-12">
+                <div class="card card-secondary card-outline">
+                  <div class="card-header">
+                    <h3 class="card-title">일별 출퇴근 현황</h3>
+                    <div class="card-tools">
+                      <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse">
+                        <i data-lte-icon="expand" class="bi bi-plus-lg"></i>
+                        <i data-lte-icon="collapse" class="bi bi-dash-lg"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <div class="mb-3">
+                      <label for="monitor-date" class="form-label">날짜 선택</label>
+                      <input
+                        type="date"
+                        class="form-control form-control-lg w-auto"
+                        id="monitor-date"
+                      />
+                    </div>
+                    <div class="table-responsive">
+                      <table class="table table-bordered table-hover table-striped" id="attendance-table">
+                        <thead class="table-dark">
+                          <tr>
+                            <th>이름</th>
+                            <th>출근</th>
+                            <th>퇴근</th>
+                            <th>근무시간</th>
+                            <th>상태</th>
+                            <th>수정</th>
+                          </tr>
+                        </thead>
+                        <tbody id="attendance-tbody">
+                          <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                              날짜를 선택하여 출퇴근 데이터를 불러오세요
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Manual Time Override Section -->
+              <div class="col-12" id="override-form-section">
+                <div class="card card-info card-outline">
+                  <div class="card-header">
+                    <h3 class="card-title">수동 근태 관리 (수정 / 추가)</h3>
+                    <div class="card-tools">
+                      <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse">
+                        <i data-lte-icon="expand" class="bi bi-plus-lg"></i>
+                        <i data-lte-icon="collapse" class="bi bi-dash-lg"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <form id="override-form">
+                      <div class="row g-3">
+                        <div class="col-12">
+                          <label for="worker-select" class="form-label fw-bold fs-5 text-dark">
+                            대상 근로자
+                          </label>
+                          <div class="mb-2">
+                            <input
+                              type="text"
+                              class="form-control form-control-sm"
+                              id="worker-search"
+                              placeholder="이름으로 검색..."
+                              autocomplete="off"
+                            />
+                          </div>
+                          <select
+                            class="form-select form-select-lg border-2 border-warning bg-warning bg-opacity-10"
+                            id="worker-select"
+                            name="workerName"
+                            required
+                          >
+                            <option value="">-- 로딩 중... --</option>
+                          </select>
+                        </div>
+                        <div class="col-md-3">
+                          <label for="targetDate" class="form-label">대상 날짜</label>
+                          <input
+                            type="date"
+                            class="form-control form-control-lg"
+                            name="targetDate"
+                            id="targetDate"
+                            required
+                          />
+                        </div>
+                        <div class="col-md-3">
+                          <label for="newShift" class="form-label">조(Shift)</label>
+                          <select class="form-select form-control-lg" name="shift" id="newShift">
+                            <option value="Day" selected>Day</option>
+                            <option value="Night">Night</option>
+                          </select>
+                        </div>
+                        <div class="col-md-3">
+                          <label for="newInTime" class="form-label">새 출근 시간</label>
+                          <input
+                            type="time"
+                            class="form-control form-control-lg"
+                            name="newInTime"
+                            id="newInTime"
+                            required
+                          />
+                        </div>
+                        <div class="col-md-3">
+                          <label for="newOutTime" class="form-label">새 퇴근 시간</label>
+                          <input
+                            type="time"
+                            class="form-control form-control-lg"
+                            name="newOutTime"
+                            id="newOutTime"
+                            required
+                          />
+                        </div>
+                        <div class="col-12">
+                          <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-info btn-lg" id="override-apply-btn">
+                              <i class="bi bi-pencil-square me-2"></i>시간 수정 적용
+                            </button>
+                            <button type="button" class="btn btn-success btn-lg" id="attendance-add-btn">
+                              <i class="bi bi-plus-circle me-2"></i>근태 기록 추가
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 실시간 출근 현황 (현재 근무 중인 워커) -->
+              <div class="col-12">
+                <div class="card card-success card-outline">
+                  <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0 small"><i class="bi bi-person-check-fill me-1"></i>실시간 출근 현황</h5>
+                    <button type="button" class="btn btn-sm btn-outline-success" id="realtime-refresh-btn" title="새로고침">
+                      <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                  </div>
+                  <div class="card-body py-3">
+                    <div class="table-responsive">
+                      <table class="table table-bordered table-sm table-hover mb-0" id="realtime-attendance-table">
+                        <thead class="table-light">
+                          <tr>
+                            <th>이름</th>
+                            <th>출근 시각</th>
+                            <th>퇴근 시각</th>
+                            <th>상태</th>
+                          </tr>
+                        </thead>
+                        <tbody id="realtime-attendance-tbody">
+                          <tr>
+                            <td colspan="4" class="text-center text-muted py-3">
+                              <span class="spinner-border spinner-border-sm me-2"></span>로딩 중...
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      <!--end::App Main-->
+      <!--begin::Footer-->
+      <footer class="app-footer">
+        <div class="float-end d-none d-sm-inline">현장 관리</div>
+        <strong>
+          Copyright &copy; 2014-2025&nbsp;
+          <a href="https://adminlte.io" class="text-decoration-none">AdminLTE.io</a>.
+        </strong>
+        All rights reserved.
+      </footer>
+      <!--end::Footer-->
+    </div>
+    <!--end::App Wrapper-->
+
+    <!-- Hidden iframe for CORS-free form submission -->
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display: none;"></iframe>
+
+    <!--begin::Script-->
+    <script
+      src="https://cdn.jsdelivr.net/npm/overlayscrollbars@2.11.0/browser/overlayscrollbars.browser.es6.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.min.js"
+      crossorigin="anonymous"
+    ></script>
+    <script src="./js/routes.js"></script>
+    <script src="./js/adminlte.js"></script>
+    <script src="./js/sidebar-master.js"></script>
+    <script src="./js/sidebar-static.js"></script>
+    <script src="./js/header-role.js"></script>
+    <script>
+      // [EMERGENCY BYPASS] Route Guard 무력화 - 복구 시 주석 해제
+      // (function () {
+      //   const role = localStorage.getItem('role');
+      //   if (role !== 'Manager') {
+      //     Swal.fire({ icon: 'error', title: '접근 거부', text: '매니저 권한이 필요합니다.' }).then(() => { location.href = './login.html'; });
+      //     return;
+      //   }
+      // })();
+
+      const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
+      const Default = {
+        scrollbarTheme: 'os-theme-light',
+        scrollbarAutoHide: 'leave',
+        scrollbarClickScroll: true,
+      };
+      document.addEventListener('DOMContentLoaded', function () {
+        if (location.hash === '#members') { location.replace('./manager_members.html'); return; }
+        const sidebarWrapper = document.querySelector(SELECTOR_SIDEBAR_WRAPPER);
+        if (sidebarWrapper && OverlayScrollbarsGlobal?.OverlayScrollbars !== undefined) {
+          OverlayScrollbarsGlobal.OverlayScrollbars(sidebarWrapper, {
+            scrollbars: {
+              theme: Default.scrollbarTheme,
+              autoHide: Default.scrollbarAutoHide,
+              clickScroll: Default.scrollbarClickScroll,
+            },
+          });
+        }
+      });
+
+      const API_URL =
+        'https://script.google.com/macros/s/AKfycbzFf_YuMxN3hkpPW6sFRKoblztRRf9yfrUMo6BJZ-WeFzYUNQHq4FybW3R_LnzwP9IxxA/exec';
+
+      (function () {
+        var logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+          logoutBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            localStorage.removeItem('userName');
+            localStorage.removeItem('role');
+            localStorage.removeItem('userId');
+            location.href = './login.html';
+          });
+        }
+      })();
+
+      // Load worker list and populate select (getApprovedUsers + getStaffList)
+      let workerList = [];
+      (async function loadWorkerList() {
+        const sel = document.getElementById('worker-select');
+        const nameSet = new Set();
+        try {
+          const [resUsers, resStaff] = await Promise.all([
+            fetch(`${API_URL}?action=getApprovedUsers`),
+            fetch(`${API_URL}?action=getStaffList`)
+          ]);
+          const dataUsers = await resUsers.json().catch(() => ({}));
+          const dataStaff = await resStaff.json().catch(() => ({}));
+          const approved = dataUsers.users || dataUsers.members || (Array.isArray(dataUsers) ? dataUsers : []);
+          const staff = dataStaff || (Array.isArray(dataStaff) ? dataStaff : []);
+          (approved || []).forEach((u) => {
+            const name = typeof u === 'string' ? u : (u.name || u.userName || u.id || '').toString().trim();
+            if (name) nameSet.add(name);
+          });
+          (Array.isArray(staff) ? staff : []).forEach((s) => {
+            const name = (s.name || s.userName || s.id || '').toString().trim();
+            if (name) nameSet.add(name);
+          });
+          const names = Array.from(nameSet).filter(Boolean).sort();
+          if (names.length > 0) {
+            workerList = names.map((n) => ({ name: n }));
+            sel.innerHTML = '<option value="">-- 근로자 선택 --</option>';
+            names.forEach((name) => {
+              const opt = document.createElement('option');
+              opt.value = name;
+              opt.textContent = name;
+              opt.dataset.search = name.toLowerCase();
+              sel.appendChild(opt);
+            });
+          } else {
+            sel.innerHTML = '<option value="">-- 등록된 근로자 없음 --</option>';
+          }
+        } catch (err) {
+          console.error('Failed to load worker list:', err);
+          sel.innerHTML = '<option value="">-- 로드 실패 --</option>';
+        }
+      })();
+
+      // Worker search filter
+      document.getElementById('worker-search').addEventListener('input', function () {
+        const q = this.value.toLowerCase().trim();
+        const opts = document.querySelectorAll('#worker-select option');
+        opts.forEach((o) => {
+          o.hidden = q ? !(o.dataset.search || '').includes(q) : false;
+        });
+      });
+
+      // 실시간 출근 현황 (오늘 날짜 기준)
+      async function loadRealtimeAttendance() {
+        const tbody = document.getElementById('realtime-attendance-tbody');
+        const today = new Date().toISOString().slice(0, 10);
+        if (!tbody) return;
+        tbody.innerHTML =
+          '<tr><td colspan="4" class="text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>로딩 중...</td></tr>';
+        try {
+          const res = await fetch(`${API_URL}?action=getDailyAttendance&date=${encodeURIComponent(today)}`);
+          const data = await res.json();
+          const rows = data.attendance || data.data || data.rows || data || [];
+          if (!Array.isArray(rows) || rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">오늘 출근한 워커가 없습니다</td></tr>';
+            return;
+          }
+          tbody.innerHTML = rows
+            .map((r) => {
+              const outVal = r.out || r.Out || r.clockOut || '';
+              const isWorking = !outVal || outVal === '-' || String(outVal).trim() === '';
+              const status = isWorking ? '<span class="badge bg-success">근무 중</span>' : '<span class="badge bg-secondary">퇴근</span>';
+              return `
+            <tr class="${isWorking ? 'table-success' : ''}">
+              <td>${escapeHtml(r.name || r.Name || r.workerName || '-')}</td>
+              <td>${escapeHtml(r.in || r.In || r.clockIn || '-')}</td>
+              <td>${escapeHtml(outVal || '-')}</td>
+              <td>${status}</td>
+            </tr>`;
+            })
+            .join('');
+        } catch (err) {
+          console.error('Failed to load realtime attendance:', err);
+          tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-4">데이터 로드 실패</td></tr>';
+        }
+      }
+      document.addEventListener('DOMContentLoaded', function () {
+        loadRealtimeAttendance();
+        var monitorDate = document.getElementById('monitor-date');
+        if (monitorDate && !monitorDate.value) {
+          monitorDate.value = new Date().toISOString().slice(0, 10);
+          monitorDate.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+      document.getElementById('realtime-refresh-btn')?.addEventListener('click', loadRealtimeAttendance);
+
+      // Daily Attendance Monitor: date change -> fetch & render
+      document.getElementById('monitor-date').addEventListener('change', async function () {
+        const date = this.value;
+        const tbody = document.getElementById('attendance-tbody');
+        if (!date) {
+          tbody.innerHTML =
+            '<tr><td colspan="6" class="text-center text-muted py-4">날짜를 선택하여 출퇴근 데이터를 불러오세요</td></tr>';
+          return;
+        }
+        tbody.innerHTML =
+          '<tr><td colspan="6" class="text-center py-4"><span class="spinner-border spinner-border-sm me-2"></span>로딩 중...</td></tr>';
+        try {
+          const res = await fetch(`${API_URL}?action=getDailyAttendance&date=${encodeURIComponent(date)}`);
+          const data = await res.json();
+          const rows = data.attendance || data.data || data.rows || data || [];
+          if (!Array.isArray(rows) || rows.length === 0) {
+            tbody.innerHTML =
+              '<tr><td colspan="6" class="text-center text-muted py-4">해당 날짜의 출퇴근 데이터가 없습니다</td></tr>';
+            return;
+          }
+          tbody.innerHTML = rows
+            .map(
+              (r) => `
+            <tr>
+              <td>${escapeHtml(r.name || r.Name || r.workerName || '-')}</td>
+              <td>${escapeHtml(r.in || r.In || r.clockIn || '-')}</td>
+              <td>${escapeHtml(r.out || r.Out || r.clockOut || '-')}</td>
+              <td>${escapeHtml(r.hours || r.Hours || '-')}</td>
+              <td>${escapeHtml(r.status || r.Status || '-')}</td>
+              <td><button type="button" class="btn btn-sm btn-info edit-attendance-btn" data-name="${escapeAttr(r.name || r.Name || r.workerName || '')}" data-in="${escapeAttr(r.in || r.In || r.clockIn || '')}" data-out="${escapeAttr(r.out || r.Out || r.clockOut || '')}" data-shift="${escapeAttr(r.shift || r.Shift || '')}">수정</button></td>
+            </tr>
+          `
+            )
+            .join('');
+          tbody.querySelectorAll('.edit-attendance-btn').forEach((btn) => {
+            btn.addEventListener('click', function () {
+              const name = this.dataset.name;
+              const inTime = this.dataset.in;
+              const outTime = this.dataset.out;
+              const shift = this.dataset.shift || '';
+              const dateVal = document.getElementById('monitor-date').value;
+              const sel = document.getElementById('worker-select');
+              const found = Array.from(sel.options).some((o) => o.value === name);
+              if (!found && name) {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                opt.dataset.search = name.toLowerCase();
+                sel.appendChild(opt);
+              }
+              sel.value = name || '';
+              document.getElementById('targetDate').value = dateVal || '';
+              const inVal = toTimeInputFormat(inTime);
+              const outVal = toTimeInputFormat(outTime);
+              if (inVal) document.getElementById('newInTime').value = inVal;
+              if (outVal) document.getElementById('newOutTime').value = outVal;
+              if (shift) {
+                var shiftSel = document.getElementById('newShift');
+                if (shiftSel) shiftSel.value = shift;
+              }
+              document.getElementById('worker-search').value = '';
+              document.querySelectorAll('#worker-select option[value]').forEach((o) => (o.hidden = false));
+              document.getElementById('override-form-section').scrollIntoView({ behavior: 'smooth' });
+            });
+          });
+        } catch (err) {
+          console.error('Failed to load attendance:', err);
+          tbody.innerHTML =
+            '<tr><td colspan="6" class="text-center text-danger py-4">Failed to load data</td></tr>';
+        }
+      });
+
+      function toTimeInputFormat(t) {
+        if (!t || t === '-') return '';
+        const m = String(t).match(/(\d{1,2}):(\d{2})/);
+        return m ? m[1].padStart(2, '0') + ':' + m[2] : t;
+      }
+
+      function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = String(s ?? '');
+        return d.innerHTML;
+      }
+      function escapeAttr(s) {
+        return String(s ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      // Manual Time Override: 버튼 클릭으로 처리 (폼 submit 회피)
+      function showMsg(opts) {
+        if (typeof Swal !== 'undefined' && Swal.fire) return Swal.fire(opts);
+        if (opts.showCancelButton) {
+          var rawText = (opts.html ? opts.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : (opts.text || ''));
+          var ok = window.confirm((opts.title || '') + (rawText ? '\n\n' + rawText : ''));
+          return Promise.resolve({ isConfirmed: ok });
+        }
+        alert(opts.text || opts.title || '');
+        return Promise.resolve({ isConfirmed: true });
+      }
+
+      function parseManualAttendanceInput() {
+        var workerSelect = document.getElementById('worker-select');
+        var workerName = (workerSelect && workerSelect.value) ? String(workerSelect.value).trim() : '';
+        if (!workerName || workerName.indexOf('--') === 0) {
+          showMsg({ icon: 'warning', title: '입력 확인', text: '대상 근로자를 선택하세요.' });
+          return null;
+        }
+        var shiftSel = document.getElementById('newShift');
+        var shift = (shiftSel && shiftSel.value) ? String(shiftSel.value).trim() : 'Day';
+        var inEl = document.getElementById('newInTime');
+        var outEl = document.getElementById('newOutTime');
+        var inTimeStr = (inEl && inEl.value) ? inEl.value : '';
+        var outTimeStr = (outEl && outEl.value) ? outEl.value : '';
+        if (!inTimeStr || !outTimeStr) {
+          showMsg({ icon: 'warning', title: '입력 확인', text: '출근 시간과 퇴근 시간을 모두 입력하세요.' });
+          return null;
+        }
+        function timeToMinutes(s) {
+          var p = String(s).split(':');
+          return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0);
+        }
+        var inMin = timeToMinutes(inTimeStr);
+        var outMin = timeToMinutes(outTimeStr);
+        if (outMin <= inMin) outMin += 24 * 60;
+        var workHours = (outMin - inMin) / 60;
+        if (workHours <= 0) {
+          showMsg({ icon: 'error', title: '시간 오류', text: '퇴근 시간은 출근 시간보다 뒤여야 합니다.' });
+          return null;
+        }
+        if (workHours > 16) {
+          showMsg({ icon: 'error', title: '시간 오류', text: '근무시간은 16시간을 넘을 수 없습니다.' });
+          return null;
+        }
+        var dateEl = document.getElementById('targetDate');
+        var dateVal = (dateEl && dateEl.value) ? dateEl.value : '';
+        if (!dateVal) {
+          showMsg({ icon: 'warning', title: '입력 확인', text: '대상 날짜를 선택하세요.' });
+          return null;
+        }
+        return {
+          workerName: workerName,
+          shift: shift || 'Day',
+          inTimeStr: inTimeStr,
+          outTimeStr: outTimeStr,
+          workHours: workHours,
+          dateVal: dateVal
+        };
+      }
+
+      function refreshAttendanceViews(targetDate) {
+        var md = document.getElementById('monitor-date');
+        if (md) {
+          if (targetDate) md.value = targetDate;
+          md.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        loadRealtimeAttendance();
+      }
+
+      function sendAttendanceRequest(action, payload, onResponse) {
+        var q = 'action=' + encodeURIComponent(action);
+        Object.keys(payload || {}).forEach(function (k) {
+          q += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(payload[k] == null ? '' : String(payload[k]));
+        });
+        var body = q + '&sheetName=Payroll_Daily';
+        function doGet() {
+          fetch(API_URL + '?' + q).then(function (res) { return res.json().catch(function () { return {}; }); })
+            .then(function (data) { onResponse(data || {}); })
+            .catch(function (err) {
+              console.error('근태 요청 오류(GET):', err);
+              showMsg({ icon: 'error', title: '요청 실패', text: '네트워크 오류입니다. 다시 시도하세요.' });
+            });
+        }
+        fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body,
+        }).then(function (res) {
+          var ct = (res.headers.get('Content-Type') || '').toLowerCase();
+          if (ct.indexOf('json') === -1) return null;
+          return res.json().catch(function () { return {}; });
+        }).then(function (data) {
+          if (data != null && (data.result !== undefined || data.message !== undefined)) { onResponse(data); return; }
+          doGet();
+        }).catch(function () { doGet(); });
+      }
+
+      function doOverrideApply() {
+        var input = parseManualAttendanceInput();
+        if (!input) return;
+        var escapedName = input.workerName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        showMsg({
+          icon: 'warning',
+          title: '시간 수정 적용',
+          html: '대상: <strong>' + escapedName + '</strong><br>날짜: ' + input.dateVal + '<br>근무: ' + input.workHours.toFixed(2) + '시간<br>적용하시겠습니까?',
+          showCancelButton: true,
+          confirmButtonText: '적용',
+          cancelButtonText: '취소',
+        }).then(function (result) {
+          if (!result || !result.isConfirmed) return;
+          sendAttendanceRequest('manager_edit', {
+            workerName: input.workerName,
+            targetDate: input.dateVal,
+            newInTime: input.inTimeStr,
+            newOutTime: input.outTimeStr
+          }, function (data) {
+            if (data && data.result === 'success') {
+              showMsg({ icon: 'success', title: '적용 완료', text: data.message || '시간 수정이 적용되었습니다.', timer: 2000, showConfirmButton: false });
+              refreshAttendanceViews(input.dateVal);
+            } else if (data && data.message) {
+              showMsg({ icon: 'error', title: '수정 실패', text: data.message });
+            } else {
+              showMsg({ icon: 'error', title: '수정 실패', text: '수정 요청에 실패했습니다.' });
+            }
+          });
+        });
+      }
+
+      function doAddAttendance() {
+        var input = parseManualAttendanceInput();
+        if (!input) return;
+        var escapedName = input.workerName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        showMsg({
+          icon: 'question',
+          title: '근태 기록 추가',
+          html: '대상: <strong>' + escapedName + '</strong><br>날짜: ' + input.dateVal + '<br>조: ' + input.shift + '<br>근무: ' + input.workHours.toFixed(2) + '시간<br>새 근태 기록을 추가할까요?',
+          showCancelButton: true,
+          confirmButtonText: '추가',
+          cancelButtonText: '취소',
+        }).then(function (result) {
+          if (!result || !result.isConfirmed) return;
+          sendAttendanceRequest('manager_add_attendance', {
+            workerName: input.workerName,
+            targetDate: input.dateVal,
+            newInTime: input.inTimeStr,
+            newOutTime: input.outTimeStr,
+            shift: input.shift,
+            note: 'manager_manual_add'
+          }, function (data) {
+            if (data && data.result === 'success') {
+              showMsg({ icon: 'success', title: '추가 완료', text: data.message || '근태 기록이 추가되었습니다.', timer: 2000, showConfirmButton: false });
+              refreshAttendanceViews(input.dateVal);
+            } else if (data && data.message) {
+              showMsg({ icon: 'error', title: '추가 실패', text: data.message });
+            } else {
+              showMsg({ icon: 'error', title: '추가 실패', text: '추가 요청에 실패했습니다.' });
+            }
+          });
+        });
+      }
+
+      // body 하단 스크립트이므로 버튼은 이미 있음. DOMContentLoaded 대기 시 이미 지나쳐 리스너가 안 붙을 수 있으므로 즉시 연결.
+      var overrideApplyBtn = document.getElementById('override-apply-btn');
+      if (overrideApplyBtn) overrideApplyBtn.addEventListener('click', doOverrideApply);
+      var attendanceAddBtn = document.getElementById('attendance-add-btn');
+      if (attendanceAddBtn) attendanceAddBtn.addEventListener('click', doAddAttendance);
+    </script>
+    <!--end::Script-->
+  </body>
+  <!--end::Body-->
+</html>

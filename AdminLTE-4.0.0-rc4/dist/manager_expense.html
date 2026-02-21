@@ -19,6 +19,9 @@
       .staff-checklist { max-height: 12rem; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 0.5rem 0.75rem 0.5rem 0.75rem; background: #f8f9fa; font-size: 0.875rem; }
       .staff-checklist .form-check { padding: 0.25rem 0.5rem 0.25rem 1.75em; margin-bottom: 0; }
       .staff-checklist .form-check:hover { background: rgba(0,123,255,0.08); border-radius: 0.25rem; }
+      .bulk-wrap { border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.75rem; background: #f8fafc; }
+      .bulk-table th, .bulk-table td { vertical-align: middle; font-size: 0.875rem; }
+      .bulk-table .form-control, .bulk-table .form-select { min-width: 110px; }
     </style>
   </head>
   <body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
@@ -89,17 +92,49 @@
                           </div>
                           <div id="staffSelectedSummary" class="small mt-1 text-muted"></div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12">
+                          <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="bulkModeToggle" />
+                            <label class="form-check-label fw-semibold" for="bulkModeToggle">여러 건 일괄 등록 모드</label>
+                          </div>
+                          <div class="small text-muted mt-1">켜면 아래 표에서 여러 지출 항목을 한 번에 등록할 수 있습니다.</div>
+                        </div>
+                        <div class="col-md-6 single-expense-fields">
                           <label for="expenseItem" class="form-label">항목</label>
                           <input type="text" class="form-control form-control-lg" id="expenseItem" name="item" placeholder="지출 항목명" required />
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6 single-expense-fields">
                           <label for="expenseCost" class="form-label">금액 (PHP)</label>
                           <input type="number" class="form-control form-control-lg" id="expenseCost" name="cost" placeholder="0" min="0" step="0.01" required />
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6 single-expense-fields">
                           <label for="expenseRemarks" class="form-label">비고</label>
                           <input type="text" class="form-control form-control-lg" id="expenseRemarks" name="remarks" placeholder="선택 입력" />
+                        </div>
+                        <div class="col-12 d-none" id="bulk-expense-wrap">
+                          <div class="bulk-wrap">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                              <div class="fw-semibold text-dark"><i class="bi bi-table me-1"></i>일괄 등록 항목</div>
+                              <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="bulk-add-row-btn"><i class="bi bi-plus-lg me-1"></i>행 추가</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="bulk-reset-rows-btn">초기화</button>
+                              </div>
+                            </div>
+                            <div class="table-responsive">
+                              <table class="table table-bordered table-sm mb-0 bulk-table">
+                                <thead class="table-light">
+                                  <tr>
+                                    <th style="min-width:130px">구분</th>
+                                    <th style="min-width:180px">항목</th>
+                                    <th style="min-width:130px">금액 (PHP)</th>
+                                    <th style="min-width:180px">비고</th>
+                                    <th style="width:60px">삭제</th>
+                                  </tr>
+                                </thead>
+                                <tbody id="bulk-expense-tbody"></tbody>
+                              </table>
+                            </div>
+                          </div>
                         </div>
                         <div class="col-12 pt-2">
                           <button type="submit" class="btn btn-primary btn-lg" id="submitBtn"><i class="bi bi-check2-square me-1"></i>등록</button>
@@ -195,6 +230,90 @@
         el.textContent = names.length > 0 ? '선택됨: ' + names.join(', ') : '';
       }
 
+      const BULK_CATEGORY_OPTIONS = [
+        { value: 'Food', label: '식대' },
+        { value: 'Supplies', label: '비품' },
+        { value: 'Rent', label: '임대료' },
+        { value: 'Electricity', label: '전기' },
+        { value: 'Internet', label: '인터넷' },
+        { value: 'Others', label: '기타' }
+      ];
+
+      function bulkCategorySelectHtml(selected) {
+        return '<select class="form-select form-select-sm bulk-category">' +
+          '<option value="">선택</option>' +
+          BULK_CATEGORY_OPTIONS.map(function (c) {
+            var isSel = selected === c.value ? ' selected' : '';
+            return '<option value="' + c.value + '"' + isSel + '>' + c.label + '</option>';
+          }).join('') +
+          '</select>';
+      }
+
+      function createBulkRow(data) {
+        var d = data || {};
+        return '<tr class="bulk-row">' +
+          '<td>' + bulkCategorySelectHtml(d.category || '') + '</td>' +
+          '<td><input type="text" class="form-control form-control-sm bulk-item" placeholder="항목명" value="' + (d.item || '').replace(/"/g, '&quot;') + '" /></td>' +
+          '<td><input type="number" class="form-control form-control-sm bulk-cost" min="0" step="0.01" placeholder="0" value="' + (d.cost || '') + '" /></td>' +
+          '<td><input type="text" class="form-control form-control-sm bulk-remarks" placeholder="선택 입력" value="' + (d.remarks || '').replace(/"/g, '&quot;') + '" /></td>' +
+          '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger bulk-remove-row-btn"><i class="bi bi-x-lg"></i></button></td>' +
+          '</tr>';
+      }
+
+      function ensureBulkRows() {
+        const tbody = document.getElementById('bulk-expense-tbody');
+        if (!tbody) return;
+        if (tbody.querySelectorAll('.bulk-row').length === 0) {
+          tbody.insertAdjacentHTML('beforeend', createBulkRow({ category: 'Food' }));
+        }
+      }
+
+      function resetBulkRows() {
+        const tbody = document.getElementById('bulk-expense-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        tbody.insertAdjacentHTML('beforeend', createBulkRow({ category: 'Food' }));
+      }
+
+      function setBulkModeUI() {
+        const isBulk = !!document.getElementById('bulkModeToggle')?.checked;
+        document.querySelectorAll('.single-expense-fields').forEach(function (el) {
+          el.classList.toggle('d-none', isBulk);
+        });
+        const bulkWrap = document.getElementById('bulk-expense-wrap');
+        if (bulkWrap) bulkWrap.classList.toggle('d-none', !isBulk);
+        if (isBulk) ensureBulkRows();
+      }
+
+      function collectBulkRows() {
+        const rows = [];
+        document.querySelectorAll('#bulk-expense-tbody .bulk-row').forEach(function (tr) {
+          const category = (tr.querySelector('.bulk-category')?.value || '').trim();
+          const item = (tr.querySelector('.bulk-item')?.value || '').trim();
+          const costRaw = (tr.querySelector('.bulk-cost')?.value || '').trim();
+          const remarks = (tr.querySelector('.bulk-remarks')?.value || '').trim();
+          if (!category && !item && !costRaw && !remarks) return;
+          rows.push({ category: category, item: item, cost: costRaw, remarks: remarks });
+        });
+        return rows;
+      }
+
+      async function postExpenseEntry(payload) {
+        const fd = new FormData();
+        fd.append('action', 'upsertExpense');
+        fd.append('date', payload.date);
+        fd.append('category', payload.category);
+        fd.append('item', payload.item);
+        fd.append('cost', payload.cost);
+        fd.append('remarks', payload.remarks || '');
+        fd.append('staff_id', payload.staffIds.join(','));
+        fd.append('staff_name', payload.staffNames.join(','));
+        const res = await fetch(API_URL, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error || '등록 실패');
+        return data;
+      }
+
       document.getElementById('expense-form').addEventListener('submit', async function (e) {
         e.preventDefault();
         const checks = document.querySelectorAll('#staffChecklist input[type="checkbox"]:checked');
@@ -206,34 +325,74 @@
           return;
         }
         const date = document.getElementById('expenseDate').value;
-        const category = document.getElementById('expenseCategory').value;
-        const item = document.getElementById('expenseItem').value.trim();
-        const cost = document.getElementById('expenseCost').value;
-        const remarks = document.getElementById('expenseRemarks').value.trim();
+        const isBulk = !!document.getElementById('bulkModeToggle')?.checked;
         const btn = document.getElementById('submitBtn');
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>등록 중...';
-        const fd = new FormData();
-        fd.append('action', 'upsertExpense');
-        fd.append('date', date);
-        fd.append('category', category);
-        fd.append('item', item);
-        fd.append('cost', cost);
-        fd.append('remarks', remarks);
-        fd.append('staff_id', ids.join(','));
-        fd.append('staff_name', names.join(','));
         try {
-          const res = await fetch(API_URL, { method: 'POST', body: fd });
-          const data = await res.json();
-          if (data.error) throw new Error(data.error || '등록 실패');
-          var successText = data.warning ? data.warning : '지출이 등록되었습니다.';
-          if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: '등록 완료', text: successText, timer: data.warning ? 4000 : 2000, showConfirmButton: false });
-          else alert(successText);
-          document.getElementById('expense-form').reset();
+          if (!date) throw new Error('지출 일자를 선택해 주세요.');
+          if (isBulk) {
+            const rows = collectBulkRows();
+            if (rows.length === 0) throw new Error('일괄 등록 항목을 1개 이상 입력해 주세요.');
+            for (var i = 0; i < rows.length; i++) {
+              if (!rows[i].category || !rows[i].item || !rows[i].cost) {
+                throw new Error((i + 1) + '번째 행: 구분/항목/금액은 필수입니다.');
+              }
+              var nCost = parseFloat(rows[i].cost);
+              if (!(nCost >= 0)) throw new Error((i + 1) + '번째 행: 금액 형식이 올바르지 않습니다.');
+            }
+            let ok = 0;
+            let fail = 0;
+            let failMsg = '';
+            for (var r = 0; r < rows.length; r++) {
+              try {
+                await postExpenseEntry({
+                  date: date,
+                  category: rows[r].category,
+                  item: rows[r].item,
+                  cost: rows[r].cost,
+                  remarks: rows[r].remarks || '',
+                  staffIds: ids,
+                  staffNames: names
+                });
+                ok++;
+              } catch (rowErr) {
+                fail++;
+                if (!failMsg) failMsg = (r + 1) + '번째 행 실패: ' + (rowErr.message || '등록 실패');
+              }
+            }
+            if (fail === 0) {
+              if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: '일괄 등록 완료', text: ok + '건이 등록되었습니다.', timer: 2200, showConfirmButton: false });
+              else alert(ok + '건이 등록되었습니다.');
+            } else {
+              if (typeof Swal !== 'undefined') Swal.fire({ icon: fail === rows.length ? 'error' : 'warning', title: '일괄 등록 결과', text: '성공 ' + ok + '건 / 실패 ' + fail + '건\n' + failMsg });
+              else alert('성공 ' + ok + '건 / 실패 ' + fail + '건');
+            }
+            resetBulkRows();
+          } else {
+            const category = document.getElementById('expenseCategory').value;
+            const item = document.getElementById('expenseItem').value.trim();
+            const cost = document.getElementById('expenseCost').value;
+            const remarks = document.getElementById('expenseRemarks').value.trim();
+            if (!category || !item || !cost) throw new Error('구분/항목/금액을 입력해 주세요.');
+            const data = await postExpenseEntry({
+              date: date,
+              category: category,
+              item: item,
+              cost: cost,
+              remarks: remarks,
+              staffIds: ids,
+              staffNames: names
+            });
+            var successText = data.warning ? data.warning : '지출이 등록되었습니다.';
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: '등록 완료', text: successText, timer: data.warning ? 4000 : 2000, showConfirmButton: false });
+            else alert(successText);
+          }
           document.getElementById('expenseDate').value = new Date().toISOString().slice(0, 10);
-          document.querySelectorAll('#staffChecklist input[type="checkbox"]').forEach(function (c) { c.checked = false; });
-          updateStaffSummary();
-          loadStaffList();
+          document.getElementById('expenseCategory').value = '';
+          document.getElementById('expenseItem').value = '';
+          document.getElementById('expenseCost').value = '';
+          document.getElementById('expenseRemarks').value = '';
         } catch (err) {
           if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: '등록 실패', text: err.message || '다시 시도해 주세요.' });
           else alert(err.message || '등록에 실패했습니다.');
@@ -243,8 +402,23 @@
         }
       });
 
+      document.getElementById('bulkModeToggle')?.addEventListener('change', setBulkModeUI);
+      document.getElementById('bulk-add-row-btn')?.addEventListener('click', function () {
+        document.getElementById('bulk-expense-tbody').insertAdjacentHTML('beforeend', createBulkRow({}));
+      });
+      document.getElementById('bulk-reset-rows-btn')?.addEventListener('click', resetBulkRows);
+      document.getElementById('bulk-expense-tbody')?.addEventListener('click', function (e) {
+        const btn = e.target.closest('.bulk-remove-row-btn');
+        if (!btn) return;
+        const tr = btn.closest('tr');
+        if (tr) tr.remove();
+        ensureBulkRows();
+      });
+
       if (typeof TetraUtils !== 'undefined' && TetraUtils.fetchLatestExchangeRate) TetraUtils.fetchLatestExchangeRate(API_URL).catch(function () {});
       loadStaffList();
+      setBulkModeUI();
+      resetBulkRows();
     </script>
   </body>
 </html>
