@@ -1,0 +1,7 @@
+node_modules/
+credentials.json.json
+.env
+.env.local
+payments.json
+*.log
+.DS_Store
