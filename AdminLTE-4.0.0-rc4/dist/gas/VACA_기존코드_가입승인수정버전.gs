@@ -742,7 +742,8 @@ function doPost(e) {
         if (receiptB64 && receiptB64.length > MAX_ATTACHMENT_B64_LENGTH) {
           receiptWarning = '영수증 파일이 너무 커서 저장하지 못했습니다. (2MB 이하)';
         }
-        var out = typeof handleUpsertExpense === "function" ? handleUpsertExpense(params) : handleUpsertExpenseInline(doc, params);
+        // Avoid calling stale external handler definitions in deployed GAS projects.
+        var out = handleUpsertExpenseInline(doc, params);
         if (out && out.error) return response({ error: out.error });
         if (receiptB64 && receiptB64.length <= MAX_ATTACHMENT_B64_LENGTH) {
           var receiptSaved = false;
