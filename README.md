@@ -38,6 +38,7 @@ https://koreanbots.dev/bots/1436590099235340410
 
 5. **Search Utilities**
    - `/character` (name or profile URL + race/class filter)
+   - Legacy alias: `!char <name>` / `!character <name>`
    - `/item` (quick lookup links)
    - `/collection` (stat-based lookup links)
    - `/build` (build/skill-tree lookup links)

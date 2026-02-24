@@ -853,6 +853,36 @@ function buildCharacterEmbed(info, query) {
   return embed;
 }
 
+async function lookupCharacterEmbed(query, filters = {}) {
+  const trimmed = String(query || "").trim();
+  const urlMatch = trimmed.match(PLAYNC_CHAR_URL);
+  const normalizedUrl = urlMatch
+    ? trimmed.startsWith("http")
+      ? trimmed
+      : `https://${urlMatch[0]}`
+    : null;
+
+  try {
+    let info;
+    if (normalizedUrl) {
+      info = await scrapeCharacterByUrl(normalizedUrl);
+    } else {
+      info = await searchCharacterByName(trimmed, {
+        race: filters.race || null,
+        classKeyword: filters.classKeyword || null,
+      });
+    }
+
+    if (!info) {
+      return buildCharacterFallbackEmbed(trimmed, Boolean(normalizedUrl));
+    }
+    return buildCharacterEmbed(info, trimmed);
+  } catch (err) {
+    console.error("[character] failed", err.message);
+    return buildCharacterFallbackEmbed(trimmed, Boolean(normalizedUrl));
+  }
+}
+
 function buildItemLookupEmbed(query) {
   const encoded = encodeURIComponent(query);
   return new EmbedBuilder()
@@ -1322,7 +1352,11 @@ const commandPayload = [
 ].map((c) => c.toJSON());
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
 });
 
 const rest = new REST({ version: "10" }).setToken(CONFIG.token || "");
@@ -1372,7 +1406,7 @@ async function handleSlash(interaction) {
           "- /notice_set /notice_status",
           "- /myinfo_register /verification_status",
           "- /profile_set /party_recruit",
-          "- /character /item /collection /build",
+          "- /character /item /collection /build (legacy: !char)",
         ].join("\n")
       )
       .setColor(0x2563eb);
@@ -1946,39 +1980,13 @@ async function handleSlash(interaction) {
     const raceFilter = interaction.options.getString("race");
     const classKeyword = interaction.options.getString("class_keyword");
     await interaction.deferReply({ ephemeral: true });
-    const urlMatch = query.match(PLAYNC_CHAR_URL);
-    const normalizedUrl = urlMatch
-      ? query.startsWith("http")
-        ? query
-        : `https://${urlMatch[0]}`
-      : null;
-
-    try {
-      let info;
-      if (normalizedUrl) info = await scrapeCharacterByUrl(normalizedUrl);
-      else {
-        info = await searchCharacterByName(query, {
-          race: raceFilter || null,
-          classKeyword: classKeyword || null,
-        });
-      }
-
-      if (!info) {
-        await interaction.editReply({
-          embeds: [buildCharacterFallbackEmbed(query, Boolean(normalizedUrl))],
-        });
-        return;
-      }
-
-      await interaction.editReply({
-        embeds: [buildCharacterEmbed(info, query)],
-      });
-    } catch (err) {
-      console.error("[character] failed", err.message);
-      await interaction.editReply({
-        embeds: [buildCharacterFallbackEmbed(query, Boolean(normalizedUrl))],
-      });
-    }
+    const embed = await lookupCharacterEmbed(query, {
+      race: raceFilter || null,
+      classKeyword: classKeyword || null,
+    });
+    await interaction.editReply({
+      embeds: [embed],
+    });
     return;
   }
 
@@ -2220,6 +2228,52 @@ client.on("guildCreate", async (guild) => {
   } catch (err) {
     console.error("[guildCreate] command registration failed", err.message);
   }
+});
+
+client.on("messageCreate", async (message) => {
+  if (message.author?.bot) return;
+  const content = (message.content || "").trim();
+  if (!content) return;
+
+  const lower = content.toLowerCase();
+  const prefix = lower.startsWith("!char ")
+    ? "!char "
+    : lower.startsWith("!character ")
+    ? "!character "
+    : null;
+  if (!prefix) return;
+
+  const query = content.slice(prefix.length).trim();
+  if (!query) {
+    await message
+      .reply({
+        content: "Usage: `!char <name or profile URL>`",
+        allowedMentions: { repliedUser: false },
+      })
+      .catch(() => {});
+    return;
+  }
+
+  let loadingMessage = null;
+  try {
+    loadingMessage = await message.reply({
+      content: "🔍 Searching character info...",
+      allowedMentions: { repliedUser: false },
+    });
+  } catch (_) {}
+
+  const embed = await lookupCharacterEmbed(query);
+  if (loadingMessage) {
+    await loadingMessage.edit({ content: "", embeds: [embed] }).catch(() => {});
+    return;
+  }
+
+  await message
+    .reply({
+      embeds: [embed],
+      allowedMentions: { repliedUser: false },
+    })
+    .catch(() => {});
 });
 
 client.on("interactionCreate", async (interaction) => {
