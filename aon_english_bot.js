@@ -31,6 +31,7 @@ const DEFAULT_NOTICE_SOURCES = [
     url: "https://aion2.plaync.com/ko-kr/news/maintenance",
   },
 ];
+const NOTICE_CATEGORIES = ["notice", "update", "event", "maintenance"];
 
 const BOSS_PRESETS = {
   elyos: [
@@ -54,6 +55,21 @@ const PLAYNC_CHAR_URL =
 const SEARCH_API =
   "https://aion2.plaync.com/ko-kr/api/search/aion2/search/v2/character";
 const PROFILE_IMG_BASE = "https://profileimg.plaync.com";
+
+function createNoticeChannelMap(seed = null) {
+  const map = {
+    notice: null,
+    update: null,
+    event: null,
+    maintenance: null,
+  };
+  if (!seed || typeof seed !== "object") return map;
+  for (const category of NOTICE_CATEGORIES) {
+    const value = seed[category];
+    map[category] = typeof value === "string" && value.length ? value : null;
+  }
+  return map;
+}
 
 function toInt(raw, fallback) {
   const parsed = Number.parseInt(String(raw ?? ""), 10);
@@ -119,6 +135,7 @@ function createDefaultGuildState() {
     notices: {
       channelId: null,
       categories: ["all"],
+      channelsByCategory: createNoticeChannelMap(),
     },
     verification: {
       tempRoleId: null,
@@ -126,6 +143,9 @@ function createDefaultGuildState() {
       categoryId: null,
       logChannelId: null,
       tickets: {},
+    },
+    invites: {
+      channelId: null,
     },
     profiles: {},
     parties: {},
@@ -169,10 +189,28 @@ function ensureGuildState(guildId) {
     : [];
   g.profiles = g.profiles || {};
   g.parties = g.parties || {};
-  g.notices = g.notices || { channelId: null, categories: ["all"] };
-  g.notices.categories = Array.isArray(g.notices.categories)
-    ? g.notices.categories
-    : ["all"];
+  g.notices = g.notices || {
+    channelId: null,
+    categories: ["all"],
+    channelsByCategory: createNoticeChannelMap(),
+  };
+  g.notices.channelsByCategory = createNoticeChannelMap(
+    g.notices.channelsByCategory
+  );
+  if (Array.isArray(g.notices.categories)) {
+    const normalizedCategories = [
+      ...new Set(
+        g.notices.categories
+          .map((item) => String(item || "").toLowerCase().trim())
+          .filter(Boolean)
+      ),
+    ].filter((item) => item === "all" || NOTICE_CATEGORIES.includes(item));
+    g.notices.categories = normalizedCategories.includes("all")
+      ? ["all"]
+      : normalizedCategories;
+  } else {
+    g.notices.categories = ["all"];
+  }
   g.verification = g.verification || {
     tempRoleId: null,
     verifiedRoleId: null,
@@ -181,6 +219,11 @@ function ensureGuildState(guildId) {
     tickets: {},
   };
   g.verification.tickets = g.verification.tickets || {};
+  g.invites = g.invites || { channelId: null };
+  g.invites.channelId =
+    typeof g.invites.channelId === "string" && g.invites.channelId.length
+      ? g.invites.channelId
+      : null;
   return g;
 }
 
@@ -424,26 +467,116 @@ function buildSingleBossEmbed(guildState, boss) {
 function buildNoticeStatusEmbed(guildState) {
   const notice = guildState.notices || {};
   const categories = Array.isArray(notice.categories) ? notice.categories : [];
+  const enabledCategories = categories.includes("all")
+    ? NOTICE_CATEGORIES
+    : categories;
+  const routes = createNoticeChannelMap(notice.channelsByCategory);
+  const routeLines = NOTICE_CATEGORIES.map((category) => {
+    const target = routes[category] || notice.channelId;
+    return `- ${category}: ${target ? `<#${target}>` : "Not set"}`;
+  }).join("\n");
   return new EmbedBuilder()
     .setTitle("Notice Relay Status")
     .setDescription(
       [
-        `Channel: ${
+        `Default channel: ${
           notice.channelId ? `<#${notice.channelId}>` : "Not configured"
         }`,
-        `Categories: ${
-          categories.length ? categories.join(", ") : "Disabled"
+        `Enabled categories: ${
+          enabledCategories.length ? enabledCategories.join(", ") : "Disabled"
         }`,
         `Sources: ${CONFIG.noticeSources.length}`,
       ].join("\n")
     )
+    .addFields({
+      name: "Category routes",
+      value: routeLines,
+    })
     .setColor(0x0ea5e9);
 }
 
 function noticeCategoryEnabled(categories, category) {
+  if (!NOTICE_CATEGORIES.includes(category)) return false;
   if (!Array.isArray(categories) || categories.length === 0) return false;
   if (categories.includes("all")) return true;
   return categories.includes(category);
+}
+
+function getNoticeTargetChannelId(noticeConfig, category) {
+  const routes = createNoticeChannelMap(noticeConfig?.channelsByCategory);
+  return routes[category] || noticeConfig?.channelId || null;
+}
+
+function formatInviteExpiry(maxAgeSeconds) {
+  if (!maxAgeSeconds) return "Never";
+  if (maxAgeSeconds % 3600 === 0) {
+    return `${maxAgeSeconds / 3600}h`;
+  }
+  if (maxAgeSeconds % 60 === 0) {
+    return `${maxAgeSeconds / 60}m`;
+  }
+  return `${maxAgeSeconds}s`;
+}
+
+function buildInviteStatusEmbed(guildState) {
+  const channelId = guildState?.invites?.channelId || null;
+  return new EmbedBuilder()
+    .setTitle("Invite Automation Status")
+    .setDescription(
+      [
+        `Invite post channel: ${
+          channelId ? `<#${channelId}>` : "Not configured"
+        }`,
+        "Use `/invite_channel_set` to choose where invite posts go.",
+        "Use `/invite_create` to generate and post invite links.",
+      ].join("\n")
+    )
+    .setColor(0x8b5cf6);
+}
+
+function buildInviteEmbed({
+  code,
+  url,
+  targetChannelId,
+  maxUses,
+  maxAge,
+  creatorId,
+  note,
+}) {
+  const expiresText = formatInviteExpiry(maxAge);
+  return new EmbedBuilder()
+    .setTitle("🔗 Server Invite Code")
+    .setDescription(url)
+    .addFields(
+      { name: "Code", value: code || "N/A", inline: true },
+      {
+        name: "Target Channel",
+        value: targetChannelId ? `<#${targetChannelId}>` : "N/A",
+        inline: true,
+      },
+      {
+        name: "Uses",
+        value: maxUses && maxUses > 0 ? String(maxUses) : "Unlimited",
+        inline: true,
+      },
+      {
+        name: "Expires",
+        value: expiresText,
+        inline: true,
+      },
+      {
+        name: "Created By",
+        value: creatorId ? `<@${creatorId}>` : "N/A",
+        inline: true,
+      },
+      {
+        name: "Note",
+        value: note || "N/A",
+        inline: false,
+      }
+    )
+    .setColor(0x7c3aed)
+    .setTimestamp();
 }
 
 function buildSourceKey(source) {
@@ -603,13 +736,17 @@ async function runNoticeTicker(client) {
 
       for (const guildState of Object.values(state.guilds)) {
         const noticeConfig = guildState.notices || {};
-        if (!noticeConfig.channelId) continue;
         if (!noticeCategoryEnabled(noticeConfig.categories, source.category)) {
           continue;
         }
+        const targetChannelId = getNoticeTargetChannelId(
+          noticeConfig,
+          source.category
+        );
+        if (!targetChannelId) continue;
 
         const channel = await client.channels
-          .fetch(noticeConfig.channelId)
+          .fetch(targetChannelId)
           .catch(() => null);
         if (!channel || !channel.isTextBased()) continue;
 
@@ -995,6 +1132,14 @@ function buildGuideEmbeds() {
         ].join("\n"),
       },
       {
+        name: "🔗 Invite Automation",
+        value: [
+          "`/invite_channel_set` - Set invite post channel",
+          "`/invite_create` - Create and post invite links",
+          "`/invite_status` - Check invite automation setup",
+        ].join("\n"),
+      },
+      {
         name: "⚔️ Party Recruit",
         value: [
           "`/profile_set` - Register your profile",
@@ -1217,6 +1362,56 @@ const commandPayload = [
     .setName("notice_status")
     .setDescription("Show current notice relay settings"),
   new SlashCommandBuilder()
+    .setName("invite_channel_set")
+    .setDescription("Set channel where invite links are posted")
+    .addChannelOption((opt) =>
+      opt
+        .setName("channel")
+        .setDescription("Invite post channel")
+        .setRequired(true)
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+    ),
+  new SlashCommandBuilder()
+    .setName("invite_create")
+    .setDescription("Create and post a server invite link")
+    .addChannelOption((opt) =>
+      opt
+        .setName("target_channel")
+        .setDescription("Channel users should join into")
+        .setRequired(false)
+    )
+    .addIntegerOption((opt) =>
+      opt
+        .setName("max_uses")
+        .setDescription("0 = unlimited")
+        .setRequired(false)
+        .setMinValue(0)
+        .setMaxValue(100)
+    )
+    .addIntegerOption((opt) =>
+      opt
+        .setName("expire_hours")
+        .setDescription("0 = never expire")
+        .setRequired(false)
+        .setMinValue(0)
+        .setMaxValue(168)
+    )
+    .addStringOption((opt) =>
+      opt
+        .setName("note")
+        .setDescription("Optional note shown in invite embed")
+        .setRequired(false)
+    )
+    .addBooleanOption((opt) =>
+      opt
+        .setName("public_post")
+        .setDescription("Post to invite channel publicly (default: true)")
+        .setRequired(false)
+    ),
+  new SlashCommandBuilder()
+    .setName("invite_status")
+    .setDescription("Show invite automation settings"),
+  new SlashCommandBuilder()
     .setName("myinfo_register")
     .setDescription("Create your private verification channel")
     .addStringOption((opt) =>
@@ -1404,6 +1599,7 @@ async function handleSlash(interaction) {
           "- /preset /boss /cut /server_open /boss_add /boss_remove",
           "- /boss_alert_mode /boss_event_multiplier",
           "- /notice_set /notice_status",
+          "- /invite_channel_set /invite_create /invite_status",
           "- /myinfo_register /verification_status",
           "- /profile_set /party_recruit",
           "- /character /item /collection /build (legacy: !char)",
@@ -1881,7 +2077,10 @@ async function handleSlash(interaction) {
     const category = interaction.options.getString("category", true);
     const enabled = interaction.options.getBoolean("enabled") ?? true;
 
-    const allCategories = ["notice", "update", "event", "maintenance"];
+    const allCategories = NOTICE_CATEGORIES;
+    guildState.notices.channelsByCategory = createNoticeChannelMap(
+      guildState.notices.channelsByCategory
+    );
     const current = new Set(guildState.notices.categories || []);
     if (current.has("all")) {
       current.clear();
@@ -1889,10 +2088,19 @@ async function handleSlash(interaction) {
     }
 
     if (category === "all") {
+      guildState.notices.channelId = channel.id;
       guildState.notices.categories = enabled ? ["all"] : [];
     } else {
-      if (enabled) current.add(category);
-      else current.delete(category);
+      if (enabled) {
+        current.add(category);
+        guildState.notices.channelsByCategory[category] = channel.id;
+      } else {
+        current.delete(category);
+        guildState.notices.channelsByCategory[category] = null;
+      }
+      if (!guildState.notices.channelId) {
+        guildState.notices.channelId = channel.id;
+      }
       if (allCategories.every((item) => current.has(item))) {
         guildState.notices.categories = ["all"];
       } else {
@@ -1912,6 +2120,115 @@ async function handleSlash(interaction) {
   if (interaction.commandName === "notice_status") {
     await interaction.reply({
       embeds: [buildNoticeStatusEmbed(guildState)],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "invite_channel_set") {
+    if (!hasManageGuild(interaction)) {
+      await safeEphemeral(interaction, "Manage Server permission is required.");
+      return;
+    }
+    const channel = interaction.options.getChannel("channel", true);
+    guildState.invites.channelId = channel.id;
+    saveState();
+    await interaction.reply({
+      embeds: [buildInviteStatusEmbed(guildState)],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "invite_status") {
+    await interaction.reply({
+      embeds: [buildInviteStatusEmbed(guildState)],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "invite_create") {
+    if (!hasManageGuild(interaction)) {
+      await safeEphemeral(interaction, "Manage Server permission is required.");
+      return;
+    }
+
+    const targetChannel =
+      interaction.options.getChannel("target_channel") || interaction.channel;
+    const maxUses = interaction.options.getInteger("max_uses") ?? 0;
+    const expireHours = interaction.options.getInteger("expire_hours") ?? 0;
+    const note = (interaction.options.getString("note") || "").trim();
+    const publicPost = interaction.options.getBoolean("public_post") ?? true;
+
+    if (!targetChannel || typeof targetChannel.createInvite !== "function") {
+      await safeEphemeral(
+        interaction,
+        "Target channel does not support invite creation."
+      );
+      return;
+    }
+
+    const invite = await targetChannel
+      .createInvite({
+        maxAge: expireHours > 0 ? expireHours * 3600 : 0,
+        maxUses: maxUses > 0 ? maxUses : 0,
+        unique: true,
+        reason: `Invite automation requested by ${interaction.user.tag}`,
+      })
+      .catch(() => null);
+
+    if (!invite) {
+      await safeEphemeral(
+        interaction,
+        "Failed to create invite. Check bot permission: Create Instant Invite."
+      );
+      return;
+    }
+
+    const embed = buildInviteEmbed({
+      code: invite.code,
+      url: invite.url,
+      targetChannelId: targetChannel.id,
+      maxUses: invite.maxUses || 0,
+      maxAge: invite.maxAge || 0,
+      creatorId: interaction.user.id,
+      note,
+    });
+
+    if (!publicPost) {
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      return;
+    }
+
+    const preferredChannelId = guildState.invites.channelId || interaction.channelId;
+    const preferredChannel = await interaction.guild.channels
+      .fetch(preferredChannelId)
+      .catch(() => null);
+    const postChannel =
+      preferredChannel && preferredChannel.isTextBased()
+        ? preferredChannel
+        : interaction.channel;
+
+    if (!postChannel || !postChannel.isTextBased()) {
+      await safeEphemeral(
+        interaction,
+        "Invite post channel is invalid. Run `/invite_channel_set` first."
+      );
+      return;
+    }
+
+    const sent = await postChannel.send({ embeds: [embed] }).catch(() => null);
+    if (!sent) {
+      await safeEphemeral(
+        interaction,
+        "Failed to post invite embed in target channel."
+      );
+      return;
+    }
+
+    await interaction.reply({
+      content: `Invite posted in ${postChannel}.`,
       ephemeral: true,
     });
     return;

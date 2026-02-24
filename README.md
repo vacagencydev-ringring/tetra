@@ -28,6 +28,7 @@ https://koreanbots.dev/bots/1436590099235340410
 3. **Live Notice Relay**
    - `/notice_set` to configure target channel/category
    - `/notice_status` to inspect current settings
+   - Category auto-routing supported (per-category channel split)
    - Feed crawler with source/category filtering
 
 4. **Party Recruit System**
@@ -36,14 +37,19 @@ https://koreanbots.dev/bots/1436590099235340410
    - Join/Leave/Close actions
    - Persistent data across bot restarts
 
-5. **Search Utilities**
+5. **Invite Code / Link Automation**
+   - `/invite_channel_set` for invite post channel
+   - `/invite_create` to generate invite code/link with expiry/uses
+   - `/invite_status` to inspect invite automation setup
+
+6. **Search Utilities**
    - `/character` (name or profile URL + race/class filter)
    - Legacy alias: `!char <name>` / `!character <name>`
    - `/item` (quick lookup links)
    - `/collection` (stat-based lookup links)
    - `/build` (build/skill-tree lookup links)
 
-6. **Guide Panel Command**
+7. **Guide Panel Command**
    - `/guide` posts a full command guide panel (capture-style)
    - `/guide public:false` sends it as ephemeral to yourself
 
