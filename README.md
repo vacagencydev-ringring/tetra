@@ -42,14 +42,20 @@ https://koreanbots.dev/bots/1436590099235340410
    - `/invite_create` to generate invite code/link with expiry/uses
    - `/invite_status` to inspect invite automation setup
 
-6. **Search Utilities**
+6. **Kinah Rate Crawler**
+   - `/kinah_watch_set` to configure source/channel/selector/regex
+   - `/kinah_watch_now` for immediate fetch
+   - `/kinah_watch_status` and `/kinah_watch_stop`
+   - Auto posts only on detected rate changes
+
+7. **Search Utilities**
    - `/character` (name or profile URL + race/class filter)
    - Legacy alias: `!char <name>` / `!character <name>`
    - `/item` (quick lookup links)
    - `/collection` (stat-based lookup links)
    - `/build` (build/skill-tree lookup links)
 
-7. **Guide Panel Command**
+8. **Guide Panel Command**
    - `/guide` posts a full command guide panel (capture-style)
    - `/guide public:false` sends it as ephemeral to yourself
 
@@ -62,6 +68,7 @@ See `.env.example`:
 - `BOSS_WARNING_MINUTES`
 - `BOSS_TICKER_MS`
 - `NOTICE_TICKER_MS`
+- `KINAH_TICKER_MS`
 - `NOTICE_SOURCES_JSON` (optional custom source list)
 
 ## Run
