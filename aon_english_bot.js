@@ -884,60 +884,60 @@ function buildBuildLookupEmbed(query) {
 
 function buildGuideEmbeds() {
   const embed1 = new EmbedBuilder()
-    .setTitle("📘 아온2봇 사용 가이드 (Ver 2.1)")
+    .setTitle("📘 AON2 Bot Guide (Ver 2.1)")
     .setDescription(
       [
-        "아이온2 유저를 위한 필수 서포트 봇입니다.",
-        "아래 명령어를 확인하고 필요한 기능을 사용해보세요!",
+        "A must-have support bot for AION2 communities.",
+        "Check the commands below and use the features you need.",
       ].join("\n")
     )
     .addFields(
       {
-        name: "🔐 스마트 인증 시스템",
+        name: "🔐 Smart Verification System",
         value: [
-          "`/myinfo_register character_name:<닉네임>`",
-          "- 개인 비밀 인증 채널 생성",
-          "- 스크린샷 업로드 후 관리자 승인/거절",
+          "`/myinfo_register character_name:<name>`",
+          "- Creates a private verification channel",
+          "- Upload screenshot, then staff can Approve/Reject",
           "",
           "`/verification_status`",
-          "- 현재 인증 세팅 확인",
+          "- Check current verification setup",
         ].join("\n"),
       },
       {
-        name: "⚔️ 보스 컨텐츠 타이머",
+        name: "⚔️ Boss Content Timer",
         value: [
-          "`/cut boss_name:<보스명> [killed_at:HH:mm]`",
-          "- 처치 시간 입력 시 다음 젠 시간 자동 계산",
-          "- 이벤트 기간에는 단축 배율 자동 반영",
+          "`/cut boss_name:<boss> [killed_at:HH:mm]`",
+          "- Auto-calculates next spawn time from kill time",
+          "- Event respawn multiplier is applied automatically",
           "",
           "`/preset [mode]` `/boss` `/server_open`",
-          "- 프리셋 등록/조회 및 현황판 관리",
+          "- Preset setup, tracking list, and board management",
         ].join("\n"),
       },
       {
         name: "Tip",
         value: [
-          "`/boss_alert_mode` 로 알림을 **채널 공개** 또는 **DM 전용**으로 선택 가능",
-          "`/boss_event_multiplier` 로 이벤트 단축시간(배율) 반영 가능",
+          "Use `/boss_alert_mode` to choose **public channel** or **DM-only** alerts",
+          "Use `/boss_event_multiplier` to apply event-time shortened respawns",
         ].join("\n"),
       }
     )
     .setColor(0x22c55e);
 
   const embed2 = new EmbedBuilder()
-    .setTitle("📚 명령어 가이드 (검색 / 관리자 / 파티)")
+    .setTitle("📚 Command Guide (Search / Admin / Party)")
     .addFields(
       {
-        name: "📚 정보 검색",
+        name: "📚 Information Search",
         value: [
-          "`/character` - 캐릭터 조회 (종족/직업 키워드 필터)",
-          "`/item` - 아이템 검색",
-          "`/collection` - 스탯 기반 컬렉션 검색",
-          "`/build` - 추천 빌드/스킬트리 검색",
+          "`/character` - Character lookup (race/class keyword filter)",
+          "`/item` - Item lookup",
+          "`/collection` - Stat-based collection lookup",
+          "`/build` - Recommended build / skill-tree lookup",
         ].join("\n"),
       },
       {
-        name: "🛡️ 관리자 전용 (초기 세팅)",
+        name: "🛡️ Admin Only (Initial Setup)",
         value: [
           "`/temp_role_set` `/verified_role_set`",
           "`/verify_channel_set` `/verify_log_set`",
@@ -946,21 +946,21 @@ function buildGuideEmbeds() {
         ].join("\n"),
       },
       {
-        name: "⚔️ 파티 모집",
+        name: "⚔️ Party Recruit",
         value: [
-          "`/profile_set` - 내 프로필 등록",
-          "`/party_recruit` - 버튼형 파티 모집글 생성",
-          "(참가/나가기/마감 버튼 지원)",
+          "`/profile_set` - Register your profile",
+          "`/party_recruit` - Create button-based recruit panel",
+          "(supports Join / Leave / Close buttons)",
         ].join("\n"),
       },
       {
-        name: "❓ 도움말",
-        value: "`/help` 또는 `/guide`",
+        name: "❓ Help",
+        value: "`/help` or `/guide`",
       }
     )
     .setColor(0x3b82f6)
     .setFooter({
-      text: "필요 시 /guide public:false 로 나만 보기(에페메랄) 가능",
+      text: "Use /guide public:false to send it only to yourself (ephemeral)",
     });
 
   return [embed1, embed2];
