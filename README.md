@@ -43,6 +43,10 @@ https://koreanbots.dev/bots/1436590099235340410
    - `/invite_status` to inspect invite automation setup
 
 6. **Kinah Rate Crawler**
+   - `/kinah_watch_preset` for quick setup:
+     - `itembay_aion2`
+     - `itemmania_aion2`
+     - `dual_market_aion2`
    - `/kinah_watch_set` to configure source/channel/selector/regex
    - `/kinah_watch_now` for immediate fetch
    - `/kinah_watch_status` and `/kinah_watch_stop`

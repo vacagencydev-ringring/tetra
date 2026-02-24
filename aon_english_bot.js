@@ -32,6 +32,28 @@ const DEFAULT_NOTICE_SOURCES = [
   },
 ];
 const NOTICE_CATEGORIES = ["notice", "update", "event", "maintenance"];
+const KINAH_PRESET_TYPES = [
+  "itembay_aion2",
+  "itemmania_aion2",
+  "dual_market_aion2",
+];
+const KINAH_PRESET_DEFAULTS = {
+  itembay_aion2: {
+    primaryUrl: "https://www.itembay.com/item/sell/game-3603/type-3",
+    sourceKeyword: "아이온2 키나",
+  },
+  itemmania_aion2: {
+    primaryUrl:
+      "https://trade.itemmania.com/list/search.html?searchString=%EC%95%84%EC%9D%B4%EC%98%A82%20%ED%82%A4%EB%82%98",
+    sourceKeyword: "아이온2 키나",
+  },
+  dual_market_aion2: {
+    primaryUrl: "https://www.itembay.com/item/sell/game-3603/type-3",
+    secondaryUrl:
+      "https://trade.itemmania.com/list/search.html?searchString=%EC%95%84%EC%9D%B4%EC%98%A82%20%ED%82%A4%EB%82%98",
+    sourceKeyword: "아이온2 키나",
+  },
+};
 
 const BOSS_PRESETS = {
   elyos: [
@@ -74,14 +96,18 @@ function createNoticeChannelMap(seed = null) {
 function createDefaultKinahWatch(seed = null) {
   const base = {
     enabled: false,
+    sourcePreset: null,
+    sourceKeyword: "아이온2 키나",
     channelId: null,
     sourceUrl: null,
+    secondarySourceUrl: null,
     selector: null,
     valueRegex: null,
     pollMinutes: 5,
     mentionRoleId: null,
     lastRate: null,
     lastRawText: null,
+    lastSourceSummary: null,
     lastCheckedAt: null,
     lastPostedAt: null,
     lastError: null,
@@ -90,6 +116,15 @@ function createDefaultKinahWatch(seed = null) {
   return {
     ...base,
     enabled: Boolean(seed.enabled),
+    sourcePreset:
+      typeof seed.sourcePreset === "string" &&
+      KINAH_PRESET_TYPES.includes(seed.sourcePreset)
+        ? seed.sourcePreset
+        : null,
+    sourceKeyword:
+      typeof seed.sourceKeyword === "string" && seed.sourceKeyword.length
+        ? seed.sourceKeyword
+        : base.sourceKeyword,
     channelId:
       typeof seed.channelId === "string" && seed.channelId.length
         ? seed.channelId
@@ -97,6 +132,10 @@ function createDefaultKinahWatch(seed = null) {
     sourceUrl:
       typeof seed.sourceUrl === "string" && seed.sourceUrl.length
         ? seed.sourceUrl
+        : null,
+    secondarySourceUrl:
+      typeof seed.secondarySourceUrl === "string" && seed.secondarySourceUrl.length
+        ? seed.secondarySourceUrl
         : null,
     selector:
       typeof seed.selector === "string" && seed.selector.length
@@ -120,6 +159,10 @@ function createDefaultKinahWatch(seed = null) {
     lastRawText:
       typeof seed.lastRawText === "string" && seed.lastRawText.length
         ? seed.lastRawText
+        : null,
+    lastSourceSummary:
+      typeof seed.lastSourceSummary === "string" && seed.lastSourceSummary.length
+        ? seed.lastSourceSummary
         : null,
     lastCheckedAt: Number.isFinite(Number(seed.lastCheckedAt))
       ? Number(seed.lastCheckedAt)
@@ -584,6 +627,241 @@ function parseNumericValue(token) {
   return Number.isFinite(value) ? value : null;
 }
 
+function pickMedian(values) {
+  if (!Array.isArray(values) || values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  return sorted[mid];
+}
+
+function pickTrimmedMedian(values) {
+  if (!Array.isArray(values) || values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  if (sorted.length <= 4) return pickMedian(sorted);
+  const trimCount = Math.floor(sorted.length * 0.1);
+  const trimmed =
+    trimCount > 0 && sorted.length - trimCount * 2 >= 3
+      ? sorted.slice(trimCount, sorted.length - trimCount)
+      : sorted;
+  return pickMedian(trimmed);
+}
+
+function collectJsonNodes(value, out = []) {
+  if (value == null) return out;
+  if (Array.isArray(value)) {
+    for (const item of value) collectJsonNodes(item, out);
+    return out;
+  }
+  if (typeof value === "object") {
+    out.push(value);
+    for (const child of Object.values(value)) {
+      if (child && typeof child === "object") collectJsonNodes(child, out);
+    }
+  }
+  return out;
+}
+
+function parseJsonLdBlocks($) {
+  const parsed = [];
+  $('script[type="application/ld+json"]').each((_, element) => {
+    const raw = $(element).contents().text().trim();
+    if (!raw) return;
+    try {
+      parsed.push(JSON.parse(raw));
+    } catch (_) {}
+  });
+  return parsed;
+}
+
+function formatKrw(value) {
+  if (!Number.isFinite(value)) return "N/A";
+  return `${Math.round(value).toLocaleString()} KRW`;
+}
+
+async function fetchItembayAion2Snapshot(sourceUrl) {
+  const url = sourceUrl || KINAH_PRESET_DEFAULTS.itembay_aion2.primaryUrl;
+  const { data } = await axios.get(url, {
+    timeout: 20_000,
+    maxRedirects: 5,
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      Accept: "text/html,application/xhtml+xml",
+    },
+  });
+  const $ = cheerio.load(data);
+  const canonical = $('link[rel="canonical"]').attr("href") || url;
+  const jsonBlocks = parseJsonLdBlocks($);
+  const nodes = jsonBlocks.flatMap((block) => collectJsonNodes(block));
+
+  const aggregateOffer = nodes.find(
+    (node) =>
+      node["@type"] === "AggregateOffer" &&
+      parseNumericValue(node.lowPrice) != null &&
+      parseNumericValue(node.highPrice) != null
+  );
+  const lowPrice = aggregateOffer ? parseNumericValue(aggregateOffer.lowPrice) : null;
+  const highPrice = aggregateOffer
+    ? parseNumericValue(aggregateOffer.highPrice)
+    : null;
+  const offerCount = aggregateOffer ? parseNumericValue(aggregateOffer.offerCount) : null;
+
+  const listItems = nodes
+    .filter((node) => node["@type"] === "ListItem" && node.item)
+    .map((node) => node.item)
+    .filter((item) => {
+      const name = String(item.name || "");
+      const category = String(item.category || "");
+      return /아이온2|aion2/i.test(`${name} ${category}`);
+    });
+  const kinahItems = listItems.filter((item) =>
+    /키나|kinah|게임머니|game.?money/i.test(
+      `${item.name || ""} ${item.description || ""}`
+    )
+  );
+
+  const prices = (kinahItems.length ? kinahItems : listItems)
+    .map((item) => parseNumericValue(item?.offers?.price))
+    .filter((value) => value != null);
+  const representative =
+    pickTrimmedMedian(prices) ?? lowPrice ?? pickMedian(prices) ?? highPrice;
+  if (!Number.isFinite(representative)) {
+    throw new Error("ItemBay AION2 parser could not find numeric price.");
+  }
+
+  // Use trimmed price range for snippet (exclude outliers) instead of raw schema.org min/max
+  const sorted = [...prices].sort((a, b) => a - b);
+  const trimCount =
+    sorted.length > 4 ? Math.floor(sorted.length * 0.1) : 0;
+  const trimmed =
+    trimCount > 0 && sorted.length - trimCount * 2 >= 2
+      ? sorted.slice(trimCount, sorted.length - trimCount)
+      : sorted;
+  const displayLow = trimmed.length ? trimmed[0] : lowPrice;
+  const displayHigh = trimmed.length ? trimmed[trimmed.length - 1] : highPrice;
+
+  return {
+    token: formatKrw(representative),
+    numeric: Math.round(representative),
+    snippet: `ItemBay AION2 game-money low ${formatKrw(displayLow)} / high ${formatKrw(
+      displayHigh
+    )} / offers ${offerCount ? offerCount.toLocaleString() : "N/A"}`,
+    sourceUrl: canonical,
+    sourceName: "ItemBay AION2",
+    sourceSummary: `ItemBay:${formatKrw(representative)}`,
+  };
+}
+
+async function fetchItemmaniaAion2Snapshot(sourceUrl, sourceKeyword) {
+  const url = sourceUrl || KINAH_PRESET_DEFAULTS.itemmania_aion2.primaryUrl;
+  const { data } = await axios.get(url, {
+    timeout: 20_000,
+    maxRedirects: 5,
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      Accept: "text/html,application/xhtml+xml",
+    },
+  });
+  const $ = cheerio.load(data);
+  const bodyText = $("body").text().replace(/\r/g, "\n");
+  const keyword = String(sourceKeyword || "아이온2 키나").trim();
+  const keywordLines = bodyText
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .filter((line) => {
+      if (!keyword) return true;
+      const words = keyword.split(/\s+/).filter(Boolean);
+      return words.every((word) => line.toLowerCase().includes(word.toLowerCase()));
+    });
+
+  const candidateText = keywordLines.length
+    ? keywordLines.slice(0, 100).join("\n")
+    : bodyText;
+  const candidates = extractNumericTokens(candidateText)
+    .map((token) => parseNumericValue(token))
+    .filter((value) => value != null)
+    .filter((value) => value >= 10 && value <= 500_000_000);
+
+  const representative = pickTrimmedMedian(candidates) ?? pickMedian(candidates);
+  if (!Number.isFinite(representative)) {
+    throw new Error("ItemMania parser could not find numeric price.");
+  }
+
+  return {
+    token: formatKrw(representative),
+    numeric: Math.round(representative),
+    snippet: `ItemMania keyword: ${keyword || "AION2"} (${candidates.length} candidates)`,
+    sourceUrl: url,
+    sourceName: "ItemMania AION2",
+    sourceSummary: `ItemMania:${formatKrw(representative)}`,
+  };
+}
+
+async function fetchKinahRateByPreset(watchConfig) {
+  const preset = watchConfig?.sourcePreset;
+  if (!KINAH_PRESET_TYPES.includes(preset)) {
+    throw new Error("Unknown kinah preset.");
+  }
+
+  if (preset === "itembay_aion2") {
+    return fetchItembayAion2Snapshot(
+      watchConfig?.sourceUrl || KINAH_PRESET_DEFAULTS.itembay_aion2.primaryUrl
+    );
+  }
+  if (preset === "itemmania_aion2") {
+    return fetchItemmaniaAion2Snapshot(
+      watchConfig?.sourceUrl || KINAH_PRESET_DEFAULTS.itemmania_aion2.primaryUrl,
+      watchConfig?.sourceKeyword
+    );
+  }
+
+  const calls = [
+    fetchItembayAion2Snapshot(
+      watchConfig?.sourceUrl || KINAH_PRESET_DEFAULTS.dual_market_aion2.primaryUrl
+    ),
+    fetchItemmaniaAion2Snapshot(
+      watchConfig?.secondarySourceUrl ||
+        KINAH_PRESET_DEFAULTS.dual_market_aion2.secondaryUrl,
+      watchConfig?.sourceKeyword
+    ),
+  ];
+  const results = await Promise.allSettled(calls);
+  const success = results
+    .filter((r) => r.status === "fulfilled")
+    .map((r) => r.value);
+  if (!success.length) {
+    const reasons = results
+      .filter((r) => r.status === "rejected")
+      .map((r) => r.reason?.message || String(r.reason));
+    throw new Error(`Dual market fetch failed: ${reasons.join(" / ")}`);
+  }
+  if (success.length === 1) return success[0];
+
+  const average =
+    success.reduce((sum, item) => sum + Number(item.numeric || 0), 0) /
+    success.length;
+  const summary = success.map((item) => item.sourceSummary).join(" | ");
+  return {
+    token: formatKrw(average),
+    numeric: Math.round(average),
+    snippet: `Dual market avg from ${success.length} sources`,
+    sourceUrl: success[0].sourceUrl,
+    sourceName: "Dual Market AION2",
+    sourceSummary: summary,
+    sourceValues: success.map((item) => ({
+      name: item.sourceName,
+      token: item.token,
+      numeric: item.numeric,
+      sourceUrl: item.sourceUrl,
+    })),
+  };
+}
+
 function extractKinahValueFromText(text) {
   const lines = String(text || "")
     .split("\n")
@@ -612,6 +890,11 @@ function extractKinahValueFromText(text) {
 }
 
 async function fetchKinahRateSnapshot(watchConfig) {
+  const sourcePreset = String(watchConfig?.sourcePreset || "").trim();
+  if (sourcePreset) {
+    return fetchKinahRateByPreset(watchConfig);
+  }
+
   const sourceUrl = String(watchConfig?.sourceUrl || "").trim();
   if (!sourceUrl) {
     throw new Error("Source URL is not configured.");
@@ -694,13 +977,17 @@ async function fetchKinahRateSnapshot(watchConfig) {
 
 function buildKinahStatusEmbed(guildState) {
   const watch = createDefaultKinahWatch(guildState?.kinah);
+  const presetLabel = watch.sourcePreset || "custom";
   return new EmbedBuilder()
     .setTitle("Kinah Rate Crawler Status")
     .setDescription(
       [
         `Enabled: ${watch.enabled ? "Yes" : "No"}`,
         `Post channel: ${watch.channelId ? `<#${watch.channelId}>` : "Not set"}`,
+        `Preset: ${presetLabel}`,
+        `Keyword: ${watch.sourceKeyword || "N/A"}`,
         `Source URL: ${watch.sourceUrl || "Not set"}`,
+        `Secondary URL: ${watch.secondarySourceUrl || "N/A"}`,
         `Selector: ${watch.selector || "Auto detect"}`,
         `Regex: ${watch.valueRegex || "Auto detect"}`,
         `Poll interval: ${watch.pollMinutes} minute(s)`,
@@ -708,6 +995,7 @@ function buildKinahStatusEmbed(guildState) {
           watch.mentionRoleId ? `<@&${watch.mentionRoleId}>` : "None"
         }`,
         `Last value: ${watch.lastRawText || "N/A"}`,
+        `Last sources: ${watch.lastSourceSummary || "N/A"}`,
         `Last check: ${
           watch.lastCheckedAt ? toDiscordTime(watch.lastCheckedAt) : "N/A"
         }`,
@@ -731,11 +1019,26 @@ function buildKinahRateEmbed(snapshot, previousValue = null) {
       [
         `Current: **${snapshot.token}**`,
         `Change: ${diffLine}`,
+        snapshot.sourceName ? `Source: ${snapshot.sourceName}` : null,
+        snapshot.sourceSummary ? `Source summary: ${snapshot.sourceSummary}` : null,
         snapshot.snippet ? `Snapshot: \`${snapshot.snippet.slice(0, 220)}\`` : null,
         `[Source link](${snapshot.sourceUrl})`,
       ]
         .filter(Boolean)
         .join("\n")
+    )
+    .addFields(
+      ...(Array.isArray(snapshot.sourceValues) && snapshot.sourceValues.length
+        ? [
+            {
+              name: "Source breakdown",
+              value: snapshot.sourceValues
+                .map((item) => `- ${item.name}: ${item.token}`)
+                .join("\n")
+                .slice(0, 1000),
+            },
+          ]
+        : [])
     )
     .setColor(isFirst ? 0x0ea5e9 : diff >= 0 ? 0x22c55e : 0xef4444)
     .setTimestamp();
@@ -1039,6 +1342,8 @@ async function runKinahTicker(client) {
 
       const isChanged = watch.lastRate == null || snapshot.numeric !== watch.lastRate;
       watch.lastRawText = snapshot.token;
+      watch.lastSourceSummary =
+        snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
       if (!isChanged) continue;
 
       const channel = await client.channels.fetch(watch.channelId).catch(() => null);
@@ -1420,7 +1725,8 @@ function buildGuideEmbeds() {
           "`/temp_role_set` `/verified_role_set`",
           "`/verify_channel_set` `/verify_log_set`",
           "`/notice_set` `/notice_status`",
-          "`/kinah_watch_set` `/kinah_watch_stop` `/kinah_watch_status`",
+          "`/kinah_watch_preset` `/kinah_watch_set`",
+          "`/kinah_watch_stop` `/kinah_watch_status`",
           "`/boss_add` `/boss_remove`",
         ].join("\n"),
       },
@@ -1747,6 +2053,47 @@ const commandPayload = [
         .setRequired(false)
     ),
   new SlashCommandBuilder()
+    .setName("kinah_watch_preset")
+    .setDescription("Quick setup for ItemBay/ItemMania AION2 presets")
+    .addStringOption((opt) =>
+      opt
+        .setName("preset")
+        .setDescription("Market preset")
+        .setRequired(true)
+        .addChoices(
+          { name: "ItemBay AION2", value: "itembay_aion2" },
+          { name: "ItemMania AION2", value: "itemmania_aion2" },
+          { name: "Dual Market AION2", value: "dual_market_aion2" }
+        )
+    )
+    .addChannelOption((opt) =>
+      opt
+        .setName("channel")
+        .setDescription("Channel where kinah updates are posted")
+        .setRequired(true)
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+    )
+    .addIntegerOption((opt) =>
+      opt
+        .setName("poll_minutes")
+        .setDescription("How often to check (1-60)")
+        .setRequired(false)
+        .setMinValue(1)
+        .setMaxValue(60)
+    )
+    .addRoleOption((opt) =>
+      opt
+        .setName("mention_role")
+        .setDescription("Optional role mention on updates")
+        .setRequired(false)
+    )
+    .addStringOption((opt) =>
+      opt
+        .setName("source_keyword")
+        .setDescription("Keyword hint (default: 아이온2 키나)")
+        .setRequired(false)
+    ),
+  new SlashCommandBuilder()
     .setName("kinah_watch_now")
     .setDescription("Fetch kinah rate immediately")
     .addBooleanOption((opt) =>
@@ -1950,7 +2297,8 @@ async function handleSlash(interaction) {
           "- /boss_alert_mode /boss_event_multiplier",
           "- /notice_set /notice_status",
           "- /invite_channel_set /invite_create /invite_status",
-          "- /kinah_watch_set /kinah_watch_now /kinah_watch_status",
+          "- /kinah_watch_preset /kinah_watch_set /kinah_watch_now",
+          "- /kinah_watch_status /kinah_watch_stop",
           "- /myinfo_register /verification_status",
           "- /profile_set /party_recruit",
           "- /character /item /collection /build (legacy: !char)",
@@ -2585,6 +2933,61 @@ async function handleSlash(interaction) {
     return;
   }
 
+  if (interaction.commandName === "kinah_watch_preset") {
+    if (!hasManageGuild(interaction)) {
+      await safeEphemeral(interaction, "Manage Server permission is required.");
+      return;
+    }
+    const preset = interaction.options.getString("preset", true);
+    const presetConfig = KINAH_PRESET_DEFAULTS[preset];
+    if (!presetConfig) {
+      await safeEphemeral(interaction, "Invalid preset value.");
+      return;
+    }
+
+    const channel = interaction.options.getChannel("channel", true);
+    const pollMinutes = interaction.options.getInteger("poll_minutes") ?? 5;
+    const mentionRole = interaction.options.getRole("mention_role");
+    const sourceKeyword =
+      (interaction.options.getString("source_keyword") || "").trim() ||
+      presetConfig.sourceKeyword ||
+      "아이온2 키나";
+
+    const watch = createDefaultKinahWatch(guildState.kinah);
+    watch.enabled = true;
+    watch.sourcePreset = preset;
+    watch.sourceKeyword = sourceKeyword;
+    watch.channelId = channel.id;
+    watch.sourceUrl = presetConfig.primaryUrl || null;
+    watch.secondarySourceUrl = presetConfig.secondaryUrl || null;
+    watch.selector = null;
+    watch.valueRegex = null;
+    watch.pollMinutes = Math.max(1, Math.min(60, pollMinutes));
+    watch.mentionRoleId = mentionRole ? mentionRole.id : null;
+    watch.lastError = null;
+
+    let snapshot = null;
+    try {
+      snapshot = await fetchKinahRateSnapshot(watch);
+      watch.lastRate = snapshot.numeric;
+      watch.lastRawText = snapshot.token;
+      watch.lastSourceSummary =
+        snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
+      watch.lastCheckedAt = Date.now();
+      watch.lastError = null;
+    } catch (err) {
+      watch.lastError = err.message || "Initial preset fetch failed.";
+    }
+
+    guildState.kinah = watch;
+    saveState();
+
+    const embeds = [buildKinahStatusEmbed(guildState)];
+    if (snapshot) embeds.push(buildKinahRateEmbed(snapshot, null));
+    await interaction.reply({ embeds, ephemeral: true });
+    return;
+  }
+
   if (interaction.commandName === "kinah_watch_set") {
     if (!hasManageGuild(interaction)) {
       await safeEphemeral(interaction, "Manage Server permission is required.");
@@ -2622,8 +3025,10 @@ async function handleSlash(interaction) {
 
     const watch = createDefaultKinahWatch(guildState.kinah);
     watch.enabled = true;
+    watch.sourcePreset = null;
     watch.channelId = channel.id;
     watch.sourceUrl = sourceUrl;
+    watch.secondarySourceUrl = null;
     watch.selector = selector || null;
     watch.valueRegex = valueRegex || null;
     watch.pollMinutes = Math.max(1, Math.min(60, pollMinutes));
@@ -2635,6 +3040,8 @@ async function handleSlash(interaction) {
       snapshot = await fetchKinahRateSnapshot(watch);
       watch.lastRate = snapshot.numeric;
       watch.lastRawText = snapshot.token;
+      watch.lastSourceSummary =
+        snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
       watch.lastCheckedAt = Date.now();
       watch.lastError = null;
     } catch (err) {
@@ -2679,7 +3086,7 @@ async function handleSlash(interaction) {
     if (!watch.sourceUrl) {
       await safeEphemeral(
         interaction,
-        "Kinah crawler is not configured. Run `/kinah_watch_set` first."
+        "Kinah crawler is not configured. Run `/kinah_watch_preset` or `/kinah_watch_set` first."
       );
       return;
     }
@@ -2701,6 +3108,8 @@ async function handleSlash(interaction) {
     const previousRate = watch.lastRate;
     watch.lastRate = snapshot.numeric;
     watch.lastRawText = snapshot.token;
+    watch.lastSourceSummary =
+      snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
     watch.lastCheckedAt = Date.now();
     watch.lastError = null;
     guildState.kinah = watch;
