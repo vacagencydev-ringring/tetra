@@ -279,6 +279,22 @@ function sanitizeChannelName(raw) {
     .slice(0, 32);
 }
 
+function cleanApiText(raw, fallback = "N/A") {
+  const entityMap = {
+    "&amp;": "&",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&quot;": '"',
+    "&#39;": "'",
+  };
+  const cleaned = String(raw ?? "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&(amp|lt|gt|quot|#39);/g, (match) => entityMap[match] || match)
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || fallback;
+}
+
 function createPartyId() {
   return `${Date.now().toString(36)}${Math.random()
     .toString(36)
@@ -668,11 +684,11 @@ async function searchCharacterByName(name, filters = {}) {
     : null;
 
   const mapped = list.map((entry) => ({
-    name: entry.name.trim(),
+    name: cleanApiText(entry.name, "Unknown"),
     level: String(entry.level),
-    server: serverMap[entry.serverId] || entry.serverName || "N/A",
+    server: cleanApiText(serverMap[entry.serverId] || entry.serverName || "N/A"),
     race: entry.race === 1 ? "Elyos" : entry.race === 2 ? "Asmodian" : "N/A",
-    className: pcMap[entry.pcId] || "N/A",
+    className: cleanApiText(pcMap[entry.pcId] || "N/A"),
     imageUrl: entry.profileImageUrl
       ? PROFILE_IMG_BASE + entry.profileImageUrl
       : null,
@@ -763,6 +779,9 @@ async function scrapeCharacterByUrl(url) {
 
     return {
       ...raw,
+      name: cleanApiText(raw.name, "Unknown"),
+      server: cleanApiText(raw.server, "N/A"),
+      className: cleanApiText(raw.className, "N/A"),
       resultCount: 1,
     };
   } finally {
