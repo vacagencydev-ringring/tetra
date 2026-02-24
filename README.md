@@ -6,14 +6,11 @@ https://koreanbots.dev/bots/1436590099235340410
 ## Implemented Features
 
 1. **Smart Verification System**
-   - `/myinfo_register` creates private verification channel
-   - Admin review buttons: Approve / Reject
-   - Admin setup commands:
-     - `/temp_role_set`
-     - `/verified_role_set`
-     - `/verify_channel_set`
-     - `/verify_log_set`
-     - `/verification_status`
+   - `/myinfo_register character_name:<name>` — Creates private verification channel
+   - User uploads in-game screenshot; staff clicks **Approve** or **Reject**
+   - On Approve: character name added to Member_List_* → 회원목록정리 (column G)
+   - Admin setup: `/verify_channel_set category:<category>` — Where verification channels are created
+   - `/join_verify` — Optional character name field; also adds to 회원목록정리
 
 2. **Field Boss Manager**
    - `/preset` (elyos/asmodian/combined)
@@ -43,6 +40,10 @@ https://koreanbots.dev/bots/1436590099235340410
    - `/invite_status` to inspect invite automation setup
 
 6. **Kinah Rate Crawler**
+   - `/kinah_watch_preset` for quick setup:
+     - `itembay_aion2`
+     - `itemmania_aion2`
+     - `dual_market_aion2`
    - `/kinah_watch_set` to configure source/channel/selector/regex
    - `/kinah_watch_now` for immediate fetch
    - `/kinah_watch_status` and `/kinah_watch_stop`
@@ -55,9 +56,9 @@ https://koreanbots.dev/bots/1436590099235340410
    - `/collection` (stat-based lookup links)
    - `/build` (build/skill-tree lookup links)
 
-8. **Guide Panel Command**
-   - `/guide` posts a full command guide panel (capture-style)
-   - `/guide public:false` sends it as ephemeral to yourself
+8. **Guides**
+   - **`/guide`** — Member guide (English), all members can post, no Admin required
+   - **`/panel type:guide_ko`** `guide_en` — Full guides (Admin only)
 
 ## Environment Variables
 

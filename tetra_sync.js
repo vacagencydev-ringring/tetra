@@ -10,7 +10,10 @@ app.listen(PORT, () => console.log(`[TETRA] Keep-alive server on port ${PORT}`))
 
 const {
     Client,
+    ChannelType,
     GatewayIntentBits,
+    PermissionFlagsBits,
+    MessageFlags,
     SlashCommandBuilder,
     ModalBuilder,
     TextInputBuilder,
@@ -19,6 +22,7 @@ const {
     EmbedBuilder,
     ButtonBuilder,
     ButtonStyle,
+    StringSelectMenuBuilder,
     AttachmentBuilder,
     REST,
     Routes
@@ -33,22 +37,954 @@ const puppeteer = require('puppeteer');
 // [1] 설정
 // ═══════════════════════════════════════════════════════════
 const fs = require('fs');
+const DEFAULT_STATE_DIR = path.join(__dirname, '.state');
+const RENDER_PERSISTENT_STATE_DIR = '/var/data';
+const RAW_ENV_STATE_DIR = String(process.env.STATE_DIR || '').trim();
+const IS_RENDER_ENV = Boolean(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_INSTANCE_ID);
+const LEGACY_STATE_FILES = {
+    panel: path.join(__dirname, 'panel_state.json'),
+    kinah: path.join(__dirname, 'kinah_state.json'),
+    aonTranslate: path.join(__dirname, 'aon_translate_state.json'),
+};
+
+function ensureDirectory(dirPath) {
+    try {
+        fs.mkdirSync(dirPath, { recursive: true });
+        return true;
+    } catch (err) {
+        console.error(`[state] failed to create directory: ${dirPath} -> ${err.message}`);
+        return false;
+    }
+}
+
+function canWriteDirectory(dirPath) {
+    try {
+        if (!ensureDirectory(dirPath)) return false;
+        fs.accessSync(dirPath, fs.constants.W_OK);
+        return true;
+    } catch (err) {
+        console.warn(`[state] directory is not writable: ${dirPath} -> ${err.message}`);
+        return false;
+    }
+}
+
+function readJsonFile(filePath) {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(raw);
+}
+
+function loadJsonState(primaryPath, legacyPath, fallbackValue) {
+    try {
+        return readJsonFile(primaryPath);
+    } catch (_) {}
+
+    if (legacyPath && legacyPath !== primaryPath) {
+        try {
+            const migrated = readJsonFile(legacyPath);
+            saveJsonState(primaryPath, migrated);
+            console.log(`[state] migrated ${path.basename(legacyPath)} -> ${primaryPath}`);
+            return migrated;
+        } catch (_) {}
+    }
+    return fallbackValue;
+}
+
+function saveJsonState(primaryPath, value) {
+    ensureDirectory(path.dirname(primaryPath));
+    fs.writeFileSync(primaryPath, JSON.stringify(value, null, 2));
+}
+
+function resolveStateDir() {
+    const candidates = [];
+    if (RAW_ENV_STATE_DIR) candidates.push(path.resolve(RAW_ENV_STATE_DIR));
+    if (IS_RENDER_ENV) candidates.push(RENDER_PERSISTENT_STATE_DIR);
+    candidates.push(path.resolve(DEFAULT_STATE_DIR));
+
+    const tried = new Set();
+    for (const candidate of candidates) {
+        if (!candidate || tried.has(candidate)) continue;
+        tried.add(candidate);
+        if (canWriteDirectory(candidate)) return candidate;
+    }
+    return path.resolve(DEFAULT_STATE_DIR);
+}
+
+const STATE_DIR = resolveStateDir();
+ensureDirectory(STATE_DIR);
+console.log(`[state] using state dir: ${STATE_DIR}`);
+if (IS_RENDER_ENV && !STATE_DIR.startsWith(RENDER_PERSISTENT_STATE_DIR)) {
+    console.warn('[state] warning: persistent disk is not active. Configure Render Disk mount `/var/data` and set STATE_DIR=/var/data.');
+}
+
 const CONFIG = {
     REPORT_CHANNEL: process.env.REPORT_CHANNEL || '1475500753089990746',
     SALARY_CHANNEL: process.env.SALARY_CHANNEL || '1475449233757966438',
     SHEET_ID: process.env.SHEET_ID || '1-SscA750TuYUd6BcGQF-hXXO_5HI5HxpGkmYo_JXnR8',
     TOKEN: process.env.DISCORD_TOKEN,
     CREDENTIALS_PATH: path.join(__dirname, 'credentials.json.json'),
-    PANEL_STATE_PATH: path.join(__dirname, 'panel_state.json'),
+    STATE_DIR,
+    PANEL_STATE_PATH: path.join(STATE_DIR, 'panel_state.json'),
+    KINAH_STATE_PATH: path.join(STATE_DIR, 'kinah_state.json'),
+    KINAH_TICKER_MS: Math.max(60_000, parseInt(process.env.KINAH_TICKER_MS || '300000', 10) || 300_000),
+    AON_TRANSLATE_STATE_PATH: path.join(STATE_DIR, 'aon_translate_state.json'),
+    AON_SOURCE_BOT_ID: process.env.AON_SOURCE_BOT_ID || '1436590099235340410',
     PANEL_IMAGES: {
         salary: path.join(__dirname, 'panels', 'salary.png')
-    }
+    },
+    MVP_SCHEDULE_PATH: path.join(STATE_DIR, 'mvp_schedule.json'),
+    BOSS_STATE_PATH: path.join(STATE_DIR, 'boss_state.json'),
+    VERIFY_PENDING_PATH: path.join(STATE_DIR, 'verify_pending.json'),
+    BOSS_WARNING_MINUTES: Math.max(1, parseInt(process.env.BOSS_WARNING_MINUTES || '10', 10) || 10),
+    BOSS_TICKER_MS: Math.max(10_000, parseInt(process.env.BOSS_TICKER_MS || '60000', 10) || 60_000),
 };
 
-function loadPanelState() { try { return JSON.parse(fs.readFileSync(CONFIG.PANEL_STATE_PATH, 'utf8')); } catch { return {}; } }
-function savePanelState(s) { fs.writeFileSync(CONFIG.PANEL_STATE_PATH, JSON.stringify(s, null, 2)); }
+const RUNTIME_STATE_SHEET_NAME = process.env.RUNTIME_STATE_SHEET_NAME || 'Bot_Runtime_State';
+const ENABLE_SHEETS_STATE = String(process.env.ENABLE_SHEETS_STATE || 'true').toLowerCase() !== 'false';
+let runtimeStateSheetReady = false;
+let runtimeStatePersistenceActive = false;
+let runtimeStateFlushTimer = null;
+let runtimeStateFlushInFlight = false;
+let runtimeStateLastPayloadHash = '';
+
+async function getSheetsApiForState() {
+    const auth = new google.auth.GoogleAuth({
+        keyFile: CONFIG.CREDENTIALS_PATH,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    return google.sheets({ version: 'v4', auth });
+}
+
+async function ensureRuntimeStateSheet() {
+    if (runtimeStateSheetReady) return true;
+    try {
+        const sheets = await getSheetsApiForState();
+        const meta = await sheets.spreadsheets.get({
+            spreadsheetId: CONFIG.SHEET_ID,
+            fields: 'sheets.properties.title',
+        });
+        const titles = (meta.data?.sheets || []).map(s => s.properties?.title).filter(Boolean);
+        if (!titles.includes(RUNTIME_STATE_SHEET_NAME)) {
+            await sheets.spreadsheets.batchUpdate({
+                spreadsheetId: CONFIG.SHEET_ID,
+                requestBody: {
+                    requests: [{ addSheet: { properties: { title: RUNTIME_STATE_SHEET_NAME } } }],
+                },
+            });
+        }
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: CONFIG.SHEET_ID,
+            range: `${RUNTIME_STATE_SHEET_NAME}!A1:B1`,
+            valueInputOption: 'RAW',
+            requestBody: { values: [['key', 'json_or_value']] },
+        });
+        runtimeStateSheetReady = true;
+        return true;
+    } catch (err) {
+        console.warn(`[state] runtime sheet init failed: ${err.message}`);
+        return false;
+    }
+}
+
+function buildRuntimeStateRows() {
+    const panelStateSnapshot = loadPanelState();
+    return [
+        ['panel_state_json', JSON.stringify(panelStateSnapshot)],
+        ['kinah_state_json', JSON.stringify(kinahState)],
+        ['aon_translate_state_json', JSON.stringify(aonTranslateState)],
+        ['updated_at', String(Date.now())],
+    ];
+}
+
+async function loadRuntimeStateFromSheet() {
+    if (!ENABLE_SHEETS_STATE) return null;
+    const ready = await ensureRuntimeStateSheet();
+    if (!ready) return null;
+    try {
+        const sheets = await getSheetsApiForState();
+        const { data } = await sheets.spreadsheets.values.get({
+            spreadsheetId: CONFIG.SHEET_ID,
+            range: `${RUNTIME_STATE_SHEET_NAME}!A2:B5`,
+        });
+        const rows = data?.values || [];
+        const map = new Map(rows.map(row => [String(row[0] || '').trim(), String(row[1] || '').trim()]));
+        const panelRaw = map.get('panel_state_json');
+        const kinahRaw = map.get('kinah_state_json');
+        const aonRaw = map.get('aon_translate_state_json');
+        return {
+            panel: panelRaw ? JSON.parse(panelRaw) : null,
+            kinah: kinahRaw ? JSON.parse(kinahRaw) : null,
+            aonTranslate: aonRaw ? JSON.parse(aonRaw) : null,
+        };
+    } catch (err) {
+        console.warn(`[state] runtime sheet load failed: ${err.message}`);
+        return null;
+    }
+}
+
+async function flushRuntimeStateToSheet(force = false) {
+    if (!runtimeStatePersistenceActive || !ENABLE_SHEETS_STATE) return false;
+    if (runtimeStateFlushInFlight) return false;
+    runtimeStateFlushInFlight = true;
+    try {
+        const payloadHash = JSON.stringify({
+            panel: loadPanelState(),
+            kinah: kinahState,
+            aonTranslate: aonTranslateState,
+        });
+        if (!force && payloadHash === runtimeStateLastPayloadHash) return true;
+        const ready = await ensureRuntimeStateSheet();
+        if (!ready) return false;
+        const sheets = await getSheetsApiForState();
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: CONFIG.SHEET_ID,
+            range: `${RUNTIME_STATE_SHEET_NAME}!A2:B5`,
+            valueInputOption: 'RAW',
+            requestBody: { values: buildRuntimeStateRows() },
+        });
+        runtimeStateLastPayloadHash = payloadHash;
+        console.log('[state] runtime state synced to Google Sheet.');
+        return true;
+    } catch (err) {
+        console.warn(`[state] runtime sheet flush failed: ${err.message}`);
+        return false;
+    } finally {
+        runtimeStateFlushInFlight = false;
+    }
+}
+
+function scheduleRuntimeStateFlush(force = false) {
+    if (!runtimeStatePersistenceActive || !ENABLE_SHEETS_STATE) return;
+    if (runtimeStateFlushTimer) return;
+    runtimeStateFlushTimer = setTimeout(() => {
+        runtimeStateFlushTimer = null;
+        flushRuntimeStateToSheet(force).catch(() => {});
+    }, 2000);
+}
+
+async function hydrateRuntimeStateFromSheet() {
+    if (!ENABLE_SHEETS_STATE) return false;
+    const ready = await ensureRuntimeStateSheet();
+    if (!ready) {
+        runtimeStatePersistenceActive = false;
+        return false;
+    }
+    runtimeStatePersistenceActive = true;
+    const loaded = await loadRuntimeStateFromSheet();
+    let hydrated = false;
+
+    if (loaded?.kinah && typeof loaded.kinah === 'object') {
+        kinahState.guilds = loaded.kinah.guilds && typeof loaded.kinah.guilds === 'object' ? loaded.kinah.guilds : {};
+        hydrated = true;
+    }
+    if (loaded?.panel && typeof loaded.panel === 'object') {
+        saveJsonState(CONFIG.PANEL_STATE_PATH, loaded.panel);
+        hydrated = true;
+    }
+    if (loaded?.aonTranslate && typeof loaded.aonTranslate === 'object') {
+        aonTranslateState.guilds = loaded.aonTranslate.guilds && typeof loaded.aonTranslate.guilds === 'object'
+            ? loaded.aonTranslate.guilds
+            : {};
+        hydrated = true;
+    }
+
+    if (hydrated) {
+        saveKinahState();
+        saveAonTranslateState();
+        console.log('[state] loaded runtime state from Google Sheet.');
+    } else {
+        console.log('[state] no remote runtime state found. Initializing sheet snapshot.');
+    }
+    await flushRuntimeStateToSheet(true);
+    return hydrated;
+}
+
+function loadPanelState() {
+    const parsed = loadJsonState(CONFIG.PANEL_STATE_PATH, LEGACY_STATE_FILES.panel, {});
+    return parsed && typeof parsed === 'object' ? parsed : {};
+}
+function loadVerifyPendingState() {
+    const parsed = loadJsonState(CONFIG.VERIFY_PENDING_PATH, null, { pending: {} });
+    parsed.pending = parsed.pending && typeof parsed.pending === 'object' ? parsed.pending : {};
+    return parsed;
+}
+function saveVerifyPendingState(state) {
+    saveJsonState(CONFIG.VERIFY_PENDING_PATH, state || { pending: {} });
+}
+function savePanelState(s) {
+    saveJsonState(CONFIG.PANEL_STATE_PATH, s || {});
+    scheduleRuntimeStateFlush(true);
+}
 
 const panelUpdateLocks = new Set();
+const MVP_DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function loadMvpScheduleState() {
+    try {
+        const raw = fs.readFileSync(CONFIG.MVP_SCHEDULE_PATH, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return { guilds: {} };
+        parsed.guilds = parsed.guilds || {};
+        return parsed;
+    } catch { return { guilds: {} }; }
+}
+const mvpScheduleState = loadMvpScheduleState();
+function saveMvpScheduleState() {
+    ensureDirectory(path.dirname(CONFIG.MVP_SCHEDULE_PATH));
+    fs.writeFileSync(CONFIG.MVP_SCHEDULE_PATH, JSON.stringify(mvpScheduleState, null, 2));
+}
+function parseTime24(str) {
+    const m = String(str || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    const h = parseInt(m[1], 10);
+    const min = parseInt(m[2], 10);
+    if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+    return { hour: h, minute: min };
+}
+
+const BOSS_PRESETS = {
+    elyos: [
+        { name: 'Tahabata', respawnMinutes: 360 },
+        { name: 'Bakarma', respawnMinutes: 300 },
+        { name: 'Anuhart', respawnMinutes: 240 },
+        { name: 'Kromede', respawnMinutes: 180 },
+        { name: 'Asteria Guardian', respawnMinutes: 180 },
+    ],
+    asmodian: [
+        { name: 'Padmarashka', respawnMinutes: 420 },
+        { name: 'Debilkarim', respawnMinutes: 300 },
+        { name: 'Lannok', respawnMinutes: 240 },
+        { name: 'Flame Lord Calindi', respawnMinutes: 180 },
+        { name: 'Miren Guardian', respawnMinutes: 180 },
+    ],
+};
+function loadBossState() {
+    try {
+        const raw = fs.readFileSync(CONFIG.BOSS_STATE_PATH, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return { guilds: {} };
+        parsed.guilds = parsed.guilds || {};
+        return parsed;
+    } catch { return { guilds: {} }; }
+}
+const bossState = loadBossState();
+function saveBossState() {
+    ensureDirectory(path.dirname(CONFIG.BOSS_STATE_PATH));
+    fs.writeFileSync(CONFIG.BOSS_STATE_PATH, JSON.stringify(bossState, null, 2));
+}
+function ensureBossGuildState(guildId) {
+    if (!bossState.guilds[guildId]) {
+        bossState.guilds[guildId] = {
+            bosses: {},
+            bossChannelId: null,
+            bossSettings: { eventMultiplier: 1, dmSubscribers: [] },
+        };
+    }
+    const g = bossState.guilds[guildId];
+    g.bosses = g.bosses || {};
+    g.bossSettings = g.bossSettings || { eventMultiplier: 1, dmSubscribers: [] };
+    g.bossSettings.eventMultiplier = Number.isFinite(Number(g.bossSettings.eventMultiplier))
+        ? Math.min(2, Math.max(0.1, Number(g.bossSettings.eventMultiplier)))
+        : 1;
+    g.bossSettings.dmSubscribers = Array.isArray(g.bossSettings.dmSubscribers) ? g.bossSettings.dmSubscribers : [];
+    return g;
+}
+function normalizeBossName(name) {
+    return String(name || '').toLowerCase().trim().replace(/\s+/g, ' ');
+}
+function formatDuration(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    if (hours === 0) return `${minutes}m`;
+    return `${hours}h ${minutes}m`;
+}
+function statusForBoss(boss, now = Date.now()) {
+    if (!boss.nextSpawnAt) return 'Not tracked yet';
+    const remaining = boss.nextSpawnAt - now;
+    if (remaining <= 0) return 'Spawned';
+    return `${formatDuration(remaining)} left`;
+}
+function resolveBoss(guildState, inputName) {
+    const key = normalizeBossName(inputName);
+    if (!key) return { error: 'empty' };
+    if (guildState.bosses[key]) return { boss: guildState.bosses[key] };
+    const matches = Object.values(guildState.bosses).filter(b =>
+        normalizeBossName(b.name).includes(key)
+    );
+    if (matches.length === 1) return { boss: matches[0] };
+    if (matches.length > 1) return { error: 'ambiguous', matches };
+    return { error: 'missing' };
+}
+function listPreset(mode) {
+    if (mode === 'combined') return [...BOSS_PRESETS.elyos, ...BOSS_PRESETS.asmodian];
+    return BOSS_PRESETS[mode] || [];
+}
+function getBossEventMultiplier(guildState) {
+    const value = Number(guildState?.bossSettings?.eventMultiplier ?? 1);
+    if (!Number.isFinite(value) || value <= 0) return 1;
+    return Math.min(2, Math.max(0.1, value));
+}
+function getEffectiveRespawnMinutes(guildState, boss) {
+    return Math.max(1, Math.round(boss.respawnMinutes * getBossEventMultiplier(guildState)));
+}
+function buildBossListEmbed(guildState) {
+    const bosses = Object.values(guildState.bosses || {});
+    const now = Date.now();
+    const multiplier = getBossEventMultiplier(guildState);
+    const sorted = bosses.sort((a, b) =>
+        (a.nextSpawnAt || Number.MAX_SAFE_INTEGER) - (b.nextSpawnAt || Number.MAX_SAFE_INTEGER)
+    );
+    const lines = sorted.map(boss => {
+        const next = boss.nextSpawnAt ? toDiscordTime(boss.nextSpawnAt) : 'N/A';
+        const effective = getEffectiveRespawnMinutes(guildState, boss);
+        const respawnLabel = effective === boss.respawnMinutes
+            ? `${boss.respawnMinutes}m`
+            : `${boss.respawnMinutes}m -> ${effective}m`;
+        return `- **${boss.name}** (${respawnLabel}) -> ${statusForBoss(boss, now)} | Next: ${next}`;
+    });
+    return new EmbedBuilder()
+        .setTitle('Field Boss Board')
+        .setDescription(lines.join('\n').slice(0, 3600) || 'No bosses configured.')
+        .addFields({ name: 'Event multiplier', value: `${multiplier}x`, inline: true })
+        .setColor(0x2563eb)
+        .setTimestamp();
+}
+function buildSingleBossEmbed(guildState, boss) {
+    const next = boss.nextSpawnAt ? toDiscordTime(boss.nextSpawnAt) : 'N/A';
+    const lastCut = boss.lastCutAt ? toDiscordTime(boss.lastCutAt) : 'N/A';
+    const effective = getEffectiveRespawnMinutes(guildState, boss);
+    const respawnLabel = effective === boss.respawnMinutes
+        ? `${boss.respawnMinutes} minutes`
+        : `${boss.respawnMinutes} minutes (event: ${effective} minutes)`;
+    return new EmbedBuilder()
+        .setTitle(`Boss: ${boss.name}`)
+        .setDescription([
+            `Respawn: ${respawnLabel}`,
+            `Status: ${statusForBoss(boss)}`,
+            `Next Spawn: ${next}`,
+            `Last Cut: ${lastCut}`,
+        ].join('\n'))
+        .setColor(0x1d4ed8)
+        .setTimestamp();
+}
+function parseHHmm(input) {
+    const raw = String(input || '').trim();
+    const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return null;
+    const hh = parseInt(match[1], 10);
+    const mm = parseInt(match[2], 10);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+    if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+    return { hh, mm };
+}
+function parseTodayTime(input, preferPast = false) {
+    const parsed = parseHHmm(input);
+    if (!parsed) return null;
+    const d = new Date();
+    d.setHours(parsed.hh, parsed.mm, 0, 0);
+    if (preferPast && d.getTime() > Date.now() + 5 * 60_000) d.setDate(d.getDate() - 1);
+    return d;
+}
+async function sendBossAlert(client, guildState, message) {
+    const dmTargets = Array.isArray(guildState?.bossSettings?.dmSubscribers) ? guildState.bossSettings.dmSubscribers : [];
+    let dmDelivered = false;
+    for (const userId of dmTargets) {
+        const user = await client.users.fetch(userId).catch(() => null);
+        if (user) await user.send(message).then(() => { dmDelivered = true; }).catch(() => {});
+    }
+    if (dmDelivered) return;
+    if (!guildState.bossChannelId) return;
+    const channel = await client.channels.fetch(guildState.bossChannelId).catch(() => null);
+    if (channel?.isTextBased()) await channel.send(message).catch(() => {});
+}
+let bossTickerActive = false;
+async function runBossTicker(client) {
+    if (bossTickerActive) return;
+    bossTickerActive = true;
+    try {
+        const now = Date.now();
+        let changed = false;
+        for (const [guildId, guildState] of Object.entries(bossState.guilds)) {
+            for (const boss of Object.values(guildState.bosses || {})) {
+                if (!boss.nextSpawnAt) continue;
+                const remaining = boss.nextSpawnAt - now;
+                const target = boss.nextSpawnAt;
+                if (remaining <= CONFIG.BOSS_WARNING_MINUTES * 60_000 && remaining > 0 && boss.warnedForSpawnAt !== target) {
+                    await sendBossAlert(client, guildState, `Boss warning: **${boss.name}** spawns in about ${formatDuration(remaining)}.`);
+                    boss.warnedForSpawnAt = target;
+                    changed = true;
+                }
+                if (remaining <= 0 && boss.announcedForSpawnAt !== target) {
+                    await sendBossAlert(client, guildState, `Boss alert: **${boss.name}** should be up now. Record with \`/cut boss_name:${boss.name}\` after kill.`);
+                    boss.announcedForSpawnAt = target;
+                    changed = true;
+                }
+            }
+        }
+        if (changed) saveBossState();
+    } finally {
+        bossTickerActive = false;
+    }
+}
+
+const KINAH_PRESET_TYPES = ['itembay_aion2', 'itemmania_aion2', 'dual_market_aion2'];
+const KINAH_PRESET_DEFAULTS = {
+    itembay_aion2: {
+        primaryUrl: 'https://www.itembay.com/item/sell/game-3603/type-3',
+        sourceKeyword: '아이온2 키나',
+    },
+    itemmania_aion2: {
+        primaryUrl: 'https://trade.itemmania.com/list/search.html?searchString=%EC%95%84%EC%9D%B4%EC%98%A82%20%ED%82%A4%EB%82%98',
+        sourceKeyword: '아이온2 키나',
+    },
+    dual_market_aion2: {
+        primaryUrl: 'https://www.itembay.com/item/sell/game-3603/type-3',
+        secondaryUrl: 'https://trade.itemmania.com/list/search.html?searchString=%EC%95%84%EC%9D%B4%EC%98%A82%20%ED%82%A4%EB%82%98',
+        sourceKeyword: '아이온2 키나',
+    },
+};
+
+function createAonRouteMap(seed = null) {
+    const map = { notice: null, update: null, event: null };
+    if (!seed || typeof seed !== 'object') return map;
+    for (const k of Object.keys(map)) {
+        map[k] = typeof seed[k] === 'string' && seed[k].length ? seed[k] : null;
+    }
+    return map;
+}
+
+function loadAonTranslateState() {
+    const parsed = loadJsonState(CONFIG.AON_TRANSLATE_STATE_PATH, LEGACY_STATE_FILES.aonTranslate, { guilds: {} });
+    if (!parsed || typeof parsed !== 'object') return { guilds: {} };
+    parsed.guilds = parsed.guilds || {};
+    return parsed;
+}
+const aonTranslateState = loadAonTranslateState();
+function saveAonTranslateState() {
+    saveJsonState(CONFIG.AON_TRANSLATE_STATE_PATH, aonTranslateState);
+    scheduleRuntimeStateFlush(true);
+}
+
+function ensureAonTranslateGuildState(guildId) {
+    if (!aonTranslateState.guilds[guildId]) {
+        aonTranslateState.guilds[guildId] = {
+            enabled: false,
+            sourceBotId: CONFIG.AON_SOURCE_BOT_ID,
+            routes: createAonRouteMap(),
+            translatedMessageIds: []
+        };
+    }
+    const g = aonTranslateState.guilds[guildId];
+    g.enabled = Boolean(g.enabled);
+    g.sourceBotId = typeof g.sourceBotId === 'string' && g.sourceBotId.length ? g.sourceBotId : CONFIG.AON_SOURCE_BOT_ID;
+    g.routes = createAonRouteMap(g.routes);
+    g.translatedMessageIds = Array.isArray(g.translatedMessageIds) ? g.translatedMessageIds.slice(-1000) : [];
+    return g;
+}
+
+function createDefaultKinahWatch(seed = null) {
+    const base = {
+        enabled: false,
+        sourcePreset: null,
+        sourceKeyword: '아이온2 키나',
+        channelId: null,
+        sourceUrl: null,
+        secondarySourceUrl: null,
+        selector: null,
+        valueRegex: null,
+        pollMinutes: 5,
+        mentionRoleId: null,
+        lastRate: null,
+        stableRate: null,
+        rateHistory: [],
+        lastRawText: null,
+        lastSourceSummary: null,
+        lastCheckedAt: null,
+        lastPostedAt: null,
+        lastError: null,
+    };
+    if (!seed || typeof seed !== 'object') return base;
+    return {
+        ...base,
+        enabled: Boolean(seed.enabled),
+        sourcePreset: typeof seed.sourcePreset === 'string' && KINAH_PRESET_TYPES.includes(seed.sourcePreset) ? seed.sourcePreset : null,
+        sourceKeyword: typeof seed.sourceKeyword === 'string' && seed.sourceKeyword.length ? seed.sourceKeyword : base.sourceKeyword,
+        channelId: typeof seed.channelId === 'string' && seed.channelId.length ? seed.channelId : null,
+        sourceUrl: typeof seed.sourceUrl === 'string' && seed.sourceUrl.length ? seed.sourceUrl : null,
+        secondarySourceUrl: typeof seed.secondarySourceUrl === 'string' && seed.secondarySourceUrl.length ? seed.secondarySourceUrl : null,
+        selector: typeof seed.selector === 'string' && seed.selector.length ? seed.selector : null,
+        valueRegex: typeof seed.valueRegex === 'string' && seed.valueRegex.length ? seed.valueRegex : null,
+        pollMinutes: Math.max(1, Math.min(60, Number.parseInt(String(seed.pollMinutes || 5), 10) || 5)),
+        mentionRoleId: typeof seed.mentionRoleId === 'string' && seed.mentionRoleId.length ? seed.mentionRoleId : null,
+        lastRate: Number.isFinite(Number(seed.lastRate)) ? Number(seed.lastRate) : null,
+        stableRate: Number.isFinite(Number(seed.stableRate)) ? Number(seed.stableRate) : null,
+        rateHistory: Array.isArray(seed.rateHistory)
+            ? seed.rateHistory.map(v => Number(v)).filter(v => Number.isFinite(v) && v > 0).slice(-10)
+            : [],
+        lastRawText: typeof seed.lastRawText === 'string' && seed.lastRawText.length ? seed.lastRawText : null,
+        lastSourceSummary: typeof seed.lastSourceSummary === 'string' && seed.lastSourceSummary.length ? seed.lastSourceSummary : null,
+        lastCheckedAt: Number.isFinite(Number(seed.lastCheckedAt)) ? Number(seed.lastCheckedAt) : null,
+        lastPostedAt: Number.isFinite(Number(seed.lastPostedAt)) ? Number(seed.lastPostedAt) : null,
+        lastError: typeof seed.lastError === 'string' && seed.lastError.length ? seed.lastError : null,
+    };
+}
+
+function loadKinahState() {
+    const parsed = loadJsonState(CONFIG.KINAH_STATE_PATH, LEGACY_STATE_FILES.kinah, { guilds: {} });
+    if (!parsed || typeof parsed !== 'object') return { guilds: {} };
+    parsed.guilds = parsed.guilds || {};
+    return parsed;
+}
+const kinahState = loadKinahState();
+function saveKinahState() {
+    saveJsonState(CONFIG.KINAH_STATE_PATH, kinahState);
+    scheduleRuntimeStateFlush(true);
+}
+
+function ensureKinahGuildState(guildId) {
+    if (!kinahState.guilds[guildId]) kinahState.guilds[guildId] = { kinah: createDefaultKinahWatch() };
+    const g = kinahState.guilds[guildId];
+    g.kinah = createDefaultKinahWatch(g.kinah);
+    return g;
+}
+
+function hasManageGuild(interaction) {
+    return Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild));
+}
+
+const EPHEMERAL_FLAGS = MessageFlags.Ephemeral;
+
+async function safeEphemeral(interaction, content) {
+    if (interaction.replied || interaction.deferred) {
+        return interaction.followUp({ content, flags: EPHEMERAL_FLAGS }).catch(() => {});
+    }
+    return interaction.reply({ content, flags: EPHEMERAL_FLAGS }).catch(() => {});
+}
+
+function splitForTranslation(text, max = 450) {
+    const input = String(text || '').trim();
+    if (!input) return [];
+    const lines = input.split('\n');
+    const chunks = [];
+    let buf = '';
+    for (const line of lines) {
+        const candidate = buf ? `${buf}\n${line}` : line;
+        if (candidate.length <= max) {
+            buf = candidate;
+        } else {
+            if (buf) chunks.push(buf);
+            if (line.length <= max) {
+                buf = line;
+            } else {
+                // hard wrap long single line
+                for (let i = 0; i < line.length; i += max) chunks.push(line.slice(i, i + max));
+                buf = '';
+            }
+        }
+    }
+    if (buf) chunks.push(buf);
+    return chunks;
+}
+
+function hasHangul(text) {
+    return /[가-힣]/.test(String(text || ''));
+}
+
+function looksMostlyHangul(text) {
+    const value = String(text || '');
+    const letters = value.match(/[가-힣A-Za-z]/g) || [];
+    if (!letters.length) return false;
+    const hangulCount = (value.match(/[가-힣]/g) || []).length;
+    return (hangulCount / letters.length) >= 0.5;
+}
+
+function isWeakKoToEnTranslation(source, candidate) {
+    const src = String(source || '').trim();
+    const out = String(candidate || '').trim();
+    if (!out) return true;
+    if (out.toLowerCase() === src.toLowerCase()) return true;
+    if (hasHangul(src) && looksMostlyHangul(out) && !/[A-Za-z]/.test(out)) return true;
+    return false;
+}
+
+async function translateKoToEnViaMyMemory(text) {
+    const input = String(text || '').trim();
+    if (!input) return null;
+    try {
+        const { data } = await axios.get('https://api.mymemory.translated.net/get', {
+            params: { q: input.slice(0, 450), langpair: 'ko|en' },
+            timeout: 7000
+        });
+        const translated = decodeXmlAttr(data?.responseData?.translatedText || '').trim();
+        return translated || null;
+    } catch {
+        return null;
+    }
+}
+
+async function translateKoToEnViaGoogle(text) {
+    const input = String(text || '').trim();
+    if (!input) return null;
+    try {
+        const { data } = await axios.get('https://translate.googleapis.com/translate_a/single', {
+            params: { client: 'gtx', sl: 'ko', tl: 'en', dt: 't', q: input.slice(0, 2000) },
+            timeout: 7000,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        });
+        if (!Array.isArray(data) || !Array.isArray(data[0])) return null;
+        const translated = data[0]
+            .map(part => (Array.isArray(part) ? String(part[0] || '') : ''))
+            .join('')
+            .trim();
+        return translated || null;
+    } catch {
+        return null;
+    }
+}
+
+async function translateKoToEn(text) {
+    const input = String(text || '').trim();
+    if (!input) return input;
+    if (!hasHangul(input)) return input;
+
+    const firstTry = await translateKoToEnViaMyMemory(input);
+    if (firstTry && !isWeakKoToEnTranslation(input, firstTry)) return firstTry;
+
+    const secondTry = await translateKoToEnViaGoogle(input);
+    if (secondTry && !isWeakKoToEnTranslation(input, secondTry)) return secondTry;
+
+    return input;
+}
+
+async function translateKoToEnLong(text) {
+    const chunks = splitForTranslation(text, 450);
+    if (!chunks.length) return '';
+    const translated = [];
+    for (const chunk of chunks) translated.push(await translateKoToEn(chunk));
+    return translated.join('\n');
+}
+
+const YOUTUBE_VIDEO_ID_PATTERN = /^[a-zA-Z0-9_-]{11}$/;
+const YOUTUBE_HOST_ALLOWLIST = new Set([
+    'youtube.com',
+    'www.youtube.com',
+    'm.youtube.com',
+    'music.youtube.com',
+    'youtu.be',
+    'www.youtu.be',
+]);
+
+function extractYouTubeVideoId(input) {
+    const value = String(input || '').trim();
+    if (!value) return null;
+    if (YOUTUBE_VIDEO_ID_PATTERN.test(value)) return value;
+
+    let url;
+    try {
+        url = new URL(value);
+    } catch (_) {
+        return null;
+    }
+    const host = String(url.hostname || '').toLowerCase();
+    if (!YOUTUBE_HOST_ALLOWLIST.has(host)) return null;
+
+    let candidate = null;
+    if (host.endsWith('youtu.be')) {
+        candidate = url.pathname.split('/').filter(Boolean)[0] || null;
+    } else if (url.pathname === '/watch') {
+        candidate = url.searchParams.get('v');
+    } else if (url.pathname.startsWith('/shorts/')) {
+        candidate = url.pathname.split('/')[2] || null;
+    } else if (url.pathname.startsWith('/embed/')) {
+        candidate = url.pathname.split('/')[2] || null;
+    } else if (url.pathname.startsWith('/live/')) {
+        candidate = url.pathname.split('/')[2] || null;
+    }
+
+    return candidate && YOUTUBE_VIDEO_ID_PATTERN.test(candidate) ? candidate : null;
+}
+
+function buildYouTubeWatchUrl(videoId, withEnglishCaption = false, tryAutoTranslate = false) {
+    const url = new URL('https://www.youtube.com/watch');
+    url.searchParams.set('v', videoId);
+    if (withEnglishCaption) {
+        url.searchParams.set('cc_load_policy', '1');
+        url.searchParams.set('cc_lang_pref', 'en');
+        url.searchParams.set('hl', 'en');
+    }
+    if (tryAutoTranslate) {
+        // If EN track is missing, YouTube may still auto-translate when source captions exist.
+        url.searchParams.set('tlang', 'en');
+    }
+    return url.toString();
+}
+
+function decodeXmlAttr(value) {
+    return String(value || '')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+}
+
+function parseYouTubeEnglishCaptionInfo(captionListXml) {
+    const xml = String(captionListXml || '');
+    const none = { available: false, mode: null, languageCode: null, name: null };
+    if (!xml.includes('<track')) return none;
+
+    const trackRegex = /<track\b([^>]*)>/gi;
+    let fallbackAuto = null;
+    let match;
+    while ((match = trackRegex.exec(xml))) {
+        const attrs = match[1] || '';
+        const languageCode = ((attrs.match(/\blang_code="([^"]+)"/i) || [])[1] || '').trim().toLowerCase();
+        if (!/^en(?:[-_]|$)/i.test(languageCode)) continue;
+
+        const kind = ((attrs.match(/\bkind="([^"]+)"/i) || [])[1] || '').trim().toLowerCase();
+        const nameRaw = ((attrs.match(/\bname="([^"]*)"/i) || [])[1] || '').trim();
+        const parsed = {
+            available: true,
+            mode: kind === 'asr' ? 'auto' : 'manual',
+            languageCode,
+            name: decodeXmlAttr(nameRaw) || 'English'
+        };
+        if (parsed.mode === 'manual') return parsed;
+        fallbackAuto = parsed;
+    }
+    return fallbackAuto || none;
+}
+
+function extractTitleFromWatchHtml(watchHtml) {
+    const html = String(watchHtml || '');
+    if (!html) return '';
+    try {
+        const $ = cheerio.load(html);
+        const title = $('title').first().text().trim();
+        return title.replace(/\s*-\s*YouTube\s*$/i, '').trim();
+    } catch (_) {
+        return '';
+    }
+}
+
+async function fetchYouTubeVideoReadyInfo(videoInput) {
+    const videoId = extractYouTubeVideoId(videoInput);
+    if (!videoId) throw new Error('유효한 YouTube URL 또는 11자리 video id를 입력해 주세요.');
+
+    const watchUrl = buildYouTubeWatchUrl(videoId, false);
+    const readyUrlWithEnCaption = buildYouTubeWatchUrl(videoId, true, true);
+
+    let title = '';
+    try {
+        const { data } = await axios.get('https://www.youtube.com/oembed', {
+            params: { url: watchUrl, format: 'json' },
+            timeout: 10_000,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        });
+        title = String(data?.title || '').trim();
+    } catch (_) {}
+
+    if (!title) {
+        try {
+            const { data } = await axios.get(watchUrl, {
+                timeout: 15_000,
+                maxRedirects: 5,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept-Language': 'ko,en-US;q=0.9,en;q=0.8',
+                }
+            });
+            title = extractTitleFromWatchHtml(data);
+        } catch (_) {}
+    }
+    if (!title) title = `YouTube Video (${videoId})`;
+
+    let captionInfo = { available: false, mode: null, languageCode: null, name: null };
+    try {
+        const { data } = await axios.get('https://www.youtube.com/api/timedtext', {
+            params: { type: 'list', v: videoId },
+            timeout: 10_000,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        });
+        captionInfo = parseYouTubeEnglishCaptionInfo(data);
+    } catch (_) {}
+
+    const translatedTitle = await translateKoToEnLong(title);
+    return {
+        videoId,
+        watchUrl,
+        readyUrl: readyUrlWithEnCaption,
+        title,
+        englishTitle: translatedTitle || title,
+        captionInfo,
+    };
+}
+
+function buildYouTubeReadyEmbed(info) {
+    const modeLabel = info.captionInfo.mode === 'manual'
+        ? 'manual EN track'
+        : info.captionInfo.mode === 'auto'
+            ? 'auto-generated EN track'
+            : null;
+    const captionStatus = info.captionInfo.available
+        ? `✅ English subtitle available (${modeLabel})`
+        : '⚠️ English subtitle track not detected. Link will still try EN auto-translate.';
+    const watchLine = info.captionInfo.available
+        ? `▶️ [Open now (EN subtitle preset)](${info.readyUrl})`
+        : `▶️ [Open now (EN subtitle/auto-translate attempt)](${info.readyUrl})`;
+
+    return new EmbedBuilder()
+        .setTitle('🎬 YouTube Quick Watch')
+        .setDescription([
+            `**Original title**\n${String(info.title || '').slice(0, 500)}`,
+            '',
+            `**English title**\n${String(info.englishTitle || '').slice(0, 500)}`,
+            '',
+            captionStatus,
+            watchLine,
+        ].join('\n').slice(0, 4096))
+        .setColor(info.captionInfo.available ? 0x22c55e : 0xf59e0b)
+        .setFooter({ text: 'Use /youtube_ready or !yt <youtube-url>' })
+        .setTimestamp();
+}
+
+function buildYouTubeReadyCardMessage(info) {
+    const modeLabel = info.captionInfo.available
+        ? (info.captionInfo.mode === 'manual' ? 'EN subtitle preset' : 'EN auto subtitle preset')
+        : 'EN subtitle/auto-translate attempt';
+    const originalTitle = String(info.title || '').trim().slice(0, 160);
+    const englishTitle = String(info.englishTitle || info.title || '').trim().slice(0, 160);
+    return [
+        `🎬 ${originalTitle}`,
+        `🇬🇧 ${englishTitle}`,
+        `▶️ ${modeLabel}`,
+        info.readyUrl,
+    ].join('\n');
+}
+
+function extractFirstYouTubeUrlFromText(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return null;
+    const match = raw.match(/https?:\/\/(?:www\.|m\.|music\.)?(?:youtube\.com\/[^\s]+|youtu\.be\/[^\s]+)/i);
+    if (!match) return null;
+    return String(match[0] || '').replace(/[)\],.!?]+$/g, '');
+}
+
+function buildAonTranslateStatusEmbed(guildState) {
+    const routes = createAonRouteMap(guildState.routes);
+    const routeLine = Object.entries(routes).map(([k, v]) => `- ${k}: ${v ? `<#${v}>` : 'Not set'}`).join('\n');
+    return new EmbedBuilder()
+        .setTitle('AON -> EN Auto Translation')
+        .setDescription([
+            `Enabled: ${guildState.enabled ? 'Yes' : 'No'}`,
+            `Source bot ID: \`${guildState.sourceBotId}\``,
+            `Translated cache: ${guildState.translatedMessageIds.length} message(s)`,
+            '',
+            'Routes',
+            routeLine
+        ].join('\n'))
+        .setColor(0x4F46E5);
+}
 
 const client = new Client({
     intents: [
@@ -61,12 +997,41 @@ const client = new Client({
 // ═══════════════════════════════════════════════════════════
 // [2] 구글 시트 기록
 // ═══════════════════════════════════════════════════════════
-/** Region(PH/ID) → 타임존 & 시트 범위 */
+/** Region(PH/IN/NP/CH/TW) → 타임존 & 시트 범위 */
+const REGION_CONFIGS = [
+    { value: 'ph', code: 'PH', label: 'Philippines', timeZone: 'Asia/Manila', emoji: '🇵🇭', aliases: ['philippines'] },
+    // Legacy compatibility: old "id/indonesia" values are mapped to IN.
+    { value: 'in', code: 'IN', label: 'India', timeZone: 'Asia/Kolkata', emoji: '🇮🇳', aliases: ['india', 'id', 'indonesia'] },
+    { value: 'np', code: 'NP', label: 'Nepal', timeZone: 'Asia/Kathmandu', emoji: '🇳🇵', aliases: ['nepal'] },
+    { value: 'ch', code: 'CH', label: 'China', timeZone: 'Asia/Shanghai', emoji: '🇨🇳', aliases: ['china'] },
+    { value: 'tw', code: 'TW', label: 'Taiwan', timeZone: 'Asia/Taipei', emoji: '🇹🇼', aliases: ['taiwan'] },
+];
+const SUPPORTED_REGION_CODES = REGION_CONFIGS.map(r => r.code).join('/');
+const MEMBER_ORGANIZED_HEADERS = ['Country', 'User ID', 'Discord Tag', 'Display Name', 'Role', 'Joined At', 'Character Name', 'Source Sheet', 'Refreshed At'];
+const REGION_LOOKUP = new Map();
+for (const region of REGION_CONFIGS) {
+    for (const key of [region.value, region.code.toLowerCase(), ...(region.aliases || [])]) {
+        REGION_LOOKUP.set(String(key || '').toLowerCase(), region);
+    }
+}
+
 function getRegionConfig(regionInput) {
-    const r = (regionInput || '').trim().toLowerCase();
-    if (r === 'ph' || r === 'philippines') return { timeZone: 'Asia/Manila', sheetRange: 'Daily_Log_PH!A:G', salarySheetRange: 'Salary_Log_PH!A:D', code: 'PH' };
-    if (r === 'id' || r === 'indonesia') return { timeZone: 'Asia/Jakarta', sheetRange: 'Daily_Log_ID!A:G', salarySheetRange: 'Salary_Log_ID!A:D', code: 'ID' };
-    return null;
+    const region = REGION_LOOKUP.get(String(regionInput || '').trim().toLowerCase());
+    if (!region) return null;
+    return {
+        ...region,
+        sheetRange: `Daily_Log_${region.code}!A:G`,
+        salarySheetRange: `Salary_Log_${region.code}!A:D`,
+        memberSheetRange: `Member_List_${region.code}!A:G`,
+    };
+}
+
+function getRegionChoices() {
+    return REGION_CONFIGS.map(region => ({ name: `${region.label} (${region.code})`, value: region.value }));
+}
+
+function makeLocalTimestamp(timeZone) {
+    return new Date().toLocaleString('sv-SE', { timeZone }).slice(0, 16);
 }
 
 async function appendToSheet(range, values) {
@@ -90,47 +1055,1283 @@ async function appendToSheet(range, values) {
     }
 }
 
+async function readSheetRows(range) {
+    try {
+        const auth = new google.auth.GoogleAuth({
+            keyFile: CONFIG.CREDENTIALS_PATH,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+        const sheets = google.sheets({ version: 'v4', auth });
+        const { data } = await sheets.spreadsheets.values.get({
+            spreadsheetId: CONFIG.SHEET_ID,
+            range,
+        });
+        return { ok: true, values: data.values || [] };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+}
+
+async function updateSheetRows(range, values) {
+    try {
+        const auth = new google.auth.GoogleAuth({
+            keyFile: CONFIG.CREDENTIALS_PATH,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+        const sheets = google.sheets({ version: 'v4', auth });
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: CONFIG.SHEET_ID,
+            range,
+            valueInputOption: 'USER_ENTERED',
+            resource: { values },
+        });
+        return { ok: true };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+}
+
+async function clearSheetRows(range) {
+    try {
+        const auth = new google.auth.GoogleAuth({
+            keyFile: CONFIG.CREDENTIALS_PATH,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+        const sheets = google.sheets({ version: 'v4', auth });
+        await sheets.spreadsheets.values.clear({
+            spreadsheetId: CONFIG.SHEET_ID,
+            range,
+        });
+        return { ok: true };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+}
+
+async function updateMemberListCharacterName(regionCode, userId, characterName) {
+    const range = `Member_List_${regionCode}!A2:G`;
+    const read = await readSheetRows(range);
+    if (!read.ok) return { ok: false, error: read.error };
+    const uid = String(userId || '').trim();
+    const rowIndex = read.values.findIndex(row => String(row[0] || '').trim() === uid);
+    if (rowIndex < 0) return { ok: false, found: false };
+    const sheetRow = rowIndex + 2;
+    const updateRange = `Member_List_${regionCode}!G${sheetRow}`;
+    const up = await updateSheetRows(updateRange, [[String(characterName || '').trim()]]);
+    return up.ok ? { ok: true, found: true } : { ok: false, error: up.error };
+}
+
+function buildJoinCountrySelectRow() {
+    const menu = new StringSelectMenuBuilder()
+        .setCustomId('select_join_country')
+        .setPlaceholder('Select your country')
+        .addOptions(
+            REGION_CONFIGS.map(region => ({
+                label: `${region.label} (${region.code})`,
+                value: region.value,
+                emoji: region.emoji,
+                description: `Register as ${region.label} member`,
+            }))
+        );
+    return new ActionRowBuilder().addComponents(menu);
+}
+
+function buildGuideEmbedsKo() {
+    const e1 = new EmbedBuilder()
+        .setTitle('📖 TETRA Sync 사용법 가이드 (한글)')
+        .setDescription('TETRA Sync 봇의 모든 기능을 한글로 상세 설명합니다.\n_※ Admin 전용 가이드 (Manage Server 권한 필요)_')
+        .setColor(0x5865F2)
+        .addFields(
+            {
+                name: '📌 패널 게시 (모든 타입)',
+                value: '**`/panel type:<종류>`** — 아래 패널을 채널에 게시 (Admin)\n• `report` 일일 리포트 | `salary` 급여 | `join_verify` 가입 인증 | `payment` 입금 | `youtube` 정보 유튜브\n• `guide_ko` 전체 가이드(한글) | `guide_en` 전체 가이드(영어)',
+                inline: false
+            },
+            {
+                name: '📋 1. 일일 리포트',
+                value: '**`/report_kinah region:<지역>`** — 키나 팀: 접속/종료, 당일 수익\n**`/report_levelup region:<지역>`** — 레벨업 팀: 접속/종료, 레벨·CP 진행',
+                inline: false
+            },
+            {
+                name: '💰 2. 급여 확정',
+                value: '**`/salary_confirm region:<지역>`** — 1클릭 급여 수령 확인',
+                inline: false
+            },
+            {
+                name: '✅ 3. 가입 인증',
+                value: '**`/join_verify`** — 국가 선택 → Role 입력 (캐릭터 검증 없음)\n**`/myinfo_register character_name:<이름>`** — 스크린샷 업로드 → 스태프 Approve 시 회원목록정리에 **검증된** 캐릭터명 반영\n**`/join_verify_panel`** — 가입 인증 버튼 패널 게시 (Admin)\n**`/verify_channel_set category:<카테고리>`** — 인증 채널 생성 위치 (Admin)',
+                inline: false
+            },
+            {
+                name: '💎 4. 입금 확인',
+                value: '**`/panel type:payment`** — Submit Payment 버튼으로 금액·사유 입력 → Payment Log 시트 저장',
+                inline: false
+            },
+            {
+                name: '🎬 5. 정보 유튜브',
+                value: '**`/panel type:youtube`** — Add Video로 URL 추가\n**`/youtube_ready video:<URL> post_card:true/false`** — 링크 생성 (KO→EN 제목, EN 자막)',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    const e2 = new EmbedBuilder()
+        .setTitle('⚔️ 6. 필드 보스 타이머')
+        .setColor(0xef4444)
+        .addFields(
+            {
+                name: '설정·조회',
+                value: '**`/preset mode:elyos|asmodian|combined`** — 보스 프리셋 적용 (Admin)\n**`/preset`** — 현재 보스 목록\n**`/boss`** — 보드 전체\n**`/boss boss_name:<이름>`** — 특정 보스',
+                inline: false
+            },
+            {
+                name: '처치·관리',
+                value: '**`/cut boss_name:<이름> killed_at:HH:mm`** — 처치 기록 (killed_at 생략 시 현재 시각)\n**`/server_open open_time:HH:mm`** — 전체 리셋 (Admin)\n**`/boss_add boss_name:<> respawn_minutes:<>`** — 커스텀 보스 추가 (Admin)\n**`/boss_remove boss_name:<>`** — 보스 제거 (Admin)',
+                inline: false
+            },
+            {
+                name: '알림 설정',
+                value: '**`/boss_alert_mode mode:channel|dm`** — 채널/DM 알림 선택\n**`/boss_event_multiplier multiplier:0.1~2`** — 리스폰 배율 (Admin)',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    const e3 = new EmbedBuilder()
+        .setTitle('📊 7. 키나 시세')
+        .setColor(0x22c55e)
+        .addFields(
+            {
+                name: '프리셋 설정',
+                value: '**`/kinah_watch_preset preset:itembay_aion2|itemmania_aion2|dual_market_aion2`** — 채널, poll_minutes, mention_role (Admin)',
+                inline: false
+            },
+            {
+                name: '커스텀·조회',
+                value: '**`/kinah_watch_set channel:<> source_url:<>`** — selector, value_regex, poll_minutes 선택 (Admin)\n**`/kinah_watch_now public_post:true/false`** — 즉시 조회\n**`/kinah_watch_status`** — 상태\n**`/kinah_watch_stop`** — 중지 (Admin)',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    const e4 = new EmbedBuilder()
+        .setTitle('🔍 8. AION2 검색 (한/영 → 결과 영어)')
+        .setColor(0x3b82f6)
+        .addFields(
+            {
+                name: '캐릭터·아이템·빌드',
+                value: '**`/character query:<이름|URL> race:elyos|asmodian class_keyword:<>`** — 캐릭터\n**`/item query:<키워드>`** — 아이템\n**`/collection query:<스탯>`** — 세트 (crit, accuracy 등)\n**`/build query:<클래스>`** — 빌드/스킬트리',
+                inline: false
+            },
+            {
+                name: 'AON 번역',
+                value: '**`/aon_translate_set category:notice|update|event channel:<> enabled:true/false`** — 한국어→영어 라우트 (Admin)\n**`/aon_translate_source bot_id:<>`** — 소스 봇 ID (Admin)\n**`/aon_translate_status`** — 설정 확인',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    const e5 = new EmbedBuilder()
+        .setTitle('🔧 9. 기타')
+        .setColor(0x94a3b8)
+        .addFields(
+            {
+                name: '회원목록·프리픽스',
+                value: '**`/member_list_organize`** — Member_List_* → 회원목록정리 시트 재구성 (Admin)\n**`/myinfo_register`** Approve 시 캐릭터명이 회원목록정리 G열에 반영\n**`!char <캐릭터명>`** — 메시지로 캐릭터 검색 (슬래시 `/character`와 동일)',
+                inline: false
+            }
+        )
+        .setFooter({ text: 'TETRA Sync | 문의: 관리자' })
+        .setTimestamp();
+    return [e1, e2, e3, e4, e5];
+}
+
+function buildGuideEmbedsEn() {
+    const e1 = new EmbedBuilder()
+        .setTitle('📖 TETRA Sync Usage Guide (English)')
+        .setDescription('Complete guide to all TETRA Sync bot features.\n_※ Admin only (Manage Server required)_')
+        .setColor(0x5865F2)
+        .addFields(
+            {
+                name: '📌 Panel Types',
+                value: '**`/panel type:<type>`** — Post a panel to this channel (Admin)\n• `report` Daily report | `salary` Salary | `join_verify` Join | `payment` Payment | `youtube` Info YouTube\n• `guide_ko` Full guide (KR) | `guide_en` Full guide (EN)',
+                inline: false
+            },
+            {
+                name: '📋 1. Daily Report',
+                value: '**`/report_kinah region:<region>`** — Kinah team: Login/Logout, profit\n**`/report_levelup region:<region>`** — Level-Up team: Login/Logout, Level/CP',
+                inline: false
+            },
+            {
+                name: '💰 2. Salary Confirmation',
+                value: '**`/salary_confirm region:<region>`** — 1-click salary receipt confirmation',
+                inline: false
+            },
+            {
+                name: '✅ 3. Join Verification',
+                value: '**`/join_verify`** — Country selection → Role (no character verification)\n**`/myinfo_register character_name:<name>`** — Upload screenshot → staff Approve → **verified** character name added to 회원목록정리\n**`/join_verify_panel`** — Post join verification button panel (Admin)\n**`/verify_channel_set category:<cat>`** — Where verification channels are created (Admin)',
+                inline: false
+            },
+            {
+                name: '💎 4. Payment Confirmation',
+                value: '**`/panel type:payment`** — Submit Payment button → amount & reason → Payment Log sheet',
+                inline: false
+            },
+            {
+                name: '🎬 5. Info YouTube',
+                value: '**`/panel type:youtube`** — Add Video to add URLs\n**`/youtube_ready video:<URL> post_card:true/false`** — Generate link (KO→EN title, EN subtitle)',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    const e2 = new EmbedBuilder()
+        .setTitle('⚔️ 6. Field Boss Timer')
+        .setColor(0xef4444)
+        .addFields(
+            {
+                name: 'Setup & View',
+                value: '**`/preset mode:elyos|asmodian|combined`** — Apply boss preset (Admin)\n**`/preset`** — Current boss list\n**`/boss`** — Full board\n**`/boss boss_name:<name>`** — Specific boss',
+                inline: false
+            },
+            {
+                name: 'Kill & Management',
+                value: '**`/cut boss_name:<name> killed_at:HH:mm`** — Record kill (omit for now)\n**`/server_open open_time:HH:mm`** — Reset all (Admin)\n**`/boss_add boss_name:<> respawn_minutes:<>`** — Add custom boss (Admin)\n**`/boss_remove boss_name:<>`** — Remove boss (Admin)',
+                inline: false
+            },
+            {
+                name: 'Alerts',
+                value: '**`/boss_alert_mode mode:channel|dm`** — Channel or DM alerts\n**`/boss_event_multiplier multiplier:0.1~2`** — Respawn multiplier (Admin)',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    const e3 = new EmbedBuilder()
+        .setTitle('📊 7. Kinah Rate')
+        .setColor(0x22c55e)
+        .addFields(
+            {
+                name: 'Preset',
+                value: '**`/kinah_watch_preset preset:itembay_aion2|itemmania_aion2|dual_market_aion2`** — Channel, poll_minutes, mention_role (Admin)',
+                inline: false
+            },
+            {
+                name: 'Custom & Fetch',
+                value: '**`/kinah_watch_set channel:<> source_url:<>`** — selector, value_regex, poll_minutes optional (Admin)\n**`/kinah_watch_now public_post:true/false`** — Fetch now\n**`/kinah_watch_status`** — Status\n**`/kinah_watch_stop`** — Stop (Admin)',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    const e4 = new EmbedBuilder()
+        .setTitle('🔍 8. AION2 Search (EN/KR → EN results)')
+        .setColor(0x3b82f6)
+        .addFields(
+            {
+                name: 'Character · Item · Build',
+                value: '**`/character query:<name|URL> race:elyos|asmodian class_keyword:<>`** — Character\n**`/item query:<keyword>`** — Item\n**`/collection query:<stat>`** — Set (crit, accuracy)\n**`/build query:<class>`** — Build/skill tree',
+                inline: false
+            },
+            {
+                name: 'AON Translation',
+                value: '**`/aon_translate_set category:notice|update|event channel:<> enabled:true/false`** — KO→EN route (Admin)\n**`/aon_translate_source bot_id:<>`** — Source bot ID (Admin)\n**`/aon_translate_status`** — Config',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    const e5 = new EmbedBuilder()
+        .setTitle('🔧 9. Other')
+        .setColor(0x94a3b8)
+        .addFields(
+            {
+                name: 'Member List · Prefix',
+                value: '**`/member_list_organize`** — Rebuild member list from Member_List_* (Admin)\n**`/myinfo_register`** Approve adds character name to 회원목록정리 column G\n**`!char <character name>`** — Character search via message (same as `/character`)',
+                inline: false
+            }
+        )
+        .setFooter({ text: 'TETRA Sync | Contact: Admin' })
+        .setTimestamp();
+    return [e1, e2, e3, e4, e5];
+}
+
+function buildGuideEmbedsUser() {
+    const e1 = new EmbedBuilder()
+        .setTitle('👤 TETRA Sync — Member Guide (English)')
+        .setDescription('Commands you can use without Manage Server permission.\n_※ All members can post this guide_')
+        .setColor(0x22c55e)
+        .addFields(
+            {
+                name: '📋 Daily Report',
+                value: '**`/report_kinah region:<region>`** — Kinah team: Login, Logout, today\'s profit\n**`/report_levelup region:<region>`** — Level-Up team: Login, Logout, Level & CP progress\n_Or use the Daily Report panel buttons (Kinah / Level-Up) if posted by staff._',
+                inline: false
+            },
+            {
+                name: '💰 Salary',
+                value: '**`/salary_confirm region:<region>`** — 1-click salary receipt confirmation\n_Or use the Salary panel region buttons if posted._',
+                inline: false
+            },
+            {
+                name: '✅ Join Verification',
+                value: '**`/join_verify`** — Country selection → Role (quick signup, no verification)\n**`/myinfo_register character_name:<name>`** — Screenshot required → staff Approve → **verified** character name added to 회원목록정리',
+                inline: false
+            },
+            {
+                name: '💎 Payment Confirmation',
+                value: '_Click **Submit Payment** on the Payment panel (if posted) → enter amount & reason._',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    const e2 = new EmbedBuilder()
+        .setTitle('⚔️ Field Boss')
+        .setColor(0xef4444)
+        .addFields(
+            {
+                name: 'View',
+                value: '**`/preset`** — Current boss list\n**`/boss`** — Full boss board\n**`/boss boss_name:<name>`** — Specific boss status',
+                inline: false
+            },
+            {
+                name: 'Record Kill',
+                value: '**`/cut boss_name:<name>`** — Record kill time (uses current time)\n**`/cut boss_name:<name> killed_at:14:30`** — Record with custom time',
+                inline: false
+            },
+            {
+                name: 'Alerts',
+                value: '**`/boss_alert_mode mode:channel|dm`** — Choose to receive alerts in channel or DM',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    const e3 = new EmbedBuilder()
+        .setTitle('📊 Kinah & Search')
+        .setColor(0x3b82f6)
+        .addFields(
+            {
+                name: 'Kinah Rate',
+                value: '**`/kinah_watch_now`** — Fetch current kinah rate\n**`/kinah_watch_status`** — View kinah config & last value',
+                inline: false
+            },
+            {
+                name: 'AION2 Search (EN/KR → EN results)',
+                value: '**`/character query:<name|URL>`** — Character lookup (optional: race, class_keyword)\n**`/item query:<keyword>`** — Item search\n**`/collection query:<stat>`** — Set by stat (crit, accuracy)\n**`/build query:<class>`** — Build / skill tree',
+                inline: false
+            },
+            {
+                name: 'YouTube & Translation',
+                value: '**`/youtube_ready video:<URL>`** — Generate EN subtitle link for Korean info videos\n**`/aon_translate_status`** — View translation routes',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    const e4 = new EmbedBuilder()
+        .setTitle('🔧 Prefix Command')
+        .setColor(0x94a3b8)
+        .addFields(
+            {
+                name: '!char',
+                value: '**`!char <character name>`** — Same as `/character`, search via message',
+                inline: false
+            }
+        )
+        .addFields({
+                name: 'Post this guide',
+                value: '**`/guide`** — Post this member guide (no Admin required, all members can use)',
+                inline: false
+            })
+        .setFooter({ text: 'TETRA Sync | Member Guide (All members)' })
+        .setTimestamp();
+    return [e1, e2, e3, e4];
+}
+
+function buildJoinVerifyPanelPayload() {
+    const embed = new EmbedBuilder()
+        .setTitle('✅ Join Verification')
+        .setDescription([
+            '**Step 1 — Join Verification:** Choose your country and submit your basic info.',
+            '**Step 2 — Character Verification:** Register your AION2 character with screenshot (staff approval required).',
+            '',
+            `Supported regions: ${SUPPORTED_REGION_CODES}`,
+        ].join('\n'))
+        .setColor(0x22c55e);
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('btn_join_verify_open')
+            .setLabel('1. Join Verification')
+            .setEmoji('🌍')
+            .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+            .setCustomId('btn_char_verify_open')
+            .setLabel('2. Character Verification')
+            .setEmoji('🎮')
+            .setStyle(ButtonStyle.Primary)
+    );
+    return { embeds: [embed], components: [row] };
+}
+
+function isJoinVerifyPanelMessage(message) {
+    if (!message || message.author?.id !== client.user?.id) return false;
+    const hasTitle = Boolean(message.embeds?.[0]?.title?.includes('Join Verification'));
+    const hasButton = Boolean(
+        message.components?.some(row =>
+            row.components?.some(c => c.customId === 'btn_join_verify_open' || c.customId === 'btn_char_verify_open')
+        )
+    );
+    return hasTitle || hasButton;
+}
+
+function createCharVerifyModal() {
+    return new ModalBuilder()
+        .setCustomId('modal_char_verify')
+        .setTitle('Character Verification')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('character_name')
+                    .setLabel('AION2 Character Name')
+                    .setPlaceholder('Your in-game character name')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            )
+        );
+}
+
+async function upsertJoinVerifyPanel(channel) {
+    try {
+        let panels;
+        try {
+            panels = (await channel.messages.fetch({ limit: 100 })).filter(isJoinVerifyPanelMessage);
+        } catch (e) {
+            console.warn('[join_verify] messages.fetch failed:', e.message);
+            panels = { values: () => [] };
+        }
+        for (const msg of panels.values()) await msg.delete().catch(() => {});
+        const sent = await channel.send(buildJoinVerifyPanelPayload());
+        try {
+            panels = (await channel.messages.fetch({ limit: 100 })).filter(isJoinVerifyPanelMessage);
+        } catch (_) {}
+        if (panels?.values) {
+            for (const msg of panels.values()) {
+                if (msg.id !== sent.id) await msg.delete().catch(() => {});
+            }
+        }
+        return sent;
+    } catch (err) {
+        console.error('[join_verify] upsert failed:', err);
+        throw err;
+    }
+}
+
+function createVerifyApproveModal(channelId) {
+    return new ModalBuilder()
+        .setCustomId(`modal_verify_approve_${channelId}`)
+        .setTitle('Approve Verification')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('region')
+                    .setLabel('Region (required)')
+                    .setPlaceholder(`e.g. ph, in, np, ch, tw`)
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('role_note')
+                    .setLabel('Role/Note (optional)')
+                    .setPlaceholder('Optional')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+            ),
+        );
+}
+
+function createJoinVerifyModal(region) {
+    const cfg = getRegionConfig(region);
+    const label = cfg ? `${cfg.label} (${cfg.code})` : String(region || '').toUpperCase();
+    return new ModalBuilder()
+        .setCustomId(`modal_join_verify_${region}`)
+        .setTitle(`Join Verification - ${label}`)
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('role_note')
+                    .setLabel('Role/Note')
+                    .setPlaceholder('Optional')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+            ),
+        );
+}
+
+function parseRegionFromCustomId(customId, prefix) {
+    const pattern = new RegExp(`^${prefix}_([a-z]{2})$`, 'i');
+    const match = String(customId || '').match(pattern);
+    return match ? match[1].toLowerCase() : null;
+}
+
+function getDiscordTag(user) {
+    if (!user) return 'Unknown';
+    if (user.tag) return user.tag;
+    return user.discriminator && user.discriminator !== '0' ? `${user.username}#${user.discriminator}` : user.username;
+}
+
+async function appendMemberListRecord(interaction, regionCfg, roleNote, characterName = '') {
+    const member = interaction.member;
+    const displayName = String(member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
+    const autoRoleSummary = member?.roles?.cache
+        ? Array.from(member.roles.cache.values())
+            .filter(role => role.name !== '@everyone')
+            .map(role => role.name)
+            .slice(0, 3)
+            .join(', ')
+        : '';
+    const roleSummary = String(roleNote || '').trim() || autoRoleSummary || 'N/A';
+    const joinedAt = makeLocalTimestamp(regionCfg.timeZone);
+    const charName = String(characterName || '').trim();
+    const row = [
+        interaction.user.id,
+        getDiscordTag(interaction.user),
+        displayName,
+        regionCfg.code,
+        roleSummary,
+        joinedAt,
+        charName,
+    ];
+    return appendToSheet(regionCfg.memberSheetRange, row);
+}
+
+async function rebuildMemberOrganizedSheet() {
+    const merged = [];
+    for (const region of REGION_CONFIGS) {
+        const sourceSheetName = `Member_List_${region.code}`;
+        const sourceRange = `${sourceSheetName}!A2:G`;
+        const read = await readSheetRows(sourceRange);
+        if (!read.ok) continue;
+        for (const row of read.values) {
+            const [userId, discordTag, displayName, country, role, joinedAt, characterName] = row;
+            const hasData = [userId, discordTag, displayName, country, role, joinedAt].some(v => String(v || '').trim().length > 0);
+            if (!hasData) continue;
+            merged.push({
+                country: String(country || region.code).trim().toUpperCase(),
+                userId: String(userId || '').trim(),
+                discordTag: String(discordTag || '').trim(),
+                displayName: String(displayName || '').trim(),
+                role: String(role || '').trim(),
+                joinedAt: joinedAt || '',
+                characterName: String(characterName || '').trim(),
+                sourceSheet: sourceSheetName,
+            });
+        }
+    }
+
+    const groupedMap = new Map();
+    for (const item of merged) {
+        const identity = item.userId || item.discordTag || item.displayName;
+        if (!identity) continue;
+        const key = `${item.country}|${identity}`;
+        if (!groupedMap.has(key)) {
+            const chars = item.characterName ? [item.characterName] : [];
+            groupedMap.set(key, { ...item, characterNames: chars });
+        } else {
+            const entry = groupedMap.get(key);
+            if (item.characterName && !entry.characterNames.includes(item.characterName)) {
+                entry.characterNames.push(item.characterName);
+            }
+        }
+    }
+    const deduped = Array.from(groupedMap.values()).map(e => ({
+        ...e,
+        characterName: e.characterNames.length > 0 ? e.characterNames.join(', ') : (e.characterName || ''),
+    })).sort((a, b) => {
+        const byCountry = a.country.localeCompare(b.country);
+        if (byCountry !== 0) return byCountry;
+        return a.displayName.localeCompare(b.displayName);
+    });
+    const refreshedAt = makeLocalTimestamp('UTC');
+    const values = deduped.map(item => [
+        item.country,
+        item.userId,
+        item.discordTag,
+        item.displayName,
+        item.role,
+        item.joinedAt,
+        item.characterName || '',
+        item.sourceSheet,
+        refreshedAt,
+    ]);
+
+    const headerRes = await updateSheetRows('회원목록정리!A1:I1', [MEMBER_ORGANIZED_HEADERS]);
+    if (!headerRes.ok) return { ok: false, error: headerRes.error };
+    await clearSheetRows('회원목록정리!A2:I');
+    if (values.length > 0) {
+        const up = await updateSheetRows(`회원목록정리!A2:I${values.length + 1}`, values);
+        if (!up.ok) return { ok: false, error: up.error };
+    }
+    return { ok: true, count: values.length };
+}
+
+function toDiscordTime(epochMs) {
+    return `<t:${Math.floor(epochMs / 1000)}:F> (<t:${Math.floor(epochMs / 1000)}:R>)`;
+}
+
+function extractNumericTokens(text) {
+    return String(text || '').match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g)?.map(token => token.trim()) || [];
+}
+
+function parseNumericValue(token) {
+    const value = Number.parseFloat(String(token || '').replace(/,/g, ''));
+    return Number.isFinite(value) ? value : null;
+}
+
+function pickMedian(values) {
+    if (!Array.isArray(values) || values.length === 0) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    if (sorted.length % 2 === 0) return (sorted[mid - 1] + sorted[mid]) / 2;
+    return sorted[mid];
+}
+
+function pickTrimmedMedian(values) {
+    if (!Array.isArray(values) || values.length === 0) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    if (sorted.length <= 4) return pickMedian(sorted);
+    const trimCount = Math.floor(sorted.length * 0.1);
+    const trimmed = trimCount > 0 && sorted.length - trimCount * 2 >= 3
+        ? sorted.slice(trimCount, sorted.length - trimCount)
+        : sorted;
+    return pickMedian(trimmed);
+}
+
+function applyKinahStability(watch, rawNumeric) {
+    const nextRaw = Number(rawNumeric);
+    if (!Number.isFinite(nextRaw)) return watch.lastRate;
+    const history = Array.isArray(watch.rateHistory) ? watch.rateHistory.map(v => Number(v)).filter(v => Number.isFinite(v) && v > 0) : [];
+    history.push(nextRaw);
+    watch.rateHistory = history.slice(-10);
+    const smoothWindow = watch.rateHistory.slice(-5);
+    const stable = pickMedian(smoothWindow);
+    const stableRounded = Number.isFinite(stable) ? Math.round(stable) : Math.round(nextRaw);
+    watch.stableRate = stableRounded;
+    return stableRounded;
+}
+
+function collectJsonNodes(value, out = []) {
+    if (value == null) return out;
+    if (Array.isArray(value)) {
+        for (const item of value) collectJsonNodes(item, out);
+        return out;
+    }
+    if (typeof value === 'object') {
+        out.push(value);
+        for (const child of Object.values(value)) {
+            if (child && typeof child === 'object') collectJsonNodes(child, out);
+        }
+    }
+    return out;
+}
+
+function parseJsonLdBlocks($) {
+    const parsed = [];
+    $('script[type="application/ld+json"]').each((_, element) => {
+        const raw = $(element).contents().text().trim();
+        if (!raw) return;
+        try {
+            parsed.push(JSON.parse(raw));
+        } catch (_) {}
+    });
+    return parsed;
+}
+
+function formatKrw(value) {
+    if (!Number.isFinite(value)) return 'N/A';
+    return `${Math.round(value).toLocaleString()} KRW`;
+}
+
+async function fetchItembayAion2Snapshot(sourceUrl) {
+    const url = sourceUrl || KINAH_PRESET_DEFAULTS.itembay_aion2.primaryUrl;
+    const { data } = await axios.get(url, {
+        timeout: 20_000,
+        maxRedirects: 5,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            Accept: 'text/html,application/xhtml+xml',
+        },
+    });
+    const $ = cheerio.load(data);
+    const canonical = $('link[rel="canonical"]').attr('href') || url;
+    const jsonBlocks = parseJsonLdBlocks($);
+    const nodes = jsonBlocks.flatMap(block => collectJsonNodes(block));
+
+    const aggregateOffer = nodes.find(
+        node => node['@type'] === 'AggregateOffer' && parseNumericValue(node.lowPrice) != null && parseNumericValue(node.highPrice) != null
+    );
+    const lowPrice = aggregateOffer ? parseNumericValue(aggregateOffer.lowPrice) : null;
+    const highPrice = aggregateOffer ? parseNumericValue(aggregateOffer.highPrice) : null;
+    const offerCount = aggregateOffer ? parseNumericValue(aggregateOffer.offerCount) : null;
+
+    const listItems = nodes
+        .filter(node => node['@type'] === 'ListItem' && node.item)
+        .map(node => node.item)
+        .filter(item => /아이온2|aion2/i.test(`${item.name || ''} ${item.category || ''}`));
+    const kinahItems = listItems.filter(item => /키나|kinah|게임머니|game.?money/i.test(`${item.name || ''} ${item.description || ''}`));
+
+    const prices = (kinahItems.length ? kinahItems : listItems)
+        .map(item => parseNumericValue(item?.offers?.price))
+        .filter(value => value != null);
+    const representative = pickTrimmedMedian(prices) ?? lowPrice ?? pickMedian(prices) ?? highPrice;
+    if (!Number.isFinite(representative)) {
+        throw new Error('ItemBay AION2 parser could not find numeric price.');
+    }
+
+    return {
+        token: formatKrw(representative),
+        numeric: Math.round(representative),
+        snippet: `ItemBay low ${formatKrw(lowPrice)} / high ${formatKrw(highPrice)} / offers ${offerCount ? offerCount.toLocaleString() : 'N/A'}`,
+        sourceUrl: canonical,
+        sourceName: 'ItemBay AION2',
+        sourceSummary: `ItemBay:${formatKrw(representative)}`,
+    };
+}
+
+async function fetchItemmaniaAion2Snapshot(sourceUrl, sourceKeyword) {
+    const url = sourceUrl || KINAH_PRESET_DEFAULTS.itemmania_aion2.primaryUrl;
+    const { data } = await axios.get(url, {
+        timeout: 20_000,
+        maxRedirects: 5,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            Accept: 'text/html,application/xhtml+xml',
+        },
+    });
+    const $ = cheerio.load(data);
+    const bodyText = $('body').text().replace(/\r/g, '\n');
+    const keyword = String(sourceKeyword || '아이온2 키나').trim();
+    const keywordLines = bodyText
+        .split('\n')
+        .map(line => line.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .filter(line => {
+            if (!keyword) return true;
+            const words = keyword.split(/\s+/).filter(Boolean);
+            return words.every(word => line.toLowerCase().includes(word.toLowerCase()));
+        });
+    const candidateText = keywordLines.length ? keywordLines.slice(0, 100).join('\n') : bodyText;
+    const candidates = extractNumericTokens(candidateText)
+        .map(token => parseNumericValue(token))
+        .filter(value => value != null)
+        .filter(value => value >= 10 && value <= 500_000_000);
+    const representative = pickTrimmedMedian(candidates) ?? pickMedian(candidates);
+    if (!Number.isFinite(representative)) {
+        throw new Error('ItemMania parser could not find numeric price.');
+    }
+
+    return {
+        token: formatKrw(representative),
+        numeric: Math.round(representative),
+        snippet: `ItemMania keyword: ${keyword || 'AION2'} (${candidates.length} candidates)`,
+        sourceUrl: url,
+        sourceName: 'ItemMania AION2',
+        sourceSummary: `ItemMania:${formatKrw(representative)}`,
+    };
+}
+
+async function fetchKinahRateByPreset(watchConfig) {
+    const preset = watchConfig?.sourcePreset;
+    if (!KINAH_PRESET_TYPES.includes(preset)) throw new Error('Unknown kinah preset.');
+
+    if (preset === 'itembay_aion2') {
+        return fetchItembayAion2Snapshot(watchConfig?.sourceUrl || KINAH_PRESET_DEFAULTS.itembay_aion2.primaryUrl);
+    }
+    if (preset === 'itemmania_aion2') {
+        return fetchItemmaniaAion2Snapshot(watchConfig?.sourceUrl || KINAH_PRESET_DEFAULTS.itemmania_aion2.primaryUrl, watchConfig?.sourceKeyword);
+    }
+
+    const results = await Promise.allSettled([
+        fetchItembayAion2Snapshot(watchConfig?.sourceUrl || KINAH_PRESET_DEFAULTS.dual_market_aion2.primaryUrl),
+        fetchItemmaniaAion2Snapshot(
+            watchConfig?.secondarySourceUrl || KINAH_PRESET_DEFAULTS.dual_market_aion2.secondaryUrl,
+            watchConfig?.sourceKeyword
+        ),
+    ]);
+    const success = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+    if (!success.length) {
+        const reasons = results.filter(r => r.status === 'rejected').map(r => r.reason?.message || String(r.reason));
+        throw new Error(`Dual market fetch failed: ${reasons.join(' / ')}`);
+    }
+    if (success.length === 1) return success[0];
+
+    const average = success.reduce((sum, item) => sum + Number(item.numeric || 0), 0) / success.length;
+    const summary = success.map(item => item.sourceSummary).join(' | ');
+    return {
+        token: formatKrw(average),
+        numeric: Math.round(average),
+        snippet: `Dual market avg from ${success.length} sources`,
+        sourceUrl: success[0].sourceUrl,
+        sourceName: 'Dual Market AION2',
+        sourceSummary: summary,
+        sourceValues: success.map(item => ({
+            name: item.sourceName,
+            token: item.token,
+            numeric: item.numeric,
+            sourceUrl: item.sourceUrl,
+        })),
+    };
+}
+
+function extractKinahValueFromText(text) {
+    const lines = String(text || '')
+        .split('\n')
+        .map(line => line.replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+    if (!lines.length) return null;
+
+    const keywordLines = lines.filter(line => /(kinah|키나|시세|rate|exchange|market)/i.test(line));
+    const candidates = keywordLines.length ? keywordLines : lines.slice(0, 50);
+    const tokens = extractNumericTokens(candidates.join('\n'));
+    if (!tokens.length) return null;
+
+    const ranked = tokens
+        .map(token => ({ token, numeric: parseNumericValue(token) }))
+        .filter(item => item.numeric != null)
+        .sort((a, b) => b.numeric - a.numeric);
+    if (!ranked.length) return null;
+    return { token: ranked[0].token, numeric: ranked[0].numeric, snippet: candidates.slice(0, 3).join('\n') };
+}
+
+async function fetchKinahRateSnapshot(watchConfig) {
+    const sourcePreset = String(watchConfig?.sourcePreset || '').trim();
+    if (sourcePreset) return fetchKinahRateByPreset(watchConfig);
+
+    const sourceUrl = String(watchConfig?.sourceUrl || '').trim();
+    if (!sourceUrl) throw new Error('Source URL is not configured.');
+    let parsedUrl;
+    try {
+        parsedUrl = new URL(sourceUrl);
+    } catch (_) {
+        throw new Error('Source URL is invalid.');
+    }
+    if (!['https:', 'http:'].includes(parsedUrl.protocol)) {
+        throw new Error('Source URL must start with http(s).');
+    }
+
+    const { data } = await axios.get(sourceUrl, {
+        timeout: 15_000,
+        maxRedirects: 5,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            Accept: 'text/html,application/xhtml+xml',
+        },
+    });
+    const $ = cheerio.load(data);
+    const selector = String(watchConfig?.selector || '').trim();
+    const regexRaw = String(watchConfig?.valueRegex || '').trim();
+
+    let targetText = '';
+    if (selector) {
+        const matches = $(selector)
+            .slice(0, 20)
+            .map((_, el) => $(el).text().replace(/\s+/g, ' ').trim())
+            .get()
+            .filter(Boolean);
+        targetText = matches.join('\n');
+    }
+    const bodyText = $('body').text().replace(/\r/g, '\n');
+    if (!targetText) targetText = bodyText;
+
+    if (regexRaw) {
+        let regex;
+        try {
+            regex = new RegExp(regexRaw, 'i');
+        } catch (err) {
+            throw new Error(`Invalid regex: ${err.message}`);
+        }
+        const match = targetText.match(regex) || bodyText.match(regex);
+        if (!match) throw new Error('Regex did not match any value.');
+        const picked = match[1] || match[0];
+        const token = String(picked).trim();
+        const numeric = parseNumericValue(token);
+        if (numeric == null) throw new Error('Matched value is not numeric.');
+        return { token, numeric, snippet: targetText.split('\n').slice(0, 3).join('\n'), sourceUrl };
+    }
+
+    const parsed = extractKinahValueFromText(targetText);
+    if (!parsed) throw new Error('Could not extract kinah rate. Configure `selector` or `value_regex`.');
+    return { token: parsed.token, numeric: parsed.numeric, snippet: parsed.snippet, sourceUrl };
+}
+
+function buildKinahStatusEmbed(guildState) {
+    const watch = createDefaultKinahWatch(guildState?.kinah);
+    const presetLabel = watch.sourcePreset || 'custom';
+    return new EmbedBuilder()
+        .setTitle('Kinah Rate Crawler Status')
+        .setDescription([
+            `Enabled: ${watch.enabled ? 'Yes' : 'No'}`,
+            `Post channel: ${watch.channelId ? `<#${watch.channelId}>` : 'Not set'}`,
+            `Preset: ${presetLabel}`,
+            `Keyword: ${watch.sourceKeyword || 'N/A'}`,
+            `Source URL: ${watch.sourceUrl || 'Not set'}`,
+            `Secondary URL: ${watch.secondarySourceUrl || 'N/A'}`,
+            `Selector: ${watch.selector || 'Auto detect'}`,
+            `Regex: ${watch.valueRegex || 'Auto detect'}`,
+            `Poll interval: ${watch.pollMinutes} minute(s)`,
+            `Mention role: ${watch.mentionRoleId ? `<@&${watch.mentionRoleId}>` : 'None'}`,
+            `Last stable value: ${watch.stableRate ? formatKrw(watch.stableRate) : 'N/A'}`,
+            `Last raw value: ${watch.lastRawText || 'N/A'}`,
+            `Last sources: ${watch.lastSourceSummary || 'N/A'}`,
+            `Last check: ${watch.lastCheckedAt ? toDiscordTime(watch.lastCheckedAt) : 'N/A'}`,
+            `Last error: ${watch.lastError || 'None'}`,
+        ].join('\n'))
+        .setColor(0x14b8a6);
+}
+
+function buildKinahRateEmbed(snapshot, previousValue = null) {
+    const isFirst = previousValue == null;
+    const diff = previousValue == null ? null : Number(snapshot.numeric) - Number(previousValue);
+    const diffLine = diff == null ? 'Initial baseline captured.' : `${diff >= 0 ? '+' : ''}${diff.toLocaleString()} vs previous`;
+    return new EmbedBuilder()
+        .setTitle('💰 Kinah Rate Update')
+        .setDescription([
+            `Current: **${snapshot.token}**`,
+            `Change: ${diffLine}`,
+            snapshot.rawToken ? `Raw snapshot: ${snapshot.rawToken}` : null,
+            snapshot.sourceName ? `Source: ${snapshot.sourceName}` : null,
+            snapshot.sourceSummary ? `Source summary: ${snapshot.sourceSummary}` : null,
+            snapshot.snippet ? `Snapshot: \`${snapshot.snippet.slice(0, 220)}\`` : null,
+            `[Source link](${snapshot.sourceUrl})`,
+        ].filter(Boolean).join('\n'))
+        .addFields(
+            ...(Array.isArray(snapshot.sourceValues) && snapshot.sourceValues.length
+                ? [{ name: 'Source breakdown', value: snapshot.sourceValues.map(item => `- ${item.name}: ${item.token}`).join('\n').slice(0, 1000) }]
+                : [])
+        )
+        .setColor(isFirst ? 0x0ea5e9 : diff >= 0 ? 0x22c55e : 0xef4444)
+        .setTimestamp();
+}
+
+let kinahTickerActive = false;
+async function runKinahTicker(client) {
+    if (kinahTickerActive) return;
+    kinahTickerActive = true;
+    try {
+        const now = Date.now();
+        let changed = false;
+        for (const guildId of Object.keys(kinahState.guilds || {})) {
+            const guildState = ensureKinahGuildState(guildId);
+            const watch = createDefaultKinahWatch(guildState.kinah);
+            guildState.kinah = watch;
+            if (!watch.enabled || !watch.sourceUrl || !watch.channelId) continue;
+
+            const intervalMs = Math.max(60_000, watch.pollMinutes * 60_000);
+            if (watch.lastCheckedAt && now - watch.lastCheckedAt < intervalMs) continue;
+
+            watch.lastCheckedAt = now;
+            changed = true;
+            let snapshot;
+            try {
+                snapshot = await fetchKinahRateSnapshot(watch);
+                watch.lastError = null;
+            } catch (err) {
+                watch.lastError = err.message || 'Fetch failed';
+                changed = true;
+                continue;
+            }
+
+            const stabilized = applyKinahStability(watch, snapshot.numeric);
+            const stableSnapshot = {
+                ...snapshot,
+                rawToken: snapshot.token,
+                rawNumeric: snapshot.numeric,
+                token: formatKrw(stabilized),
+                numeric: stabilized,
+            };
+            // Ignore tiny jitters under 3% after stabilization.
+            const previousStable = watch.lastRate;
+            const changeRatio = previousStable == null ? null : Math.abs(stabilized - previousStable) / Math.max(previousStable, 1);
+            const isChanged = previousStable == null || stabilized !== previousStable;
+            const shouldPost = isChanged && (changeRatio == null || changeRatio >= 0.03);
+
+            watch.lastRawText = snapshot.token;
+            watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
+            watch.lastRate = stabilized;
+            if (!shouldPost) {
+                changed = true;
+                continue;
+            }
+
+            const channel = await client.channels.fetch(watch.channelId).catch(() => null);
+            if (!channel || !channel.isTextBased()) {
+                watch.lastError = 'Post channel is missing or not text-based.';
+                changed = true;
+                continue;
+            }
+
+            const mention = watch.mentionRoleId ? `<@&${watch.mentionRoleId}>` : undefined;
+            await channel.send({ content: mention, embeds: [buildKinahRateEmbed(stableSnapshot, previousStable)] }).catch(() => {});
+            watch.lastPostedAt = Date.now();
+            changed = true;
+        }
+        if (changed) saveKinahState();
+    } finally {
+        kinahTickerActive = false;
+    }
+}
+
 // ═══════════════════════════════════════════════════════════
 // [3] 슬래시 커맨드 등록
 // ═══════════════════════════════════════════════════════════
 const commands = [
     new SlashCommandBuilder()
+        .setName('help')
+        .setDescription('Show quick help and command overview')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('faq_admin')
+        .setDescription('Admin FAQ (Admin, shown only to you)')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('guide')
+        .setDescription('Post member guide to this channel (no Admin required)')
+        .toJSON(),
+    new SlashCommandBuilder()
         .setName('report_kinah')
         .setDescription('Submit Kinah Team daily report')
-        .addStringOption(o => o.setName('region').setDescription('Your region').setRequired(true).addChoices(
-            { name: 'Philippines (PH)', value: 'ph' }, { name: 'Indonesia (ID)', value: 'id' }
-        ))
-        .toJSON(),
-    new SlashCommandBuilder()
-        .setName('report_levelup')
-        .setDescription('Submit Level-Up Team daily report')
-        .addStringOption(o => o.setName('region').setDescription('Your region').setRequired(true).addChoices(
-            { name: 'Philippines (PH)', value: 'ph' }, { name: 'Indonesia (ID)', value: 'id' }
-        ))
-        .toJSON(),
-    new SlashCommandBuilder()
-        .setName('salary_confirm')
-        .setDescription('Confirm salary receipt (1-click, select PH or ID)')
         .addStringOption(o => o
             .setName('region')
             .setDescription('Your region')
             .setRequired(true)
-            .addChoices(
-                { name: 'Philippines (PH)', value: 'ph' },
-                { name: 'Indonesia (ID)', value: 'id' }
-            ))
+            .addChoices(...getRegionChoices()))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('report_levelup')
+        .setDescription('Submit Level-Up Team daily report')
+        .addStringOption(o => o
+            .setName('region')
+            .setDescription('Your region')
+            .setRequired(true)
+            .addChoices(...getRegionChoices()))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('salary_confirm')
+        .setDescription(`Confirm salary receipt (1-click, select ${SUPPORTED_REGION_CODES})`)
+        .addStringOption(o => o
+            .setName('region')
+            .setDescription('Your region')
+            .setRequired(true)
+            .addChoices(...getRegionChoices()))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('panel')
-        .setDescription('Post report/salary panel to this channel')
+        .setDescription('Post report/salary/join-verify panel to this channel (Admin)')
         .addStringOption(o => o
             .setName('type')
             .setDescription('Panel type')
             .setRequired(true)
             .addChoices(
                 { name: 'Daily Report', value: 'report' },
-                { name: 'Salary Confirm', value: 'salary' }
+                { name: 'Salary Confirm', value: 'salary' },
+                { name: 'Join Verification', value: 'join_verify' },
+                { name: 'Payment Confirm', value: 'payment' },
+                { name: 'Info YouTube (Translated Links)', value: 'youtube' },
+                { name: '📖 사용법 가이드 (한글)', value: 'guide_ko' },
+                { name: '📖 Usage Guide (English)', value: 'guide_en' }
             ))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('join_verify')
+        .setDescription('Open country selection popup for join verification')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('myinfo_register')
+        .setDescription('Create private verification channel — upload screenshot, staff Approve/Reject')
+        .addStringOption(o => o
+            .setName('character_name')
+            .setDescription('Your AION2 character name (saved to 회원목록정리 when approved)')
+            .setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('verify_channel_set')
+        .setDescription('Set category where verification channels are created (Admin)')
+        .addChannelOption(o => o
+            .setName('category')
+            .setDescription('Category for verification channels')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildCategory))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('join_verify_panel')
+        .setDescription('Post join verification panel button to this channel (Admin)')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('member_list_organize')
+        .setDescription('Rebuild 회원목록정리 sheet from Member_List_* sheets (Admin)')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('preset')
+        .setDescription('Apply preset (Admin) or view boss list')
+        .addStringOption(o => o
+            .setName('mode')
+            .setDescription('Preset mode (optional)')
+            .setRequired(false)
+            .addChoices(
+                { name: 'Elyos', value: 'elyos' },
+                { name: 'Asmodian', value: 'asmodian' },
+                { name: 'Combined', value: 'combined' }
+            ))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('boss')
+        .setDescription('Show boss board or a specific boss')
+        .addStringOption(o => o.setName('boss_name').setDescription('Optional: exact or partial boss name').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('cut')
+        .setDescription('Record a boss kill and calculate next spawn')
+        .addStringOption(o => o.setName('boss_name').setDescription('Boss name').setRequired(true))
+        .addStringOption(o => o.setName('killed_at').setDescription('Optional kill time (HH:mm)').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('server_open')
+        .setDescription('Reset all boss timers from server open time (Admin)')
+        .addStringOption(o => o.setName('open_time').setDescription('Server open time HH:mm').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('boss_add')
+        .setDescription('Add or update a custom boss (Admin)')
+        .addStringOption(o => o.setName('boss_name').setDescription('Boss name').setRequired(true))
+        .addIntegerOption(o => o.setName('respawn_minutes').setDescription('Respawn minutes').setRequired(true).setMinValue(1).setMaxValue(10080))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('boss_remove')
+        .setDescription('Remove a boss from tracking (Admin)')
+        .addStringOption(o => o.setName('boss_name').setDescription('Boss name').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('boss_alert_mode')
+        .setDescription('Choose boss alerts in channel or DM')
+        .addStringOption(o => o
+            .setName('mode')
+            .setDescription('Delivery mode')
+            .setRequired(true)
+            .addChoices(
+                { name: 'public channel', value: 'channel' },
+                { name: 'DM only', value: 'dm' }
+            ))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('boss_event_multiplier')
+        .setDescription('Set event respawn multiplier (e.g. 0.8) (Admin)')
+        .addNumberOption(o => o.setName('multiplier').setDescription('Respawn multiplier: 0.1 ~ 2.0').setRequired(true).setMinValue(0.1).setMaxValue(2))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('kinah_watch_set')
+        .setDescription('Configure kinah rate crawler and target channel (Admin)')
+        .addChannelOption(o => o
+            .setName('channel')
+            .setDescription('Channel where kinah updates are posted')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+        .addStringOption(o => o.setName('source_url').setDescription('Market/source page URL').setRequired(true))
+        .addStringOption(o => o.setName('selector').setDescription('Optional CSS selector for price text').setRequired(false))
+        .addStringOption(o => o.setName('value_regex').setDescription('Optional regex (capture group #1 preferred)').setRequired(false))
+        .addIntegerOption(o => o.setName('poll_minutes').setDescription('How often to check (1-60)').setRequired(false).setMinValue(1).setMaxValue(60))
+        .addRoleOption(o => o.setName('mention_role').setDescription('Optional role mention on updates').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('kinah_watch_preset')
+        .setDescription('Quick setup for ItemBay/ItemMania AION2 presets (Admin)')
+        .addStringOption(o => o
+            .setName('preset')
+            .setDescription('Market preset')
+            .setRequired(true)
+            .addChoices(
+                { name: 'ItemBay AION2', value: 'itembay_aion2' },
+                { name: 'ItemMania AION2', value: 'itemmania_aion2' },
+                { name: 'Dual Market AION2', value: 'dual_market_aion2' }
+            ))
+        .addChannelOption(o => o
+            .setName('channel')
+            .setDescription('Channel where kinah updates are posted')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+        .addIntegerOption(o => o.setName('poll_minutes').setDescription('How often to check (1-60)').setRequired(false).setMinValue(1).setMaxValue(60))
+        .addRoleOption(o => o.setName('mention_role').setDescription('Optional role mention on updates').setRequired(false))
+        .addStringOption(o => o.setName('source_keyword').setDescription('Keyword hint (default: 아이온2 키나)').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('kinah_watch_now')
+        .setDescription('Fetch kinah rate immediately')
+        .addBooleanOption(o => o.setName('public_post').setDescription('Post result publicly to configured channel').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('kinah_watch_stop')
+        .setDescription('Stop kinah rate crawler for this guild (Admin)')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('kinah_watch_status')
+        .setDescription('Show kinah rate crawler settings and last state')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('aon_translate_set')
+        .setDescription('Set channel route for AON Korean->English translation (Admin)')
+        .addStringOption(o => o
+            .setName('category')
+            .setDescription('Source category to monitor')
+            .setRequired(true)
+            .addChoices(
+                { name: 'NEWS', value: 'notice' },
+                { name: 'Update_Note', value: 'update' },
+                { name: 'EVENT', value: 'event' }
+            ))
+        .addChannelOption(o => o
+            .setName('channel')
+            .setDescription('Channel where AON bot posts this category')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+        .addBooleanOption(o => o
+            .setName('enabled')
+            .setDescription('Enable/disable translation globally for this guild')
+            .setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('aon_translate_source')
+        .setDescription('Set source bot id to translate from (default AON bot) (Admin)')
+        .addStringOption(o => o
+            .setName('bot_id')
+            .setDescription('Discord bot user ID')
+            .setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('aon_translate_status')
+        .setDescription('Show AON translation routes and status')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('youtube_ready')
+        .setDescription('Prepare YouTube link with EN title and subtitle preset')
+        .addStringOption(o => o
+            .setName('video')
+            .setDescription('YouTube URL or 11-char video ID')
+            .setRequired(true))
+        .addBooleanOption(o => o
+            .setName('post_card')
+            .setDescription('Also post playable link card to this channel')
+            .setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('character')
+        .setDescription('Lookup AION2 character by name or profile URL')
+        .addStringOption(o => o.setName('query').setDescription('Character name or PlayNC profile URL').setRequired(true))
+        .addStringOption(o => o.setName('race').setDescription('Race filter').setRequired(false).addChoices({ name: 'Elyos', value: 'elyos' }, { name: 'Asmodian', value: 'asmodian' }))
+        .addStringOption(o => o.setName('class_keyword').setDescription('Class keyword filter').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('item')
+        .setDescription('Lookup AION2 item by keyword')
+        .addStringOption(o => o.setName('query').setDescription('Item name or keyword').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('collection')
+        .setDescription('Find equipment collections by stat keyword')
+        .addStringOption(o => o.setName('query').setDescription('Stat keyword (e.g. crit, accuracy)').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('build')
+        .setDescription('Find recommended builds and skill trees')
+        .addStringOption(o => o.setName('query').setDescription('Class or build keyword').setRequired(true))
         .toJSON(),
 ];
 
@@ -174,27 +2375,189 @@ function createLevelUpModal(region) {
         );
 }
 
+function createPaymentConfirmModal() {
+    return new ModalBuilder()
+        .setCustomId('modal_payment_confirm')
+        .setTitle('Submit Payment Confirmation')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('amount')
+                    .setLabel('Amount (KRW)')
+                    .setPlaceholder('e.g. 500,000')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('reason')
+                    .setLabel('Description / Reason')
+                    .setPlaceholder('e.g. Weekly Settlement')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            )
+        );
+}
+
+function createYoutubeAddModal() {
+    return new ModalBuilder()
+        .setCustomId('modal_youtube_add')
+        .setTitle('Add Info YouTube Video')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('youtube_url')
+                    .setLabel('YouTube URL')
+                    .setPlaceholder('https://www.youtube.com/watch?v=... or youtu.be/...')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            )
+        );
+}
+
+async function registerGuildSlashCommands(rest, guild) {
+    if (!client.user) return false;
+    try {
+        await rest.put(Routes.applicationGuildCommands(client.user.id, guild.id), { body: commands });
+        console.log(`   Slash commands synced: ${guild.name} (${guild.id})`);
+        return true;
+    } catch (err) {
+        console.error(`   Slash command sync failed: ${guild.name} (${guild.id}) -> ${err.message}`);
+        return false;
+    }
+}
+
 // ═══════════════════════════════════════════════════════════
 // [5] 이벤트 핸들러
 // ═══════════════════════════════════════════════════════════
 client.once('ready', async () => {
     console.log(`🚀 TETRA Sync 봇 가동: ${client.user.tag}`);
     try {
+        await hydrateRuntimeStateFromSheet().catch(err => {
+            console.warn(`[state] runtime state hydrate skipped: ${err.message}`);
+        });
         const rest = new REST({ version: '10' }).setToken(CONFIG.TOKEN);
         // 서버별 등록 (즉시 반영)
+        let success = 0;
+        let failed = 0;
         for (const guild of client.guilds.cache.values()) {
-            await rest.put(Routes.applicationGuildCommands(client.user.id, guild.id), { body: commands });
-            console.log(`   슬래시 커맨드 등록: ${guild.name}`);
+            ensureKinahGuildState(guild.id);
+            const ok = await registerGuildSlashCommands(rest, guild);
+            if (ok) success += 1;
+            else failed += 1;
         }
+        saveKinahState();
+        console.log(`   Slash command sync done: ${success} success / ${failed} failed (total ${commands.length} commands).`);
     } catch (e) {
-        console.error('   슬래시 커맨드 등록 실패:', e.message);
+        console.error('   Slash command setup failed:', e.message);
     }
+
+    setInterval(() => {
+        runKinahTicker(client).catch(err => console.error('[kinah-ticker]', err.message));
+    }, CONFIG.KINAH_TICKER_MS);
+    runKinahTicker(client).catch(() => {});
+    setInterval(() => {
+        runBossTicker(client).catch(err => console.error('[boss-ticker]', err.message));
+    }, CONFIG.BOSS_TICKER_MS);
+    runBossTicker(client).catch(() => {});
+});
+
+client.on('guildCreate', async (guild) => {
+    if (!client.user) return;
+    ensureKinahGuildState(guild.id);
+    saveKinahState();
+    ensureBossGuildState(guild.id);
+    saveBossState();
+    const rest = new REST({ version: '10' }).setToken(CONFIG.TOKEN);
+    await registerGuildSlashCommands(rest, guild);
 });
 
 client.on('interactionCreate', async (interaction) => {
     try {
     if (interaction.isChatInputCommand()) {
-        if (interaction.commandName === 'report_kinah') {
+        if (interaction.commandName === 'help') {
+            const embed = new EmbedBuilder()
+                .setTitle('📘 TETRA Sync — Quick Help')
+                .setDescription(
+                    'A must-have support bot for AION2 communities.\n\n' +
+                    '**Report:** `/report_kinah` `/report_levelup` — Use panel buttons if staff posted them\n' +
+                    '**Salary:** `/salary_confirm` — Or panel region buttons\n' +
+                    '**Join:** `/join_verify` — Country → Role (no char verification)\n' +
+                    '**Verify:** `/myinfo_register character_name:<name>` — Screenshot → staff Approve → verified char to 회원목록정리\n\n' +
+                    '**Boss:** `/preset` `/boss` `/cut boss_name:<name>` `/boss_alert_mode`\n\n' +
+                    '**Kinah:** `/kinah_watch_now` `/kinah_watch_status`\n\n' +
+                    '**Search:** `/character` `/item` `/collection` `/build`\n\n' +
+                    '**Other:** `/youtube_ready` `/aon_translate_status` `!char <name>`\n\n' +
+                    '_Post **`/guide`** to show the full member guide_'
+                )
+                .setColor(0x5865F2)
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'guide') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Use this command in a server channel.'); return; }
+            const channel = interaction.channel;
+            if (!channel?.send) { await safeEphemeral(interaction, 'Cannot post to this channel.'); return; }
+            const embeds = buildGuideEmbedsUser();
+            const titleKey = 'Member Guide';
+            const isGuideMsg = m => m.author?.id === client.user?.id && m.embeds?.[0]?.title?.includes(titleKey);
+            let allGuides = (await channel.messages.fetch({ limit: 50 })).filter(isGuideMsg);
+            for (const m of allGuides.values()) await m.delete().catch(() => {});
+            const sent = await channel.send({ embeds });
+            allGuides = (await channel.messages.fetch({ limit: 50 })).filter(isGuideMsg);
+            for (const m of allGuides.values()) {
+                if (m.id !== sent.id) await m.delete().catch(() => {});
+            }
+            await interaction.reply({ content: '✅ Member guide posted.', flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'faq_admin') {
+            if (!hasManageGuild(interaction)) {
+                await safeEphemeral(interaction, '❌ Manage Server permission required.');
+                return;
+            }
+            const embed = new EmbedBuilder()
+                .setTitle('❓ FAQ (Admin)')
+                .setDescription('Frequently asked questions for server admins.')
+                .setColor(0xf59e0b)
+                .addFields(
+                    {
+                        name: 'Q: 패널은 어떻게 게시하나요?',
+                        value: '**`/panel type:<type>`** — report, salary, join_verify, payment, youtube 중 선택. 채널에서 실행하면 해당 패널이 해당 채널에 게시됩니다. 같은 타입은 1개만 유지됩니다.',
+                        inline: false
+                    },
+                    {
+                        name: 'Q: 전체 가이드 vs 일반 가이드 차이는?',
+                        value: '**전체 가이드** (`/panel type:guide_ko`, `guide_en`) — 모든 명령어, Admin만 게시\n**일반 가이드** (`/guide`) — 멤버용 명령어만, 누구나 게시 가능',
+                        inline: false
+                    },
+                    {
+                        name: 'Q: 필드 보스 타이머 설정 순서는?',
+                        value: '1. 보스 채널에서 **`/preset mode:combined`** 실행\n2. 처치 시 **`/cut boss_name:<이름>`** 로 기록\n3. (선택) **`/boss_alert_mode mode:dm`** — DM 알림\n4. (선택) **`/boss_event_multiplier multiplier:0.8`** — 이벤트 시 리스폰 배율',
+                        inline: false
+                    },
+                    {
+                        name: 'Q: 키나 시세 모니터링 설정은?',
+                        value: '**`/kinah_watch_preset`** — ItemBay/ItemMania 프리셋으로 빠른 설정. 채널, poll_minutes, mention_role 지정. **`/kinah_watch_status`** 로 확인, **`/kinah_watch_stop`** 으로 중지.',
+                        inline: false
+                    },
+                    {
+                        name: 'Q: AON 한국어→영어 번역은?',
+                        value: '**`/aon_translate_set`** — category(notice/update/event), channel 설정. **`/aon_translate_source`** — AON 봇 ID 지정. **`/aon_translate_status`** 로 라우트 확인.',
+                        inline: false
+                    },
+                    {
+                        name: 'Q: 캐릭터 인증(myinfo_register) 설정은?',
+                        value: '**`/join_verify`**는 검증 없음 (Role만). 캐릭터명은 **`/myinfo_register`**로만 추가됨 (스크린샷 검증 필수).\n1. Admin: **`/verify_channel_set category:<카테고리>`**\n2. 유저: **`/myinfo_register character_name:<캐릭터명>`** → 스크린샷 업로드\n3. 스태프: Approve → Region 선택 → 회원목록정리 G열에 **검증된** 캐릭터명 반영',
+                        inline: false
+                    },
+                    {
+                        name: 'Q: 권한 오류가 날 때는?',
+                        value: '봇에게 **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels** (인증 채널용) 권한이 있는지 확인하세요.',
+                        inline: false
+                    }
+                )
+                .setFooter({ text: 'TETRA Sync | Admin FAQ' })
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'report_kinah') {
             const r = interaction.options.getString('region') || 'ph';
             await interaction.showModal(createKinahModal(r));
         } else if (interaction.commandName === 'report_levelup') {
@@ -205,21 +2568,547 @@ client.on('interactionCreate', async (interaction) => {
             const regionOpt = interaction.options.getString('region');
             const regionCfg = getRegionConfig(regionOpt);
             if (!regionCfg) {
-                await interaction.reply({ content: '❌ Region must be PH or ID.', ephemeral: true });
+                await interaction.reply({ content: `❌ Region must be one of: ${SUPPORTED_REGION_CODES}.`, flags: EPHEMERAL_FLAGS });
                 return;
             }
             const worker = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
-            const timestamp = new Date().toLocaleString('sv-SE', { timeZone: regionCfg.timeZone }).slice(0, 16);
+            const timestamp = makeLocalTimestamp(regionCfg.timeZone);
             const data = [timestamp, worker, 'Confirmed', ''];
             const res = await appendToSheet(regionCfg.salarySheetRange, data);
             await interaction.reply({
                 content: res.ok ? `✅ Salary confirmation submitted (${worker}) → ${regionCfg.code}` : `❌ Failed to save (${regionCfg.code}). Create **Salary_Log_${regionCfg.code}** sheet in Google Sheets.`,
-                ephemeral: true
+                flags: EPHEMERAL_FLAGS
             });
+        } else if (interaction.commandName === 'join_verify') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            await interaction.reply({
+                content: '🌍 Please select your country for join verification.',
+                components: [buildJoinCountrySelectRow()],
+                flags: EPHEMERAL_FLAGS
+            });
+        } else if (interaction.commandName === 'myinfo_register') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            const characterName = (interaction.options.getString('character_name') || '').trim();
+            if (!characterName) {
+                await safeEphemeral(interaction, 'Please enter your character name.');
+                return;
+            }
+            const state = loadPanelState();
+            const categoryId = state.verifyCategoryId;
+            if (!categoryId) {
+                await safeEphemeral(interaction, '❌ Verification not configured. Ask an admin to run `/verify_channel_set category:<category>` first.');
+                return;
+            }
+            const guild = interaction.guild;
+            const category = guild.channels.cache.get(categoryId);
+            if (!category || category.type !== ChannelType.GuildCategory) {
+                await safeEphemeral(interaction, '❌ Verification category not found. Admin: run `/verify_channel_set` again.');
+                return;
+            }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+            const displayName = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
+            const safeName = characterName.replace(/[^\w\s-]/g, '').slice(0, 50) || 'verify';
+            const channelName = `verify-${safeName}-${interaction.user.id.slice(-6)}`;
+            try {
+                const channel = await guild.channels.create({
+                    name: channelName,
+                    type: ChannelType.GuildText,
+                    parent: categoryId,
+                    permissionOverwrites: [
+                        { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] },
+                    ],
+                });
+                const permOverwrites = channel.permissionOverwrites.cache;
+                const manageRoles = guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.ManageGuild));
+                for (const [, role] of manageRoles) {
+                    if (!permOverwrites.has(role.id)) {
+                        await channel.permissionOverwrites.create(role, {
+                            ViewChannel: true,
+                            SendMessages: true,
+                            ReadMessageHistory: true,
+                            ManageMessages: true,
+                        });
+                    }
+                }
+                const verifyState = loadVerifyPendingState();
+                verifyState.pending[channel.id] = {
+                    userId: interaction.user.id,
+                    characterName,
+                    guildId: guild.id,
+                    createdAt: Date.now(),
+                };
+                saveVerifyPendingState(verifyState);
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`verify_approve_${channel.id}`).setLabel('Approve').setStyle(ButtonStyle.Success).setEmoji('✅'),
+                    new ButtonBuilder().setCustomId(`verify_reject_${channel.id}`).setLabel('Reject').setStyle(ButtonStyle.Danger).setEmoji('❌')
+                );
+                const embed = new EmbedBuilder()
+                    .setTitle('🎮 Character Verification')
+                    .setDescription(
+                        `**Character:** \`${characterName}\`\n**User:** ${interaction.user}\n\n` +
+                        '📷 **Upload your in-game screenshot below** (character select or profile).\n' +
+                        'Staff will review and click **Approve** or **Reject**.'
+                    )
+                    .setColor(0x5865F2)
+                    .setTimestamp();
+                await channel.send({
+                    content: `${interaction.user} — Verification channel created.`,
+                    embeds: [embed],
+                    components: [row],
+                });
+                await interaction.editReply({ content: `✅ Verification channel created: <#${channel.id}>\nUpload your screenshot there.` });
+            } catch (err) {
+                console.error('[myinfo_register]', err);
+                await interaction.editReply({ content: `❌ Failed to create channel: ${err.message}` }).catch(() => {});
+            }
+        } else if (interaction.commandName === 'verify_channel_set') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const category = interaction.options.getChannel('category', true);
+            if (category.type !== ChannelType.GuildCategory) {
+                await safeEphemeral(interaction, 'Please select a category channel.');
+                return;
+            }
+            const state = loadPanelState();
+            savePanelState({ ...state, verifyCategoryId: category.id });
+            await safeEphemeral(interaction, `✅ Verification channels will be created in **${category.name}**.`);
+        } else if (interaction.commandName === 'join_verify_panel') {
+        } else if (interaction.commandName === 'member_list_organize') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+            const merged = await rebuildMemberOrganizedSheet();
+            if (!merged.ok) {
+                await interaction.editReply({ content: `❌ 회원목록정리 갱신 실패: ${merged.error}` });
+                return;
+            }
+            await interaction.editReply({ content: `✅ 회원목록정리 갱신 완료: ${merged.count} row(s).` });
+        } else if (['preset','boss','cut','server_open','boss_add','boss_remove','boss_alert_mode','boss_event_multiplier'].includes(interaction.commandName)) {
+            const guildId = interaction.guildId;
+            if (!guildId) { await safeEphemeral(interaction, 'This command can only be used in a guild.'); return; }
+            const guildState = ensureBossGuildState(guildId);
+
+            if (interaction.commandName === 'preset') {
+                const mode = interaction.options.getString('mode');
+                if (!mode) {
+                    if (!Object.keys(guildState.bosses).length) {
+                        await safeEphemeral(interaction, 'No bosses configured yet. Run `/preset mode:combined` first.');
+                        return;
+                    }
+                    await interaction.reply({ embeds: [buildBossListEmbed(guildState)], flags: EPHEMERAL_FLAGS });
+                    return;
+                }
+                if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+                const bosses = listPreset(mode);
+                guildState.bosses = {};
+                for (const b of bosses) {
+                    const key = normalizeBossName(b.name);
+                    guildState.bosses[key] = { name: b.name, respawnMinutes: b.respawnMinutes, nextSpawnAt: null, lastCutAt: null, warnedForSpawnAt: null, announcedForSpawnAt: null };
+                }
+                guildState.bossChannelId = interaction.channelId;
+                saveBossState();
+                await interaction.reply({ content: `Preset applied (${mode}) with ${bosses.length} bosses. Alert channel set to <#${interaction.channelId}>.`, flags: EPHEMERAL_FLAGS });
+            } else if (interaction.commandName === 'boss') {
+                if (!Object.keys(guildState.bosses).length) { await safeEphemeral(interaction, 'No bosses configured. Run `/preset` first.'); return; }
+                const input = interaction.options.getString('boss_name');
+                if (!input) {
+                    await interaction.reply({ embeds: [buildBossListEmbed(guildState)], flags: EPHEMERAL_FLAGS });
+                    return;
+                }
+                const resolved = resolveBoss(guildState, input);
+                if (resolved.error === 'missing') { await safeEphemeral(interaction, 'Boss not found.'); return; }
+                if (resolved.error === 'ambiguous') { await safeEphemeral(interaction, `Multiple matches: ${resolved.matches.map(b=>b.name).join(', ')}`); return; }
+                await interaction.reply({ embeds: [buildSingleBossEmbed(guildState, resolved.boss)], flags: EPHEMERAL_FLAGS });
+            } else if (interaction.commandName === 'cut') {
+                const input = interaction.options.getString('boss_name', true);
+                const resolved = resolveBoss(guildState, input);
+                if (resolved.error === 'missing') { await safeEphemeral(interaction, 'Boss not found.'); return; }
+                if (resolved.error === 'ambiguous') { await safeEphemeral(interaction, `Multiple matches: ${resolved.matches.map(b=>b.name).join(', ')}`); return; }
+                const killedAtInput = interaction.options.getString('killed_at');
+                const killedAt = killedAtInput ? parseTodayTime(killedAtInput, true) : new Date();
+                if (!killedAt) { await safeEphemeral(interaction, 'Invalid time format. Use HH:mm.'); return; }
+                const boss = resolved.boss;
+                boss.lastCutAt = killedAt.getTime();
+                boss.nextSpawnAt = boss.lastCutAt + getEffectiveRespawnMinutes(guildState, boss) * 60_000;
+                boss.warnedForSpawnAt = null;
+                boss.announcedForSpawnAt = null;
+                saveBossState();
+                await interaction.reply({ content: `Cut recorded for **${boss.name}**.\nNext spawn: ${toDiscordTime(boss.nextSpawnAt)}\nRespawn applied: ${getEffectiveRespawnMinutes(guildState, boss)}m`, flags: EPHEMERAL_FLAGS });
+            } else if (interaction.commandName === 'server_open') {
+                if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+                if (!Object.keys(guildState.bosses).length) { await safeEphemeral(interaction, 'No bosses configured. Run `/preset` first.'); return; }
+                const openTime = interaction.options.getString('open_time', true);
+                const parsed = parseTodayTime(openTime, false);
+                if (!parsed) { await safeEphemeral(interaction, 'Invalid time format. Use HH:mm.'); return; }
+                for (const boss of Object.values(guildState.bosses)) {
+                    boss.lastCutAt = parsed.getTime();
+                    boss.nextSpawnAt = parsed.getTime() + getEffectiveRespawnMinutes(guildState, boss) * 60_000;
+                    boss.warnedForSpawnAt = null;
+                    boss.announcedForSpawnAt = null;
+                }
+                guildState.bossChannelId = guildState.bossChannelId || interaction.channelId;
+                saveBossState();
+                await interaction.reply({ content: `All boss timers were reset from ${openTime}.`, flags: EPHEMERAL_FLAGS });
+            } else if (interaction.commandName === 'boss_add') {
+                if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+                const name = interaction.options.getString('boss_name', true).trim();
+                const respawnMinutes = interaction.options.getInteger('respawn_minutes', true);
+                const key = normalizeBossName(name);
+                const existing = guildState.bosses[key];
+                guildState.bosses[key] = { name, respawnMinutes, nextSpawnAt: existing?.nextSpawnAt || null, lastCutAt: existing?.lastCutAt || null, warnedForSpawnAt: existing?.warnedForSpawnAt || null, announcedForSpawnAt: existing?.announcedForSpawnAt || null };
+                if (!guildState.bossChannelId) guildState.bossChannelId = interaction.channelId;
+                saveBossState();
+                await interaction.reply({ content: `Boss saved: **${name}** (${respawnMinutes}m).`, flags: EPHEMERAL_FLAGS });
+            } else if (interaction.commandName === 'boss_remove') {
+                if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+                const name = interaction.options.getString('boss_name', true);
+                const resolved = resolveBoss(guildState, name);
+                if (resolved.error) { await safeEphemeral(interaction, 'Boss not found.'); return; }
+                delete guildState.bosses[normalizeBossName(resolved.boss.name)];
+                saveBossState();
+                await interaction.reply({ content: `Boss removed: **${resolved.boss.name}**.`, flags: EPHEMERAL_FLAGS });
+            } else if (interaction.commandName === 'boss_alert_mode') {
+                const mode = interaction.options.getString('mode', true);
+                const current = new Set(guildState.bossSettings.dmSubscribers || []);
+                if (mode === 'dm') current.add(interaction.user.id);
+                else current.delete(interaction.user.id);
+                guildState.bossSettings.dmSubscribers = [...current];
+                if (!guildState.bossChannelId) guildState.bossChannelId = interaction.channelId;
+                saveBossState();
+                await interaction.reply({ content: mode === 'dm' ? 'Boss alerts will be delivered to your DM. If DM fails, alerts fall back to the alert channel.' : 'Boss alerts for you are switched to public channel mode.', flags: EPHEMERAL_FLAGS });
+            } else if (interaction.commandName === 'boss_event_multiplier') {
+                if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+                const multiplier = interaction.options.getNumber('multiplier', true);
+                guildState.bossSettings.eventMultiplier = multiplier;
+                saveBossState();
+                await interaction.reply({ content: `Event respawn multiplier set to ${multiplier}x.`, flags: EPHEMERAL_FLAGS });
+            }
+        } else if (interaction.commandName.startsWith('kinah_watch_')) {
+            const guildId = interaction.guildId;
+            if (!guildId) { await safeEphemeral(interaction, 'This command can only be used in a guild.'); return; }
+            const guildState = ensureKinahGuildState(guildId);
+
+            if (interaction.commandName === 'kinah_watch_preset') {
+                if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+                const preset = interaction.options.getString('preset', true);
+                const presetConfig = KINAH_PRESET_DEFAULTS[preset];
+                if (!presetConfig) { await safeEphemeral(interaction, 'Invalid preset value.'); return; }
+                const channel = interaction.options.getChannel('channel', true);
+                const pollMinutes = interaction.options.getInteger('poll_minutes') ?? 5;
+                const mentionRole = interaction.options.getRole('mention_role');
+                const sourceKeyword = (interaction.options.getString('source_keyword') || '').trim() || presetConfig.sourceKeyword || '아이온2 키나';
+                await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+
+                const watch = createDefaultKinahWatch(guildState.kinah);
+                watch.enabled = true;
+                watch.sourcePreset = preset;
+                watch.sourceKeyword = sourceKeyword;
+                watch.channelId = channel.id;
+                watch.sourceUrl = presetConfig.primaryUrl || null;
+                watch.secondarySourceUrl = presetConfig.secondaryUrl || null;
+                watch.selector = null;
+                watch.valueRegex = null;
+                watch.pollMinutes = Math.max(1, Math.min(60, pollMinutes));
+                watch.mentionRoleId = mentionRole ? mentionRole.id : null;
+                watch.lastError = null;
+
+                let snapshot = null;
+                try {
+                    snapshot = await fetchKinahRateSnapshot(watch);
+                    const stable = applyKinahStability(watch, snapshot.numeric);
+                    watch.lastRate = stable;
+                    watch.stableRate = stable;
+                    watch.lastRawText = snapshot.token;
+                    watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
+                    watch.lastCheckedAt = Date.now();
+                    snapshot = {
+                        ...snapshot,
+                        rawToken: snapshot.token,
+                        rawNumeric: snapshot.numeric,
+                        token: formatKrw(stable),
+                        numeric: stable,
+                    };
+                } catch (err) {
+                    watch.lastError = err.message || 'Initial preset fetch failed.';
+                }
+
+                guildState.kinah = watch;
+                saveKinahState();
+                const embeds = [buildKinahStatusEmbed(guildState)];
+                if (snapshot) embeds.push(buildKinahRateEmbed(snapshot, null));
+                await interaction.editReply({ embeds });
+            } else if (interaction.commandName === 'kinah_watch_set') {
+                if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+                const channel = interaction.options.getChannel('channel', true);
+                const sourceUrl = interaction.options.getString('source_url', true).trim();
+                const selector = (interaction.options.getString('selector') || '').trim();
+                const valueRegex = (interaction.options.getString('value_regex') || '').trim();
+                const pollMinutes = interaction.options.getInteger('poll_minutes') ?? 5;
+                const mentionRole = interaction.options.getRole('mention_role');
+
+                try {
+                    const u = new URL(sourceUrl);
+                    if (!['https:', 'http:'].includes(u.protocol)) { await safeEphemeral(interaction, 'source_url must be http(s).'); return; }
+                } catch (_) {
+                    await safeEphemeral(interaction, 'source_url is invalid.');
+                    return;
+                }
+                if (valueRegex) {
+                    try { new RegExp(valueRegex, 'i'); } catch (err) { await safeEphemeral(interaction, `Invalid value_regex: ${err.message}`); return; }
+                }
+                await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+
+                const watch = createDefaultKinahWatch(guildState.kinah);
+                watch.enabled = true;
+                watch.sourcePreset = null;
+                watch.channelId = channel.id;
+                watch.sourceUrl = sourceUrl;
+                watch.secondarySourceUrl = null;
+                watch.selector = selector || null;
+                watch.valueRegex = valueRegex || null;
+                watch.pollMinutes = Math.max(1, Math.min(60, pollMinutes));
+                watch.mentionRoleId = mentionRole ? mentionRole.id : null;
+                watch.lastError = null;
+
+                let snapshot = null;
+                try {
+                    snapshot = await fetchKinahRateSnapshot(watch);
+                    const stable = applyKinahStability(watch, snapshot.numeric);
+                    watch.lastRate = stable;
+                    watch.stableRate = stable;
+                    watch.lastRawText = snapshot.token;
+                    watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
+                    watch.lastCheckedAt = Date.now();
+                    snapshot = {
+                        ...snapshot,
+                        rawToken: snapshot.token,
+                        rawNumeric: snapshot.numeric,
+                        token: formatKrw(stable),
+                        numeric: stable,
+                    };
+                } catch (err) {
+                    watch.lastError = err.message || 'Initial fetch failed.';
+                }
+
+                guildState.kinah = watch;
+                saveKinahState();
+                const embeds = [buildKinahStatusEmbed(guildState)];
+                if (snapshot) embeds.push(buildKinahRateEmbed(snapshot, null));
+                await interaction.editReply({ embeds });
+            } else if (interaction.commandName === 'kinah_watch_status') {
+                await interaction.reply({ embeds: [buildKinahStatusEmbed(guildState)], flags: EPHEMERAL_FLAGS });
+            } else if (interaction.commandName === 'kinah_watch_stop') {
+                if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+                const watch = createDefaultKinahWatch(guildState.kinah);
+                watch.enabled = false;
+                watch.rateHistory = [];
+                watch.stableRate = null;
+                guildState.kinah = watch;
+                saveKinahState();
+                await interaction.reply({ content: 'Kinah rate crawler stopped for this guild.', flags: EPHEMERAL_FLAGS });
+            } else if (interaction.commandName === 'kinah_watch_now') {
+                const watch = createDefaultKinahWatch(guildState.kinah);
+                if (!watch.sourceUrl) {
+                    await safeEphemeral(interaction, 'Kinah crawler is not configured. Run `/kinah_watch_preset` or `/kinah_watch_set` first.');
+                    return;
+                }
+                await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+                let snapshot;
+                try {
+                    snapshot = await fetchKinahRateSnapshot(watch);
+                } catch (err) {
+                    watch.lastError = err.message || 'Fetch failed';
+                    guildState.kinah = watch;
+                    saveKinahState();
+                    await interaction.editReply({ content: `Failed to fetch kinah rate: ${watch.lastError}` });
+                    return;
+                }
+
+                const previousRate = watch.lastRate;
+                const stable = applyKinahStability(watch, snapshot.numeric);
+                watch.lastRate = stable;
+                watch.stableRate = stable;
+                watch.lastRawText = snapshot.token;
+                watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
+                watch.lastCheckedAt = Date.now();
+                watch.lastError = null;
+                guildState.kinah = watch;
+                saveKinahState();
+
+                const stableSnapshot = {
+                    ...snapshot,
+                    rawToken: snapshot.token,
+                    rawNumeric: snapshot.numeric,
+                    token: formatKrw(stable),
+                    numeric: stable,
+                };
+                const embed = buildKinahRateEmbed(stableSnapshot, previousRate);
+                const publicPost = interaction.options.getBoolean('public_post') ?? false;
+                if (publicPost) {
+                    const postChannelId = watch.channelId || interaction.channelId;
+                    const postChannel = await interaction.guild.channels.fetch(postChannelId).catch(() => null);
+                    if (postChannel && postChannel.isTextBased()) {
+                        const mention = watch.mentionRoleId ? `<@&${watch.mentionRoleId}>` : undefined;
+                        await postChannel.send({ content: mention, embeds: [embed] }).catch(() => {});
+                        watch.lastPostedAt = Date.now();
+                        guildState.kinah = watch;
+                        saveKinahState();
+                    }
+                }
+                await interaction.editReply({ embeds: [embed, buildKinahStatusEmbed(guildState)] });
+            }
+        } else if (interaction.commandName === 'aon_translate_set') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const g = ensureAonTranslateGuildState(interaction.guildId);
+            const category = interaction.options.getString('category', true);
+            const channel = interaction.options.getChannel('channel', true);
+            const enabled = interaction.options.getBoolean('enabled');
+            g.routes[category] = channel.id;
+            if (enabled !== null && enabled !== undefined) g.enabled = enabled;
+            else g.enabled = true;
+            saveAonTranslateState();
+            await interaction.reply({ embeds: [buildAonTranslateStatusEmbed(g)], flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'aon_translate_source') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const botId = String(interaction.options.getString('bot_id', true)).trim();
+            if (!/^\d{17,20}$/.test(botId)) { await safeEphemeral(interaction, 'Invalid bot_id format.'); return; }
+            const g = ensureAonTranslateGuildState(interaction.guildId);
+            g.sourceBotId = botId;
+            g.enabled = true;
+            saveAonTranslateState();
+            await interaction.reply({ embeds: [buildAonTranslateStatusEmbed(g)], flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'aon_translate_status') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            const g = ensureAonTranslateGuildState(interaction.guildId);
+            await interaction.reply({ embeds: [buildAonTranslateStatusEmbed(g)], flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'youtube_ready') {
+            const videoInput = interaction.options.getString('video', true);
+            const postCard = interaction.options.getBoolean('post_card') ?? true;
+            await interaction.deferReply(postCard ? {} : { flags: EPHEMERAL_FLAGS });
+            try {
+                const ready = await fetchYouTubeVideoReadyInfo(videoInput);
+                if (postCard) {
+                    await interaction.editReply({
+                        content: buildYouTubeReadyCardMessage(ready),
+                        allowedMentions: { parse: [] },
+                    });
+                } else {
+                    await interaction.editReply({ embeds: [buildYouTubeReadyEmbed(ready)] });
+                }
+            } catch (err) {
+                await interaction.editReply({ content: `❌ YouTube 처리 실패: ${err.message || 'Unknown error'}` });
+            }
+        } else if (interaction.commandName === 'item') {
+            const query = (interaction.options.getString('query', true) || '').trim();
+            if (!query) { await safeEphemeral(interaction, 'Please enter an item name or keyword.'); return; }
+            const displayQuery = await translateQueryForDisplay(query);
+            await interaction.reply({ embeds: [buildItemLookupEmbed(query, displayQuery)], flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'collection') {
+            const query = (interaction.options.getString('query', true) || '').trim();
+            if (!query) { await safeEphemeral(interaction, 'Please enter a stat keyword (e.g. crit, accuracy).'); return; }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+            let scraped = await scrapeTalentbuildsDb(query, 'armor').catch(() => null);
+            if (!scraped?.items?.length) scraped = await scrapeTalentbuildsDb(query, 'accessories').catch(() => null);
+            if (!scraped?.items?.length) scraped = await scrapeTalentbuildsDb(query, 'weapons').catch(() => null);
+            if (scraped?.items?.length) scraped = { ...scraped, items: await translateItemNamesToEn(scraped.items) };
+            const displayQuery = await translateQueryForDisplay(query);
+            await interaction.editReply({ embeds: [buildCollectionLookupEmbed(query, scraped, displayQuery)] });
+        } else if (interaction.commandName === 'build') {
+            const query = (interaction.options.getString('query', true) || '').trim();
+            if (!query) { await safeEphemeral(interaction, 'Please enter a class or build keyword.'); return; }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+            let scraped = await scrapeTalentbuildsArmory(query).catch(() => null);
+            if (scraped?.items?.length) scraped = { ...scraped, items: await translateItemNamesToEn(scraped.items) };
+            const displayQuery = await translateQueryForDisplay(query);
+            await interaction.editReply({ embeds: [buildBuildLookupEmbed(query, scraped, displayQuery)] });
+        } else if (interaction.commandName === 'character') {
+            const query = (interaction.options.getString('query', true) || '').trim();
+            if (!query) { await safeEphemeral(interaction, 'Please enter a character name or profile URL.'); return; }
+            const raceFilter = interaction.options.getString('race');
+            const classKeyword = (interaction.options.getString('class_keyword') || '').trim().toLowerCase();
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+            const charDisplayQuery = await translateQueryForDisplay(query);
+            const urlMatch = query.match(PLAYNC_CHAR_URL);
+            const charUrl = urlMatch ? (query.startsWith('http') ? query : 'https://' + urlMatch[0]) : null;
+            try {
+                let charInfo;
+                if (charUrl) {
+                    charInfo = await scrapePlayncCharacter(charUrl);
+                    charInfo.cp = charInfo.cp || '0';
+                } else {
+                    charInfo = await searchPlayncByName(query);
+                    if (!charInfo) {
+                        await interaction.editReply({ embeds: [buildLinkFallbackEmbed(query, true, charDisplayQuery)] });
+                        return;
+                    }
+                    charInfo.cp = null;
+                }
+                const raceVal = (charInfo.race === '천족' || charInfo.race === 'Elyos') ? 'elyos' : (charInfo.race === '마족' || charInfo.race === 'Asmodian') ? 'asmodian' : null;
+                if (raceFilter && raceVal && raceVal !== raceFilter) {
+                    await interaction.editReply({ embeds: [buildLinkFallbackEmbed(query, true, charDisplayQuery)], content: `No match for race filter "${raceFilter}".` });
+                    return;
+                }
+                if (classKeyword && charInfo.job && !String(charInfo.job).toLowerCase().includes(classKeyword)) {
+                    await interaction.editReply({ embeds: [buildLinkFallbackEmbed(query, true, charDisplayQuery)], content: `No match for class keyword "${classKeyword}".` });
+                    return;
+                }
+                const toEnRace = (r) => (r === '천족' ? 'Elyos' : r === '마족' ? 'Asmodian' : r) || 'N/A';
+                const rawName = stripHtmlTags(charInfo.name || query) || query;
+                const displayName = hasHangul(rawName) ? (await translateKoToEn(rawName) || rawName) : rawName;
+                const displayJob = hasHangul(charInfo.job) ? (await translateKoToEn(charInfo.job) || charInfo.job) : charInfo.job;
+                const enc = encodeURIComponent(rawName);
+                const linkLine = `[Full Profile](${charInfo.link}) · [Talentbuilds](https://talentbuilds.com/aion2/armory?search=${enc}&region=korea) · [Shugo.GG](https://shugo.gg/?q=${enc})`;
+                const embed = new EmbedBuilder()
+                    .setTitle(`🛡️ TETRA INTEL: ${displayName}`)
+                    .setDescription(`**${linkLine}**`)
+                    .setThumbnail(charInfo.img || 'https://i.imgur.com/8fXU89V.png')
+                    .addFields(
+                        { name: '👤 Class', value: `\`${displayJob}\``, inline: true },
+                        { name: '📊 Level', value: `\`Lv.${charInfo.level}\``, inline: true },
+                        ...(charInfo.cp != null ? [{ name: '⚔️ Combat Power', value: `\`${charInfo.cp}\``, inline: true }] : []),
+                        { name: '🌐 Server', value: charInfo.server || 'N/A', inline: true },
+                        { name: '🏹 Race', value: toEnRace(charInfo.race) || charInfo.race || 'N/A', inline: true }
+                    )
+                    .setColor(0xFF0055)
+                    .setTimestamp()
+                    .setFooter({ text: (charInfo.resultCount && charInfo.resultCount > 1) ? `#1 of ${charInfo.resultCount}` : 'TETRA Streamer Portal' });
+                await interaction.editReply({ embeds: [embed] });
+                if (!charInfo.cp && charInfo.link) {
+                    scrapePlayncCharacter(charInfo.link).then(async scraped => {
+                        if (scraped?.cp) {
+                            charInfo.cp = scraped.cp;
+                            const enc2 = encodeURIComponent(stripHtmlTags(charInfo.name || query) || query);
+                            const linkLine2 = `[Full Profile](${charInfo.link}) · [Talentbuilds](https://talentbuilds.com/aion2/armory?search=${enc2}&region=korea) · [Shugo.GG](https://shugo.gg/?q=${enc2})`;
+                            const dName = hasHangul(charInfo.name) ? (await translateKoToEn(charInfo.name) || charInfo.name) : (charInfo.name || query);
+                            const dJob = hasHangul(charInfo.job) ? (await translateKoToEn(charInfo.job) || charInfo.job) : charInfo.job;
+                            const embed2 = new EmbedBuilder()
+                                .setTitle(`🛡️ TETRA INTEL: ${dName}`)
+                                .setDescription(`**${linkLine2}**`)
+                                .setThumbnail(charInfo.img || 'https://i.imgur.com/8fXU89V.png')
+                                .addFields(
+                                    { name: '👤 Class', value: `\`${dJob}\``, inline: true },
+                                    { name: '📊 Level', value: `\`Lv.${charInfo.level}\``, inline: true },
+                                    { name: '⚔️ Combat Power', value: `\`${scraped.cp}\``, inline: true },
+                                    { name: '🌐 Server', value: charInfo.server || 'N/A', inline: true },
+                                    { name: '🏹 Race', value: toEnRace(charInfo.race) || 'N/A', inline: true }
+                                )
+                                .setColor(0xFF0055)
+                                .setTimestamp();
+                            interaction.editReply({ embeds: [embed2] }).catch(() => {});
+                        }
+                    }).catch(() => {});
+                }
+            } catch (err) {
+                console.error('[/character] Error:', err.message);
+                await interaction.editReply({ embeds: [buildLinkFallbackEmbed(query, true, charDisplayQuery)], content: '❌ Failed to load. Check links below.' });
+            }
         } else if (interaction.commandName === 'panel') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
             if (!interaction.guild) {
-                await interaction.editReply({ content: '❌ /panel은 서버 내 채널에서만 사용 가능합니다. (DM 불가)' });
+                await interaction.editReply({ content: '❌ /panel can only be used in a server channel (not DM).' });
                 return;
             }
             const kind = interaction.options.getString('type');
@@ -229,12 +3118,12 @@ client.on('interactionCreate', async (interaction) => {
                 if (!channel) channel = await client.channels.fetch(interaction.channelId, { force: true }).catch(() => null);
             }
             if (!channel?.send) {
-                await interaction.editReply({ content: '❌ 채널을 찾을 수 없습니다. 일반 채팅 채널에서 /panel을 실행해 주세요.' });
+                await interaction.editReply({ content: '❌ Channel not found. Run /panel in a text channel.' });
                 return;
             }
             const lockKey = `${kind}_${channel.id}`;
             if (panelUpdateLocks.has(lockKey)) {
-                await interaction.editReply({ content: '⏳ 패널 업데이트 중입니다. 2초 후 다시 시도해 주세요.' });
+                await interaction.editReply({ content: '⏳ Panel is updating. Please try again in 2 seconds.' });
                 return;
             }
             panelUpdateLocks.add(lockKey);
@@ -248,18 +3137,29 @@ client.on('interactionCreate', async (interaction) => {
                         '**How to submit:** Select your region + team below → fill the form → done.\n' +
                         '• **Kinah** (💰) — Login, Logout, Profit\n' +
                         '• **Level-Up** (📈) — Login, Logout, Level, CP\n\n' +
-                        '**Rules:** Select Philippines or Indonesia, enter timestamps in your local time.\n' +
+                        `**Rules:** Select one of ${SUPPORTED_REGION_CODES}, enter timestamps in your local time.\n` +
                         '_Data syncs to management database automatically._'
                     )
                     .setColor(0x5865F2);
-                const kinahPh = new ButtonBuilder().setCustomId('btn_kinah_ph').setLabel('Kinah (PH)').setStyle(ButtonStyle.Primary).setEmoji('🇵🇭');
-                const kinahId = new ButtonBuilder().setCustomId('btn_kinah_id').setLabel('Kinah (ID)').setStyle(ButtonStyle.Primary).setEmoji('🇮🇩');
-                const levelUpPh = new ButtonBuilder().setCustomId('btn_levelup_ph').setLabel('Level-Up (PH)').setStyle(ButtonStyle.Danger).setEmoji('🇵🇭');
-                const levelUpId = new ButtonBuilder().setCustomId('btn_levelup_id').setLabel('Level-Up (ID)').setStyle(ButtonStyle.Danger).setEmoji('🇮🇩');
-                const row = new ActionRowBuilder().addComponents(kinahPh, kinahId, levelUpPh, levelUpId);
+                const kinahButtons = REGION_CONFIGS.map(region =>
+                    new ButtonBuilder()
+                        .setCustomId(`btn_kinah_${region.value}`)
+                        .setLabel(`Kinah (${region.code})`)
+                        .setStyle(ButtonStyle.Primary)
+                        .setEmoji(region.emoji)
+                );
+                const levelUpButtons = REGION_CONFIGS.map(region =>
+                    new ButtonBuilder()
+                        .setCustomId(`btn_levelup_${region.value}`)
+                        .setLabel(`Level-Up (${region.code})`)
+                        .setStyle(ButtonStyle.Danger)
+                        .setEmoji(region.emoji)
+                );
+                const rowTop = new ActionRowBuilder().addComponents(...kinahButtons);
+                const rowBottom = new ActionRowBuilder().addComponents(...levelUpButtons);
                 const files = [];
                 const state = loadPanelState();
-                const payload = { embeds: [embed], components: [row], files: files.length ? files : undefined };
+                const payload = { embeds: [embed], components: [rowTop, rowBottom], files: files.length ? files : undefined };
                 const isReportPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('DAILY WORK LOG') || m.components?.some(c => c.components?.some(b => b.customId?.startsWith('btn_kinah') || b.customId?.startsWith('btn_levelup'))));
                 let allReportPanels = (await channel.messages.fetch({ limit: 100 })).filter(isReportPanel);
                 for (const m of allReportPanels.values()) await m.delete().catch(() => {});
@@ -278,13 +3178,18 @@ client.on('interactionCreate', async (interaction) => {
                         'Your salary for this period has been officially processed.\n\n' +
                         '**How to confirm (1-click, no typing):**\n' +
                         '• Check your bank/wallet balance.\n' +
-                        '• Click **Philippines** 🇵🇭 or **Indonesia** 🇮🇩 below — no form, no typing.\n\n' +
+                        `• Click one of **${SUPPORTED_REGION_CODES}** below — no form, no typing.\n\n` +
                         'Thank you for your excellent performance.'
                     )
                     .setColor(0x57F287);
-                const confirmPhBtn = new ButtonBuilder().setCustomId('btn_salary_ph').setLabel('🇵🇭 Philippines (1-Click)').setStyle(ButtonStyle.Success);
-                const confirmIdBtn = new ButtonBuilder().setCustomId('btn_salary_id').setLabel('🇮🇩 Indonesia (1-Click)').setStyle(ButtonStyle.Success);
-                const row = new ActionRowBuilder().addComponents(confirmPhBtn, confirmIdBtn);
+                const salaryButtons = REGION_CONFIGS.map(region =>
+                    new ButtonBuilder()
+                        .setCustomId(`btn_salary_${region.value}`)
+                        .setLabel(`${region.code} (1-Click)`)
+                        .setEmoji(region.emoji)
+                        .setStyle(ButtonStyle.Success)
+                );
+                const row = new ActionRowBuilder().addComponents(...salaryButtons);
                 const files = [];
                 if (fs.existsSync(CONFIG.PANEL_IMAGES.salary)) {
                     files.push(new AttachmentBuilder(CONFIG.PANEL_IMAGES.salary, { name: 'salary.png' }));
@@ -292,7 +3197,7 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 const state = loadPanelState();
                 const payload = { embeds: [embed], components: [row], files: files.length ? files : undefined };
-                const isSalaryPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('Salary') || m.components?.some(c => c.components?.some(b => ['btn_salary','btn_salary_ph','btn_salary_id'].includes(b.customId))));
+                const isSalaryPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('Salary') || m.components?.some(c => c.components?.some(b => b.customId === 'btn_salary' || b.customId?.startsWith('btn_salary_'))));
                 let allPanels = (await channel.messages.fetch({ limit: 100 })).filter(isSalaryPanel);
                 for (const m of allPanels.values()) await m.delete().catch(() => {});
                 const sent = await channel.send(payload);
@@ -302,11 +3207,100 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 savePanelState({ ...state, salaryMsgId: sent.id, salaryChannelId: channel.id });
                 await interaction.editReply({ content: '✅ Salary panel updated (1 only).' });
+            } else if (kind === 'join_verify') {
+                try {
+                    await upsertJoinVerifyPanel(channel);
+                    await interaction.editReply({ content: '✅ Join verification panel updated (1 only).' });
+                } catch (err) {
+                    console.error('[panel join_verify]', err);
+                    const hint = /permission|access|forbidden/i.test(err.message || '')
+                        ? '\n\n💡 Ensure the bot has **Send Messages**, **Embed Links**, **Read Message History**, and **Manage Messages** permissions.'
+                        : '';
+                    await interaction.editReply({
+                        content: `❌ Join verification panel setup failed: ${err.message || 'Unknown error'}${hint}`
+                    }).catch(() => {});
+                }
+            } else if (kind === 'payment') {
+                const embed = new EmbedBuilder()
+                    .setTitle('💎 Payment Confirmation')
+                    .setDescription(
+                        '**Submit Member Payment Confirmation**\n\n' +
+                        '• Enter amount and description to submit.\n' +
+                        '• If you need to attach a screenshot, post it separately after submitting.\n\n' +
+                        '👇 Click **Submit Payment** below.'
+                    )
+                    .setColor(0x7289DA)
+                    .setTimestamp();
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('btn_payment_confirm')
+                        .setLabel('Submit Payment')
+                        .setEmoji('💎')
+                        .setStyle(ButtonStyle.Primary)
+                );
+                const isPaymentPanel = m => m.author?.id === client.user?.id && m.embeds[0]?.title?.includes('Payment Confirmation');
+                let allPaymentPanels = (await channel.messages.fetch({ limit: 100 })).filter(isPaymentPanel);
+                for (const m of allPaymentPanels.values()) await m.delete().catch(() => {});
+                const sent = await channel.send({ embeds: [embed], components: [row] });
+                allPaymentPanels = (await channel.messages.fetch({ limit: 100 })).filter(isPaymentPanel);
+                for (const m of allPaymentPanels.values()) {
+                    if (m.id !== sent.id) await m.delete().catch(() => {});
+                }
+                const state = loadPanelState();
+                savePanelState({ ...state, paymentMsgId: sent.id, paymentChannelId: channel.id });
+                await interaction.editReply({ content: '✅ Payment panel updated (1 only).' });
+            } else if (kind === 'youtube') {
+                const embed = new EmbedBuilder()
+                    .setTitle('🎬 Info YouTube — Translated Links')
+                    .setDescription(
+                        '**Post translated links for Korean info videos**\n\n' +
+                        '• Auto-translate title (KO→EN)\n' +
+                        '• Generate EN subtitle/auto-translate watch link\n\n' +
+                        '👇 Click **Add Video** and enter a YouTube URL.'
+                    )
+                    .setColor(0xFF0000)
+                    .setTimestamp();
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('btn_youtube_add')
+                        .setLabel('Add Video')
+                        .setEmoji('🎬')
+                        .setStyle(ButtonStyle.Primary)
+                );
+                const isYoutubePanel = m => m.author?.id === client.user?.id && m.embeds[0]?.title?.includes('Info YouTube');
+                let allYtPanels = (await channel.messages.fetch({ limit: 100 })).filter(isYoutubePanel);
+                for (const m of allYtPanels.values()) await m.delete().catch(() => {});
+                const sent = await channel.send({ embeds: [embed], components: [row] });
+                allYtPanels = (await channel.messages.fetch({ limit: 100 })).filter(isYoutubePanel);
+                for (const m of allYtPanels.values()) {
+                    if (m.id !== sent.id) await m.delete().catch(() => {});
+                }
+                const state = loadPanelState();
+                savePanelState({ ...state, youtubeMsgId: sent.id, youtubeChannelId: channel.id });
+                await interaction.editReply({ content: '✅ YouTube panel updated (1 only).' });
+            } else if (kind === 'guide_ko' || kind === 'guide_en') {
+                if (!hasManageGuild(interaction)) {
+                    await interaction.editReply({ content: '❌ Full guides require Manage Server permission. Use `/guide` for member guide.' });
+                    return;
+                }
+                const embeds = kind === 'guide_ko' ? buildGuideEmbedsKo() : buildGuideEmbedsEn();
+                const titleKey = kind === 'guide_ko' ? '사용법 가이드' : 'Usage Guide';
+                const isGuidePanel = m => m.author?.id === client.user?.id && m.embeds?.[0]?.title?.includes(titleKey);
+                let allGuides = (await channel.messages.fetch({ limit: 50 })).filter(isGuidePanel);
+                for (const m of allGuides.values()) await m.delete().catch(() => {});
+                const sent = await channel.send({ embeds });
+                allGuides = (await channel.messages.fetch({ limit: 50 })).filter(isGuidePanel);
+                for (const m of allGuides.values()) {
+                    if (m.id !== sent.id) await m.delete().catch(() => {});
+                }
+                await interaction.editReply({ content: kind === 'guide_ko' ? '✅ 한글 사용법 가이드 패널을 등록했습니다.' : '✅ English usage guide panel posted.' });
             }
             } finally {
                 await new Promise(r => setTimeout(r, 2000));
                 panelUpdateLocks.delete(lockKey);
             }
+        } else {
+            await safeEphemeral(interaction, `Command is registered but not handled yet: /${interaction.commandName}`);
         }
         return;
     }
@@ -315,37 +3309,101 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isButton()) {
         try {
             const id = interaction.customId;
-            if (id === 'btn_kinah_ph') await interaction.showModal(createKinahModal('ph'));
-            else if (id === 'btn_kinah_id') await interaction.showModal(createKinahModal('id'));
-            else if (id === 'btn_levelup_ph') await interaction.showModal(createLevelUpModal('ph'));
-            else if (id === 'btn_levelup_id') await interaction.showModal(createLevelUpModal('id'));
+            if (id === 'btn_join_verify_open') {
+                await interaction.reply({
+                    content: '🌍 Please select your country for join verification.',
+                    components: [buildJoinCountrySelectRow()],
+                    flags: EPHEMERAL_FLAGS
+                });
+            } else if (id === 'btn_char_verify_open') {
+                await interaction.showModal(createCharVerifyModal());
+            } else if (id.startsWith('btn_kinah_')) {
+                const region = parseRegionFromCustomId(id, 'btn_kinah');
+                const cfg = getRegionConfig(region);
+                if (!cfg) {
+                    await interaction.reply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES}.`, flags: EPHEMERAL_FLAGS });
+                    return;
+                }
+                await interaction.showModal(createKinahModal(cfg.value));
+            } else if (id.startsWith('btn_levelup_')) {
+                const region = parseRegionFromCustomId(id, 'btn_levelup');
+                const cfg = getRegionConfig(region);
+                if (!cfg) {
+                    await interaction.reply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES}.`, flags: EPHEMERAL_FLAGS });
+                    return;
+                }
+                await interaction.showModal(createLevelUpModal(cfg.value));
+            }
             else if (id === 'btn_salary') {
                 await interaction.reply({
-                    content: '⚠️ 이 버튼은 더 이상 사용되지 않습니다. `/panel type:salary` 로 패널을 새로 고친 후 **Philippines** 또는 **Indonesia** 버튼을 클릭하세요. (작성 없이 1클릭)',
-                    ephemeral: true
+                    content: `⚠️ 이 버튼은 더 이상 사용되지 않습니다. \`/panel type:salary\` 로 패널을 새로 고친 후 국가 버튼(${SUPPORTED_REGION_CODES})을 클릭하세요.`,
+                    flags: EPHEMERAL_FLAGS
                 });
-            } else if (id === 'btn_salary_ph' || id === 'btn_salary_id') {
+            } else if (id.startsWith('btn_salary_')) {
                 if (interaction.user.bot) return;
                 if (interaction.user.id === client.user?.id) return;
-                const region = id === 'btn_salary_ph' ? 'ph' : 'id';
+                const region = parseRegionFromCustomId(id, 'btn_salary');
                 const regionCfg = getRegionConfig(region);
                 if (!regionCfg) return;
                 const username = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
-                const timestamp = new Date().toLocaleString('sv-SE', { timeZone: regionCfg.timeZone }).slice(0, 16);
+                const timestamp = makeLocalTimestamp(regionCfg.timeZone);
                 const data = [timestamp, username, 'Confirmed', ''];
                 const res = await appendToSheet(regionCfg.salarySheetRange, data);
                 await interaction.reply({
                     content: res.ok ? `✅ Salary confirmation submitted (${username}) → ${regionCfg.code}` : `❌ Failed to save (${regionCfg.code}). Create **Salary_Log_${regionCfg.code}** sheet in Google Sheets.`,
-                    ephemeral: true
+                    flags: EPHEMERAL_FLAGS
                 });
+            } else if (id === 'btn_youtube_add') {
+                if (!hasManageGuild(interaction)) {
+                    await safeEphemeral(interaction, 'Manage Server permission required to add videos.');
+                    return;
+                }
+                await interaction.showModal(createYoutubeAddModal());
+            } else if (id === 'btn_payment_confirm') {
+                await interaction.showModal(createPaymentConfirmModal());
+            } else if (id.startsWith('verify_approve_')) {
+                if (!hasManageGuild(interaction)) {
+                    await safeEphemeral(interaction, 'Manage Server permission required to approve.');
+                    return;
+                }
+                const channelId = id.replace(/^verify_approve_/, '');
+                const verifyState = loadVerifyPendingState();
+                const pending = verifyState.pending[channelId];
+                if (!pending) {
+                    await safeEphemeral(interaction, 'Verification session expired or already processed.');
+                    return;
+                }
+                await interaction.showModal(createVerifyApproveModal(channelId));
+            } else if (id.startsWith('verify_reject_')) {
+                if (!hasManageGuild(interaction)) {
+                    await safeEphemeral(interaction, 'Manage Server permission required to reject.');
+                    return;
+                }
+                const channelId = id.replace(/^verify_reject_/, '');
+                const verifyState = loadVerifyPendingState();
+                const pending = verifyState.pending[channelId];
+                if (!pending) {
+                    await safeEphemeral(interaction, 'Verification session expired or already processed.');
+                    return;
+                }
+                delete verifyState.pending[channelId];
+                saveVerifyPendingState(verifyState);
+                try {
+                    const ch = await client.channels.fetch(channelId).catch(() => null);
+                    if (ch) {
+                        await ch.send({ content: `❌ Verification was **rejected** by ${interaction.user}.` });
+                        await ch.delete().catch(() => {});
+                    }
+                } catch (_) {}
+                await interaction.reply({ content: '❌ Verification rejected. Channel removed.', flags: EPHEMERAL_FLAGS });
             }
         } catch (err) {
             console.error('Button interaction error:', err);
             try {
                 if (!interaction.replied && !interaction.deferred) {
                     await interaction.reply({
-                        content: 'Interaction failed. Please try again or use `/salary_confirm` (choose PH or ID).',
-                        ephemeral: true
+                        content: `Interaction failed. Please try again or use \`/salary_confirm\` (choose ${SUPPORTED_REGION_CODES}).`,
+                        flags: EPHEMERAL_FLAGS
                     });
                 }
             } catch (_) {}
@@ -353,27 +3411,244 @@ client.on('interactionCreate', async (interaction) => {
         return;
     }
 
-    // 모달 제출 → 시트 기록
+    // 나라 선택 드롭다운
+    if (interaction.isStringSelectMenu()) {
+        if (interaction.customId !== 'select_join_country') return;
+        const selected = interaction.values?.[0];
+        const regionCfg = getRegionConfig(selected);
+        if (!regionCfg) {
+            await interaction.reply({ content: `❌ Invalid country selection. Supported: ${SUPPORTED_REGION_CODES}.`, flags: EPHEMERAL_FLAGS });
+            return;
+        }
+        await interaction.showModal(createJoinVerifyModal(regionCfg.value));
+        return;
+    }
+
+    // 모달 제출
     if (interaction.isModalSubmit()) {
         if (interaction.user.bot) return;
         if (interaction.user.id === client.user?.id) return;
         const customId = interaction.customId;
-        const worker = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
-        const region = customId.endsWith('_ph') ? 'ph' : customId.endsWith('_id') ? 'id' : null;
-        const regionCfg = region ? getRegionConfig(region) : null;
-        if (!regionCfg) {
-            await interaction.reply({ content: '❌ Invalid region.', ephemeral: true });
+
+        if (customId === 'modal_char_verify') {
+            const characterName = (interaction.fields.getTextInputValue('character_name') || '').trim();
+            if (!characterName) {
+                await interaction.reply({ content: '❌ Please enter your character name.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            if (!interaction.guildId) {
+                await interaction.reply({ content: '❌ Guild only.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            const state = loadPanelState();
+            const categoryId = state.verifyCategoryId;
+            if (!categoryId) {
+                await interaction.reply({ content: '❌ Verification not configured. Ask an admin to run `/verify_channel_set category:<category>` first.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            const guild = interaction.guild;
+            const category = guild.channels.cache.get(categoryId);
+            if (!category || category.type !== ChannelType.GuildCategory) {
+                await interaction.reply({ content: '❌ Verification category not found. Admin: run `/verify_channel_set` again.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+            const safeName = characterName.replace(/[^\w\s-]/g, '').slice(0, 50) || 'verify';
+            const channelName = `verify-${safeName}-${interaction.user.id.slice(-6)}`;
+            try {
+                const channel = await guild.channels.create({
+                    name: channelName,
+                    type: ChannelType.GuildText,
+                    parent: categoryId,
+                    permissionOverwrites: [
+                        { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] },
+                    ],
+                });
+                const manageRoles = guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.ManageGuild));
+                for (const [, role] of manageRoles) {
+                    if (!channel.permissionOverwrites.cache.has(role.id)) {
+                        await channel.permissionOverwrites.create(role, {
+                            ViewChannel: true,
+                            SendMessages: true,
+                            ReadMessageHistory: true,
+                            ManageMessages: true,
+                        });
+                    }
+                }
+                const verifyState = loadVerifyPendingState();
+                verifyState.pending[channel.id] = {
+                    userId: interaction.user.id,
+                    characterName,
+                    guildId: guild.id,
+                    createdAt: Date.now(),
+                };
+                saveVerifyPendingState(verifyState);
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`verify_approve_${channel.id}`).setLabel('Approve').setStyle(ButtonStyle.Success).setEmoji('✅'),
+                    new ButtonBuilder().setCustomId(`verify_reject_${channel.id}`).setLabel('Reject').setStyle(ButtonStyle.Danger).setEmoji('❌')
+                );
+                const embed = new EmbedBuilder()
+                    .setTitle('🎮 Character Verification')
+                    .setDescription(
+                        `**Character:** \`${characterName}\`\n**User:** ${interaction.user}\n\n` +
+                        '📷 **Upload your in-game screenshot below** (character select or profile).\n' +
+                        'Staff will review and click **Approve** or **Reject**.'
+                    )
+                    .setColor(0x5865F2)
+                    .setTimestamp();
+                await channel.send({
+                    content: `${interaction.user} — Verification channel created.`,
+                    embeds: [embed],
+                    components: [row],
+                });
+                await interaction.editReply({ content: `✅ Verification channel created: <#${channel.id}>\nUpload your screenshot there.` });
+            } catch (err) {
+                console.error('[modal_char_verify]', err);
+                await interaction.editReply({ content: `❌ Failed to create channel: ${err.message}` }).catch(() => {});
+            }
             return;
         }
-        const timestamp = new Date().toLocaleString('sv-SE', { timeZone: regionCfg.timeZone }).slice(0, 16);
-        if (customId.startsWith('modal_kinah')) {
+
+        if (customId.startsWith('modal_verify_approve_')) {
+            if (!hasManageGuild(interaction)) {
+                await interaction.reply({ content: '❌ Manage Server permission required.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            const channelId = customId.replace(/^modal_verify_approve_/, '');
+            const region = (interaction.fields.getTextInputValue('region') || '').trim().toLowerCase();
+            const roleNote = (interaction.fields.getTextInputValue('role_note') || '').trim();
+            const regionCfg = getRegionConfig(region);
+            if (!regionCfg) {
+                await interaction.reply({ content: `❌ Invalid region. Use: ${SUPPORTED_REGION_CODES}`, flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            const verifyState = loadVerifyPendingState();
+            const pending = verifyState.pending[channelId];
+            if (!pending) {
+                await interaction.reply({ content: '❌ Verification session expired.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+            try {
+                const targetUser = await client.users.fetch(pending.userId).catch(() => null);
+                const member = interaction.guild?.members.fetch(pending.userId).catch(() => null);
+                const displayName = member?.displayName || targetUser?.globalName || targetUser?.username || 'Unknown';
+                const row = [
+                    pending.userId,
+                    targetUser ? (targetUser.tag || targetUser.username) : 'Unknown',
+                    displayName,
+                    regionCfg.code,
+                    roleNote || 'N/A',
+                    makeLocalTimestamp(regionCfg.timeZone),
+                    pending.characterName,
+                ];
+                const appendRes = await appendToSheet(regionCfg.memberSheetRange, row);
+                const saved = appendRes.ok;
+                if (!saved) {
+                    await interaction.editReply({ content: `❌ Failed to save to Member_List_${regionCfg.code}. Create the sheet with columns A:G.` });
+                    return;
+                }
+                delete verifyState.pending[channelId];
+                saveVerifyPendingState(verifyState);
+                const merged = await rebuildMemberOrganizedSheet();
+                const mergedMsg = merged.ok ? `\n📚 회원목록정리 refreshed: ${merged.count} rows` : '';
+                try {
+                    const ch = await client.channels.fetch(channelId).catch(() => null);
+                    if (ch) {
+                        await ch.send({ content: `✅ Verification **approved** by ${interaction.user}! Character **${pending.characterName}** added to 회원목록정리. You can register more characters anytime with /myinfo_register or the panel button.` });
+                        await ch.delete().catch(() => {});
+                    }
+                } catch (_) {}
+                await interaction.editReply({ content: `✅ Approved. Character **${pending.characterName}** added to Member_List_${regionCfg.code}${mergedMsg}` });
+            } catch (err) {
+                console.error('[verify_approve]', err);
+                await interaction.editReply({ content: `❌ Error: ${err.message}` }).catch(() => {});
+            }
+            return;
+        }
+
+        if (customId === 'modal_payment_confirm') {
+            const amount = interaction.fields.getTextInputValue('amount')?.trim();
+            const reason = (interaction.fields.getTextInputValue('reason') || '').trim() || 'N/A';
+            if (!amount) {
+                await interaction.reply({ content: '❌ Please enter the amount.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+            try {
+                const discordTag = interaction.user.tag || interaction.user.username;
+                const row = [new Date().toLocaleString('ko-KR'), 'MEMBER_CONFIRM', discordTag, amount, reason, 'Pending Verification'];
+                const res = await appendToSheet("'Payment Log'!A:F", row);
+                if (!res.ok) {
+                    await interaction.editReply({ content: `❌ Failed to save: ${res.error}\nCreate **Payment Log** sheet in Google Sheets with A:F columns.` });
+                    return;
+                }
+                const proofEmbed = new EmbedBuilder()
+                    .setTitle('💎 MEMBER PAYMENT VERIFIED')
+                    .setAuthor({ name: interaction.user.username, iconURL: interaction.user.displayAvatarURL() })
+                    .setColor(0x7289DA)
+                    .addFields(
+                        { name: '💵 Amount Received', value: `\`${amount} KRW\``, inline: true },
+                        { name: '📝 Description', value: reason || 'N/A', inline: true }
+                    )
+                    .setFooter({ text: 'TETRA Agency Public Ledger' })
+                    .setTimestamp();
+                await interaction.channel.send({
+                    content: `✅ **Payment confirmation submitted — ${interaction.user}**`,
+                    embeds: [proofEmbed]
+                });
+                await interaction.editReply({ content: '✅ Payment confirmation submitted.' });
+            } catch (err) {
+                console.error('[modal_payment_confirm]', err);
+                await interaction.editReply({ content: `❌ Error while saving: ${err.message || 'Unknown error'}` }).catch(() => {});
+            }
+            return;
+        }
+
+        if (customId === 'modal_youtube_add') {
+            const url = interaction.fields.getTextInputValue('youtube_url')?.trim();
+            if (!url) {
+                await interaction.reply({ content: '❌ Please enter a YouTube URL.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+            try {
+                const ready = await fetchYouTubeVideoReadyInfo(url);
+                await interaction.channel.send({
+                    content: buildYouTubeReadyCardMessage(ready),
+                    allowedMentions: { parse: [] }
+                });
+                await interaction.editReply({ content: '✅ Posted translated link to channel.' });
+            } catch (err) {
+                await interaction.editReply({ content: `❌ YouTube processing failed: ${err.message || 'Unknown error'}` });
+            }
+            return;
+        }
+
+        const match = String(customId || '').match(/^modal_(kinah|levelup|join_verify)_([a-z]{2})$/i);
+        if (!match) {
+            await interaction.reply({ content: '❌ Unknown modal request.', flags: EPHEMERAL_FLAGS });
+            return;
+        }
+        const modalType = match[1].toLowerCase();
+        const region = match[2].toLowerCase();
+        const worker = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
+        const regionCfg = getRegionConfig(region);
+        if (!regionCfg) {
+            await interaction.reply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES}.`, flags: EPHEMERAL_FLAGS });
+            return;
+        }
+        await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+        const timestamp = makeLocalTimestamp(regionCfg.timeZone);
+        if (modalType === 'kinah') {
             const login = interaction.fields.getTextInputValue('login');
             const logout = interaction.fields.getTextInputValue('logout');
             const profit = interaction.fields.getTextInputValue('profit');
             const data = [timestamp, worker, 'Kinah', login, logout, profit, ''];
             const res = await appendToSheet(regionCfg.sheetRange, data);
-            await interaction.reply({ content: res.ok ? `✅ Kinah report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`, ephemeral: true });
-        } else if (customId.startsWith('modal_levelup')) {
+            await interaction.editReply({ content: res.ok ? `✅ Kinah report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.` });
+        } else if (modalType === 'levelup') {
             const login = interaction.fields.getTextInputValue('login');
             const logout = interaction.fields.getTextInputValue('logout');
             const level = interaction.fields.getTextInputValue('level');
@@ -381,12 +3656,44 @@ client.on('interactionCreate', async (interaction) => {
             const progress = `${level} / ${cp}`;
             const data = [timestamp, worker, 'LevelUp', login, logout, progress, ''];
             const res = await appendToSheet(regionCfg.sheetRange, data);
-            await interaction.reply({ content: res.ok ? `✅ Level-Up report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`, ephemeral: true });
+            await interaction.editReply({ content: res.ok ? `✅ Level-Up report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.` });
+        } else if (modalType === 'join_verify') {
+            const roleNote = (interaction.fields.getTextInputValue('role_note') || '').trim();
+            const saved = await appendMemberListRecord(interaction, regionCfg, roleNote, '');
+            if (!saved.ok) {
+                await interaction.editReply({ content: `❌ Join verification save failed (${regionCfg.code}). Create **Member_List_${regionCfg.code}** sheet in Google Sheets.` });
+                return;
+            }
+            const merged = await rebuildMemberOrganizedSheet();
+            const mergedMsg = merged.ok
+                ? `\n📚 Organized member sheet refreshed: ${merged.count} row(s)`
+                : `\n⚠️ Organized member sheet refresh failed: ${merged.error}`;
+            const charVerifyRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('btn_char_verify_open')
+                    .setLabel('Character Verification')
+                    .setEmoji('🎮')
+                    .setStyle(ButtonStyle.Primary)
+            );
+            await interaction.editReply({
+                content: `✅ Join verification completed (${regionCfg.code})\n- User: ${worker}${mergedMsg}\n\n**Next: Complete Character Verification** — Upload a screenshot of your AION2 character. Staff approval required. Click the button below.`,
+                components: [charVerifyRow],
+            });
+        } else {
+            await interaction.editReply({ content: '❌ Unsupported modal type.' });
         }
     }
 
     } catch (err) {
         console.error('Interaction error:', err);
+        try {
+            if (!interaction?.isRepliable?.()) return;
+            if (interaction.deferred) {
+                await interaction.editReply({ content: '❌ 처리 중 오류가 발생했어요. 다시 시도해 주세요.' }).catch(() => {});
+            } else if (!interaction.replied) {
+                await interaction.reply({ content: '❌ 처리 중 오류가 발생했어요. 다시 시도해 주세요.', flags: EPHEMERAL_FLAGS }).catch(() => {});
+            }
+        } catch (_) {}
     }
 });
 
@@ -429,6 +3736,13 @@ async function getServerNameEn(serverId) {
     return serverCache[serverId] || null;
 }
 
+function stripHtmlTags(text) {
+    return String(text || '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 async function searchPlayncByName(charName) {
     const { data } = await axios.get(SEARCH_API, {
         params: { keyword: charName.trim() },
@@ -440,8 +3754,9 @@ async function searchPlayncByName(charName) {
     const [pcMap, serverEn] = await Promise.all([getPcData(), getServerNameEn(list[0].serverId)]);
     const first = list[0];
     const charUrl = `https://aion2.plaync.com/ko-kr/characters/${first.serverId}/${first.characterId}`;
+    const safeName = stripHtmlTags(first.name) || charName.trim();
     return {
-        name: first.name.trim(),
+        name: safeName,
         level: String(first.level),
         server: serverEn || SERVER_KO_TO_EN[first.serverName] || first.serverName || 'N/A',
         race: first.race === 1 ? 'Elyos' : first.race === 2 ? 'Asmodian' : 'N/A',
@@ -494,27 +3809,292 @@ async function scrapePlayncCharacter(pageUrl) {
     }
 }
 
-function buildLinkFallbackEmbed(charName, addUrlHint = false) {
+function buildLinkFallbackEmbed(charName, addUrlHint = false, displayQuery = null) {
     const encoded = encodeURIComponent(charName);
+    const titleName = displayQuery != null ? displayQuery : charName;
     const armoryLink = `https://talentbuilds.com/aion2/armory?search=${encoded}&region=korea`;
     const shugoLink = `https://shugo.gg/?q=${encoded}`;
     const playncLink = 'https://aion2.plaync.com/ko-kr/characters/index';
-    let desc = `**AION 2 Character Lookup**\n\nCheck search results for "${charName}" below:\n\n` +
+    let desc = `**AION 2 Character Lookup**\n\nCheck search results for "${titleName}" below:\n\n` +
         `🔗 [Talentbuilds Armory](${armoryLink})\n` +
         `🔗 [Shugo.GG](${shugoLink})\n` +
         `🔗 [Official Character Info](${playncLink})`;
     if (addUrlHint) desc += '\n\n💡 **Tip:** Paste the character page URL with `!char [URL]` to view full details here.';
     return new EmbedBuilder()
-        .setTitle(`🔍 TETRA Intelligence: ${charName}`)
+        .setTitle(`🔍 TETRA Intelligence: ${titleName}`)
         .setDescription(desc)
         .setColor(0xFF0055)
         .setFooter({ text: 'TETRA Streamer Portal | Character Search' })
         .setTimestamp();
 }
 
+function buildItemLookupEmbed(query, displayQuery = null) {
+    const encoded = encodeURIComponent(query);
+    const titleQuery = displayQuery != null ? displayQuery : query;
+    return new EmbedBuilder()
+        .setTitle(`Item Lookup: ${titleQuery}`)
+        .setDescription([
+            'Search for items using the links below:',
+            '',
+            `🔗 [Talentbuilds Armory](https://talentbuilds.com/aion2/armory?search=${encoded}&region=korea)`,
+            `🔗 [Shugo.GG](https://shugo.gg/?q=${encoded})`,
+            `🔗 [Google site search](https://www.google.com/search?q=site%3Aaion2.plaync.com+${encoded})`,
+        ].join('\n'))
+        .setColor(0x16a34a)
+        .setTimestamp();
+}
+
+async function scrapeTalentbuildsDb(query, category) {
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+        const page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0');
+        const url = `https://talentbuilds.com/aion2/database/${category || 'armor'}?search=${encodeURIComponent(query)}`;
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 15000 });
+        await new Promise(r => setTimeout(r, 3000));
+        const items = await page.evaluate(() => {
+            const links = Array.from(document.querySelectorAll('a[href*="/database/"], a[href*="/armor"], a[href*="/weapons"], a[href*="/accessories"]'));
+            const seen = new Set();
+            const out = [];
+            for (const a of links) {
+                const text = (a.textContent || '').trim();
+                const href = a.href || '';
+                if (!text || text.length < 2 || text.length > 80) continue;
+                if (/^(weapons|armor|accessories|pets|wings|arcana|all)$/i.test(text)) continue;
+                if (seen.has(text)) continue;
+                seen.add(text);
+                out.push({ name: text, url: href });
+                if (out.length >= 10) break;
+            }
+            return out;
+        });
+        return { items, searchUrl: url };
+    } catch (err) {
+        console.warn('[scrapeTalentbuildsDb]', err.message);
+        return null;
+    } finally {
+        if (browser) await browser.close();
+    }
+}
+
+async function scrapeTalentbuildsArmory(query) {
+    let browser;
+    try {
+        browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+        const page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0');
+        const url = `https://talentbuilds.com/aion2/armory?search=${encodeURIComponent(query)}&region=korea`;
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 15000 });
+        await new Promise(r => setTimeout(r, 4000));
+        const chars = await page.evaluate(() => {
+            const cards = document.querySelectorAll('a[href*="/armory/"], [data-character], .character-card, table tbody tr, [class*="character"]');
+            const seen = new Set();
+            const out = [];
+            for (const el of Array.from(cards)) {
+                const a = el.closest('a') || el.querySelector('a') || (el.tagName === 'A' ? el : null);
+                const link = a?.href || (el.tagName === 'A' ? el.href : '');
+                if (!link || !link.includes('armory')) continue;
+                const text = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+                if (!text || text.length < 3) continue;
+                const key = text.slice(0, 50);
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push({ name: text.slice(0, 60), url: link });
+                if (out.length >= 8) break;
+            }
+            if (out.length === 0) {
+                const allLinks = Array.from(document.querySelectorAll('a[href*="armory"]'));
+                for (const a of allLinks) {
+                    const t = (a.textContent || '').trim();
+                    if (t && t.length >= 2 && t.length <= 40 && !seen.has(t)) {
+                        seen.add(t);
+                        out.push({ name: t, url: a.href });
+                        if (out.length >= 8) break;
+                    }
+                }
+            }
+            return out;
+        });
+        return { items: chars, searchUrl: url };
+    } catch (err) {
+        console.warn('[scrapeTalentbuildsArmory]', err.message);
+        return null;
+    } finally {
+        if (browser) await browser.close();
+    }
+}
+
+function buildCollectionLookupEmbed(query, scraped = null, displayQuery = null) {
+    const encoded = encodeURIComponent(query);
+    const titleQuery = displayQuery != null ? displayQuery : query;
+    const baseUrl = `https://talentbuilds.com/aion2/database/armor?search=${encoded}`;
+    const shugoUrl = `https://shugo.gg/?q=${encoded}`;
+    let desc;
+    if (scraped?.items?.length) {
+        desc = scraped.items.map((it, i) => `${i + 1}. [${it.name}](${it.url})`).join('\n') +
+            `\n\n🔗 [More on Talentbuilds](${scraped.searchUrl}) · [Shugo.GG](${shugoUrl})`;
+    } else {
+        desc = [
+            'Find equipment collection sets by stat keyword:',
+            '',
+            `🔗 [Talentbuilds Database](${baseUrl})`,
+            `🔗 [Shugo.GG](${shugoUrl})`,
+            `🔗 [Google (collection)](https://www.google.com/search?q=site%3Aaion2.plaync.com+${encoded}+collection)`,
+        ].join('\n');
+    }
+    return new EmbedBuilder()
+        .setTitle(`📦 Collection: ${titleQuery}`)
+        .setDescription(desc.slice(0, 4000))
+        .setColor(0x0891b2)
+        .setTimestamp();
+}
+
+function buildBuildLookupEmbed(query, scraped = null, displayQuery = null) {
+    const encoded = encodeURIComponent(query);
+    const titleQuery = displayQuery != null ? displayQuery : query;
+    const armoryUrl = `https://talentbuilds.com/aion2/armory?search=${encoded}&region=korea`;
+    const shugoUrl = `https://shugo.gg/?q=${encoded}`;
+    const ytUrl = `https://www.youtube.com/results?search_query=aion2+${encoded}+build`;
+    let desc;
+    if (scraped?.items?.length) {
+        desc = scraped.items.map((it, i) => `${i + 1}. [${it.name}](${it.url})`).join('\n') +
+            `\n\n🔗 [More Builds](${armoryUrl}) · [Shugo.GG](${shugoUrl}) · [YouTube](${ytUrl})`;
+    } else {
+        desc = [
+            'Find recommended builds and skill tree references:',
+            '',
+            `🔗 [Talentbuilds Armory](${armoryUrl})`,
+            `🔗 [Shugo.GG](${shugoUrl})`,
+            `🔗 [YouTube Build Search](${ytUrl})`,
+        ].join('\n');
+    }
+    return new EmbedBuilder()
+        .setTitle(`⚔️ Build: ${titleQuery}`)
+        .setDescription(desc.slice(0, 4000))
+        .setColor(0xdc2626)
+        .setTimestamp();
+}
+
+async function translateItemNamesToEn(items) {
+    if (!items?.length) return items;
+    const out = [];
+    for (const it of items) {
+        const name = hasHangul(it.name) ? (await translateKoToEn(it.name) || it.name) : it.name;
+        out.push({ ...it, name });
+    }
+    return out;
+}
+
+async function translateQueryForDisplay(query) {
+    return hasHangul(query) ? (await translateKoToEn(query) || query) : query;
+}
+
+async function handleAonBotNewsTranslation(message) {
+    if (!message.guild || !message.author?.bot) return;
+    const guildCfg = ensureAonTranslateGuildState(message.guild.id);
+    if (!guildCfg.enabled) return;
+    if (message.author.id !== guildCfg.sourceBotId) return;
+    const matched = Object.entries(guildCfg.routes || {}).find(([, channelId]) => channelId && channelId === message.channelId);
+    if (!matched) return;
+    if (guildCfg.translatedMessageIds.includes(message.id)) return;
+
+    const category = matched[0];
+    const sourceEmbed = message.embeds?.[0];
+    const sourceTitle = sourceEmbed?.title || `AION2 ${String(category).toUpperCase()}`;
+    const sourceDescription = sourceEmbed?.description || message.content || '';
+    const sourceFields = Array.isArray(sourceEmbed?.fields) ? sourceEmbed.fields.slice(0, 5) : [];
+
+    const translatedTitle = await translateKoToEnLong(sourceTitle);
+    let translatedDescription = await translateKoToEnLong(sourceDescription);
+    if (!translatedDescription) translatedDescription = 'No translatable text found.';
+
+    const translatedFields = [];
+    for (const f of sourceFields) {
+        const name = await translateKoToEnLong(f.name || '');
+        const value = await translateKoToEnLong(f.value || '');
+        translatedFields.push({
+            name: (name || f.name || 'Field').slice(0, 256),
+            value: (value || f.value || '-').slice(0, 1024),
+            inline: Boolean(f.inline)
+        });
+    }
+
+    const out = new EmbedBuilder()
+        .setTitle(`🇬🇧 EN | ${(translatedTitle || sourceTitle || '').slice(0, 256)}`)
+        .setDescription([`[Open original post](${message.url})`, '', translatedDescription].join('\n').slice(0, 4096))
+        .setColor(sourceEmbed?.color || 0x4F46E5)
+        .setFooter({ text: `Auto-translated from AION bot (${String(category).toUpperCase()})` })
+        .setTimestamp();
+
+    if (sourceEmbed?.url) out.setURL(sourceEmbed.url);
+    if (sourceEmbed?.image?.url) out.setImage(sourceEmbed.image.url);
+    if (sourceEmbed?.thumbnail?.url) out.setThumbnail(sourceEmbed.thumbnail.url);
+    if (translatedFields.length) out.addFields(translatedFields);
+
+    const sent = await message.channel.send({ embeds: [out] }).catch(() => null);
+    if (!sent) return;
+
+    guildCfg.translatedMessageIds.push(message.id);
+    guildCfg.translatedMessageIds = guildCfg.translatedMessageIds.slice(-1000);
+    saveAonTranslateState();
+}
+
 client.on('messageCreate', async (message) => {
+    await handleAonBotNewsTranslation(message).catch(() => {});
     if (message.author?.bot) return;
     const content = message.content?.trim() || '';
+
+    // ── !yt [youtube-url]
+    const ytMatch = content.match(/^!(?:yt|youtube)\s+(.+)$/i);
+    if (ytMatch) {
+        const videoInput = ytMatch[1].trim();
+        let progressMsg = null;
+        try {
+            progressMsg = await message.reply({
+                content: '🎬 유튜브 링크 분석 중... (title 번역 + 영어 자막 확인)',
+                allowedMentions: { repliedUser: false }
+            });
+        } catch (_) {}
+        try {
+            const ready = await fetchYouTubeVideoReadyInfo(videoInput);
+            if (progressMsg) {
+                await progressMsg.edit({
+                    content: buildYouTubeReadyCardMessage(ready),
+                    embeds: [],
+                    allowedMentions: { parse: [] }
+                }).catch(() => {});
+            } else {
+                await message.channel.send({
+                    content: buildYouTubeReadyCardMessage(ready),
+                    allowedMentions: { parse: [] },
+                }).catch(() => {});
+            }
+        } catch (err) {
+            const errorText = `❌ YouTube 링크 처리 실패: ${err.message || 'Unknown error'}\nUsage: \`!yt <youtube-url>\``;
+            if (progressMsg) await progressMsg.edit({ content: errorText, embeds: [] }).catch(() => {});
+            else await message.reply({ content: errorText, allowedMentions: { repliedUser: false } }).catch(() => {});
+        }
+        return;
+    }
+
+    // ── plain YouTube URL (auto EN subtitle card + translated title)
+    const youtubeUrl = extractFirstYouTubeUrlFromText(content);
+    if (youtubeUrl && !content.startsWith('!')) {
+        try {
+            const ready = await fetchYouTubeVideoReadyInfo(youtubeUrl);
+            await message.channel.send({
+                content: buildYouTubeReadyCardMessage(ready),
+                allowedMentions: { parse: [] },
+            }).catch(() => {});
+        } catch (_) {}
+    }
 
     // ── !confirm 금액 / 내용 (회원 입금 확인, 스크린샷 필수)
     if (content.startsWith('!confirm ')) {
@@ -554,7 +4134,7 @@ client.on('messageCreate', async (message) => {
         return;
     }
 
-    // ── !char [name]
+    // ── !char [name] — DM result (only you see it, like /character)
     const prefix = '!char ';
     if (!content.toLowerCase().startsWith(prefix)) return;
 
@@ -563,17 +4143,17 @@ client.on('messageCreate', async (message) => {
         await message.reply({
             content: '❌ Usage: `!char [character name]`\nExample: `!char Drau`',
             allowedMentions: { repliedUser: false }
-        });
+        }).catch(() => {});
         return;
     }
 
     const urlMatch = input.match(PLAYNC_CHAR_URL);
     const charUrl = urlMatch ? (input.startsWith('http') ? input : 'https://' + urlMatch[0]) : null;
 
-    let searchMsg;
+    let ackMsg;
     try {
-        searchMsg = await message.reply({
-            content: charUrl ? `🔍 **Loading character info...** (up to 15 sec)` : `🔍 **Searching for ${input}**...`,
+        ackMsg = await message.reply({
+            content: charUrl ? `🔍 Loading character info... (DM you shortly)` : `🔍 Searching for ${input}... (DM you shortly)`,
             allowedMentions: { repliedUser: false }
         });
     } catch (_) {}
@@ -587,7 +4167,8 @@ client.on('messageCreate', async (message) => {
             charInfo = await searchPlayncByName(input);
             if (!charInfo) {
                 const embed = buildLinkFallbackEmbed(input, true);
-                if (searchMsg) await searchMsg.edit({ content: '❌ No results found.', embeds: [embed] }).catch(() => {});
+                await message.author.send({ content: '❌ No results found.', embeds: [embed] }).catch(() => {});
+                if (ackMsg) await ackMsg.delete().catch(() => {});
                 return;
             }
             charInfo.cp = null;
@@ -595,10 +4176,11 @@ client.on('messageCreate', async (message) => {
 
         const toEnRace = (r) => (r === '천족' ? 'Elyos' : r === '마족' ? 'Asmodian' : r) || 'N/A';
         const buildEmbed = (info) => {
-            const enc = encodeURIComponent(info.name || input);
+            const safeName = stripHtmlTags(info.name || input) || input;
+            const enc = encodeURIComponent(safeName);
             const linkLine = `[Full Profile](${info.link}) · [Talentbuilds](https://talentbuilds.com/aion2/armory?search=${enc}&region=korea) · [Shugo.GG](https://shugo.gg/?q=${enc})`;
             return new EmbedBuilder()
-                .setTitle(`🛡️ TETRA INTEL: ${info.name}`)
+                .setTitle(`🛡️ TETRA INTEL: ${safeName}`)
                 .setDescription(`**${linkLine}**`)
                 .setThumbnail(info.img || 'https://i.imgur.com/8fXU89V.png')
                 .addFields(
@@ -613,14 +4195,18 @@ client.on('messageCreate', async (message) => {
                 .setFooter({ text: (info.resultCount && info.resultCount > 1) ? `#1 of ${info.resultCount} with same name` : 'TETRA Streamer Portal | TETRA Intelligence Unit' });
         };
 
-        if (searchMsg) await searchMsg.edit({ content: '', embeds: [buildEmbed(charInfo)] }).catch(() => {});
-        else await message.channel.send({ embeds: [buildEmbed(charInfo)], allowedMentions: { repliedUser: false } });
+        await message.author.send({ embeds: [buildEmbed(charInfo)] }).catch(async (e) => {
+            if (/cannot send|dm closed|disabled/i.test(String(e.message || ''))) {
+                await message.channel.send({ content: `${message.author} — DM disabled. Enable DMs from server members to receive search results, or use \`/character\` (ephemeral).`, allowedMentions: { parse: [] } }).catch(() => {});
+            }
+        });
+        if (ackMsg) await ackMsg.delete().catch(() => {});
 
-        if (!charInfo.cp && charInfo.link && searchMsg) {
-            scrapePlayncCharacter(charInfo.link).then(scraped => {
+        if (!charInfo.cp && charInfo.link) {
+            scrapePlayncCharacter(charInfo.link).then(async scraped => {
                 if (scraped?.cp) {
                     charInfo.cp = scraped.cp;
-                    searchMsg.edit({ embeds: [buildEmbed(charInfo)] }).catch(() => {});
+                    await message.author.send({ embeds: [buildEmbed(charInfo)] }).catch(() => {});
                 }
             }).catch(() => {});
         }
@@ -628,14 +4214,8 @@ client.on('messageCreate', async (message) => {
         console.error('[!char] Error:', err.message);
         const embed = buildLinkFallbackEmbed(input);
         try {
-            if (searchMsg) {
-                await searchMsg.edit({
-                    content: '❌ **Failed to load.** ' + (charUrl ? 'Could not reach page. ' : '') + 'Check links below.',
-                    embeds: [embed]
-                });
-            } else {
-                await message.reply({ embeds: [embed], allowedMentions: { repliedUser: false } });
-            }
+            await message.author.send({ content: '❌ **Failed to load.** ' + (charUrl ? 'Could not reach page. ' : '') + 'Check links below.', embeds: [embed] }).catch(() => {});
+            if (ackMsg) await ackMsg.delete().catch(() => {});
         } catch (_) {
             await message.channel.send({ embeds: [embed] }).catch(() => {});
         }

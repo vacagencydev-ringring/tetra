@@ -5,6 +5,17 @@
 const simpleGit = require('simple-git');
 const path = require('path');
 const fs = require('fs');
+const readline = require('readline');
+
+function askConfirm(question) {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    return new Promise(resolve => {
+        rl.question(question, answer => {
+            rl.close();
+            resolve(/^(y|yes)$/i.test(String(answer || '').trim()));
+        });
+    });
+}
 
 const repoPath = __dirname;
 const GIT_PATHS = [
@@ -41,6 +52,12 @@ async function push() {
         console.log('[5/6] 원격 연결...');
         try { await git.remote(['remove', 'origin']); } catch (_) {}
         await git.remote(['add', 'origin', remote]);
+        
+        const confirmed = await askConfirm('\n⚠️ 로컬 버전이 원격(GitHub)을 덮어씁니다. 계속할까요? (y/N): ');
+        if (!confirmed) {
+            console.log('\n❌ 취소되었습니다. push 하지 않았습니다.');
+            process.exit(0);
+        }
         
         console.log('[6/6] Push...');
         await git.push(['-u', 'origin', 'main', '--force']);
