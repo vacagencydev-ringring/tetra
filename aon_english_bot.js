@@ -882,6 +882,90 @@ function buildBuildLookupEmbed(query) {
     .setColor(0xdc2626);
 }
 
+function buildGuideEmbeds() {
+  const embed1 = new EmbedBuilder()
+    .setTitle("📘 아온2봇 사용 가이드 (Ver 2.1)")
+    .setDescription(
+      [
+        "아이온2 유저를 위한 필수 서포트 봇입니다.",
+        "아래 명령어를 확인하고 필요한 기능을 사용해보세요!",
+      ].join("\n")
+    )
+    .addFields(
+      {
+        name: "🔐 스마트 인증 시스템",
+        value: [
+          "`/myinfo_register character_name:<닉네임>`",
+          "- 개인 비밀 인증 채널 생성",
+          "- 스크린샷 업로드 후 관리자 승인/거절",
+          "",
+          "`/verification_status`",
+          "- 현재 인증 세팅 확인",
+        ].join("\n"),
+      },
+      {
+        name: "⚔️ 보스 컨텐츠 타이머",
+        value: [
+          "`/cut boss_name:<보스명> [killed_at:HH:mm]`",
+          "- 처치 시간 입력 시 다음 젠 시간 자동 계산",
+          "- 이벤트 기간에는 단축 배율 자동 반영",
+          "",
+          "`/preset [mode]` `/boss` `/server_open`",
+          "- 프리셋 등록/조회 및 현황판 관리",
+        ].join("\n"),
+      },
+      {
+        name: "Tip",
+        value: [
+          "`/boss_alert_mode` 로 알림을 **채널 공개** 또는 **DM 전용**으로 선택 가능",
+          "`/boss_event_multiplier` 로 이벤트 단축시간(배율) 반영 가능",
+        ].join("\n"),
+      }
+    )
+    .setColor(0x22c55e);
+
+  const embed2 = new EmbedBuilder()
+    .setTitle("📚 명령어 가이드 (검색 / 관리자 / 파티)")
+    .addFields(
+      {
+        name: "📚 정보 검색",
+        value: [
+          "`/character` - 캐릭터 조회 (종족/직업 키워드 필터)",
+          "`/item` - 아이템 검색",
+          "`/collection` - 스탯 기반 컬렉션 검색",
+          "`/build` - 추천 빌드/스킬트리 검색",
+        ].join("\n"),
+      },
+      {
+        name: "🛡️ 관리자 전용 (초기 세팅)",
+        value: [
+          "`/temp_role_set` `/verified_role_set`",
+          "`/verify_channel_set` `/verify_log_set`",
+          "`/notice_set` `/notice_status`",
+          "`/boss_add` `/boss_remove`",
+        ].join("\n"),
+      },
+      {
+        name: "⚔️ 파티 모집",
+        value: [
+          "`/profile_set` - 내 프로필 등록",
+          "`/party_recruit` - 버튼형 파티 모집글 생성",
+          "(참가/나가기/마감 버튼 지원)",
+        ].join("\n"),
+      },
+      {
+        name: "❓ 도움말",
+        value: "`/help` 또는 `/guide`",
+      }
+    )
+    .setColor(0x3b82f6)
+    .setFooter({
+      text: "필요 시 /guide public:false 로 나만 보기(에페메랄) 가능",
+    });
+
+  return [embed1, embed2];
+}
+
 function buildVerificationConfigEmbed(guildState) {
   const conf = guildState.verification || {};
   return new EmbedBuilder()
@@ -954,6 +1038,15 @@ const commandPayload = [
   new SlashCommandBuilder()
     .setName("help")
     .setDescription("Show setup and command guide"),
+  new SlashCommandBuilder()
+    .setName("guide")
+    .setDescription("Post full command guide panel")
+    .addBooleanOption((opt) =>
+      opt
+        .setName("public")
+        .setDescription("Post publicly in this channel (default: true)")
+        .setRequired(false)
+    ),
   new SlashCommandBuilder()
     .setName("preset")
     .setDescription("Apply preset or display current boss list")
@@ -1254,6 +1347,7 @@ async function handleSlash(interaction) {
           "6) Party: `/profile_set` then `/party_recruit`.",
           "",
           "Main commands:",
+          "- /help /guide",
           "- /preset /boss /cut /server_open /boss_add /boss_remove",
           "- /boss_alert_mode /boss_event_multiplier",
           "- /notice_set /notice_status",
@@ -1264,6 +1358,15 @@ async function handleSlash(interaction) {
       )
       .setColor(0x2563eb);
     await interaction.reply({ embeds: [embed], ephemeral: true });
+    return;
+  }
+
+  if (interaction.commandName === "guide") {
+    const isPublic = interaction.options.getBoolean("public") ?? true;
+    await interaction.reply({
+      embeds: buildGuideEmbeds(),
+      ephemeral: !isPublic,
+    });
     return;
   }
 

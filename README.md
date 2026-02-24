@@ -42,6 +42,10 @@ https://koreanbots.dev/bots/1436590099235340410
    - `/collection` (stat-based lookup links)
    - `/build` (build/skill-tree lookup links)
 
+6. **Guide Panel Command**
+   - `/guide` posts a full command guide panel (capture-style)
+   - `/guide public:false` sends it as ephemeral to yourself
+
 ## Environment Variables
 
 See `.env.example`:
