@@ -112,9 +112,20 @@ function createDefaultGuildState() {
   return {
     bosses: {},
     bossChannelId: null,
+    bossSettings: {
+      eventMultiplier: 1,
+      dmSubscribers: [],
+    },
     notices: {
       channelId: null,
       categories: ["all"],
+    },
+    verification: {
+      tempRoleId: null,
+      verifiedRoleId: null,
+      categoryId: null,
+      logChannelId: null,
+      tickets: {},
     },
     profiles: {},
     parties: {},
@@ -147,12 +158,29 @@ function ensureGuildState(guildId) {
   }
   const g = state.guilds[guildId];
   g.bosses = g.bosses || {};
+  g.bossSettings = g.bossSettings || { eventMultiplier: 1, dmSubscribers: [] };
+  g.bossSettings.eventMultiplier = Number.isFinite(
+    Number(g.bossSettings.eventMultiplier)
+  )
+    ? Number(g.bossSettings.eventMultiplier)
+    : 1;
+  g.bossSettings.dmSubscribers = Array.isArray(g.bossSettings.dmSubscribers)
+    ? g.bossSettings.dmSubscribers
+    : [];
   g.profiles = g.profiles || {};
   g.parties = g.parties || {};
   g.notices = g.notices || { channelId: null, categories: ["all"] };
   g.notices.categories = Array.isArray(g.notices.categories)
     ? g.notices.categories
     : ["all"];
+  g.verification = g.verification || {
+    tempRoleId: null,
+    verifiedRoleId: null,
+    categoryId: null,
+    logChannelId: null,
+    tickets: {},
+  };
+  g.verification.tickets = g.verification.tickets || {};
   return g;
 }
 
@@ -231,6 +259,26 @@ function listPreset(mode) {
   return BOSS_PRESETS[mode] || [];
 }
 
+function getBossEventMultiplier(guildState) {
+  const value = Number(guildState?.bossSettings?.eventMultiplier ?? 1);
+  if (!Number.isFinite(value) || value <= 0) return 1;
+  return Math.min(2, Math.max(0.1, value));
+}
+
+function getEffectiveRespawnMinutes(guildState, boss) {
+  const multiplier = getBossEventMultiplier(guildState);
+  return Math.max(1, Math.round(boss.respawnMinutes * multiplier));
+}
+
+function sanitizeChannelName(raw) {
+  return String(raw || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-_ ]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 32);
+}
+
 function createPartyId() {
   return `${Date.now().toString(36)}${Math.random()
     .toString(36)
@@ -303,6 +351,7 @@ async function refreshPartyMessage(interaction, guildState, post) {
 function buildBossListEmbed(guildState) {
   const bosses = Object.values(guildState.bosses);
   const now = Date.now();
+  const multiplier = getBossEventMultiplier(guildState);
   const sorted = bosses.sort((a, b) => {
     const aSpawn = a.nextSpawnAt || Number.MAX_SAFE_INTEGER;
     const bSpawn = b.nextSpawnAt || Number.MAX_SAFE_INTEGER;
@@ -310,26 +359,43 @@ function buildBossListEmbed(guildState) {
   });
   const lines = sorted.map((boss) => {
     const next = boss.nextSpawnAt ? toDiscordTime(boss.nextSpawnAt) : "N/A";
-    return `- **${boss.name}** (${boss.respawnMinutes}m) -> ${statusForBoss(
+    const effective = getEffectiveRespawnMinutes(guildState, boss);
+    const respawnLabel =
+      effective === boss.respawnMinutes
+        ? `${boss.respawnMinutes}m`
+        : `${boss.respawnMinutes}m -> ${effective}m`;
+    return `- **${boss.name}** (${respawnLabel}) -> ${statusForBoss(
       boss,
       now
     )} | Next: ${next}`;
   });
   return new EmbedBuilder()
     .setTitle("Field Boss Board")
-    .setDescription(lines.join("\n").slice(0, 3900) || "No bosses configured.")
+    .setDescription(
+      lines.join("\n").slice(0, 3600) || "No bosses configured."
+    )
+    .addFields({
+      name: "Event multiplier",
+      value: `${multiplier}x`,
+      inline: true,
+    })
     .setColor(0x2563eb)
     .setTimestamp();
 }
 
-function buildSingleBossEmbed(boss) {
+function buildSingleBossEmbed(guildState, boss) {
   const next = boss.nextSpawnAt ? toDiscordTime(boss.nextSpawnAt) : "N/A";
   const lastCut = boss.lastCutAt ? toDiscordTime(boss.lastCutAt) : "N/A";
+  const effective = getEffectiveRespawnMinutes(guildState, boss);
+  const respawnLabel =
+    effective === boss.respawnMinutes
+      ? `${boss.respawnMinutes} minutes`
+      : `${boss.respawnMinutes} minutes (event: ${effective} minutes)`;
   return new EmbedBuilder()
     .setTitle(`Boss: ${boss.name}`)
     .setDescription(
       [
-        `Respawn: ${boss.respawnMinutes} minutes`,
+        `Respawn: ${respawnLabel}`,
         `Status: ${statusForBoss(boss)}`,
         `Next Spawn: ${next}`,
         `Last Cut: ${lastCut}`,
@@ -366,6 +432,33 @@ function noticeCategoryEnabled(categories, category) {
 
 function buildSourceKey(source) {
   return `${source.category}|${source.url}`;
+}
+
+async function sendBossAlert(client, guildState, message) {
+  const dmTargets = Array.isArray(guildState?.bossSettings?.dmSubscribers)
+    ? guildState.bossSettings.dmSubscribers
+    : [];
+  let dmDelivered = false;
+
+  for (const userId of dmTargets) {
+    const user = await client.users.fetch(userId).catch(() => null);
+    if (!user) continue;
+    await user
+      .send(message)
+      .then(() => {
+        dmDelivered = true;
+      })
+      .catch(() => {});
+  }
+
+  if (dmDelivered) return;
+  if (!guildState.bossChannelId) return;
+
+  const channel = await client.channels
+    .fetch(guildState.bossChannelId)
+    .catch(() => null);
+  if (!channel || !channel.isTextBased()) return;
+  await channel.send(message).catch(() => {});
 }
 
 async function fetchNoticeEntries(sourceUrl) {
@@ -421,11 +514,6 @@ async function runBossTicker(client) {
     let changed = false;
 
     for (const [guildId, guildState] of Object.entries(state.guilds)) {
-      const channelId = guildState.bossChannelId;
-      if (!channelId) continue;
-      const channel = await client.channels.fetch(channelId).catch(() => null);
-      if (!channel || !channel.isTextBased()) continue;
-
       for (const boss of Object.values(guildState.bosses || {})) {
         if (!boss.nextSpawnAt) continue;
         const remaining = boss.nextSpawnAt - now;
@@ -436,23 +524,23 @@ async function runBossTicker(client) {
           remaining > 0 &&
           boss.warnedForSpawnAt !== target
         ) {
-          await channel
-            .send(
-              `Boss warning: **${boss.name}** spawns in about ${formatDuration(
-                remaining
-              )}.`
-            )
-            .catch(() => {});
+          await sendBossAlert(
+            client,
+            guildState,
+            `Boss warning: **${boss.name}** spawns in about ${formatDuration(
+              remaining
+            )}.`
+          );
           boss.warnedForSpawnAt = target;
           changed = true;
         }
 
         if (remaining <= 0 && boss.announcedForSpawnAt !== target) {
-          await channel
-            .send(
-              `Boss alert: **${boss.name}** should be up now. Record with \`/cut boss_name:${boss.name}\` after kill.`
-            )
-            .catch(() => {});
+          await sendBossAlert(
+            client,
+            guildState,
+            `Boss alert: **${boss.name}** should be up now. Record with \`/cut boss_name:${boss.name}\` after kill.`
+          );
           boss.announcedForSpawnAt = target;
           changed = true;
         }
@@ -559,7 +647,7 @@ async function getServerData() {
   return serverDataCache;
 }
 
-async function searchCharacterByName(name) {
+async function searchCharacterByName(name, filters = {}) {
   const { data } = await axios.get(SEARCH_API, {
     params: { keyword: name.trim() },
     timeout: 10_000,
@@ -571,21 +659,41 @@ async function searchCharacterByName(name) {
   const list = data?.list || [];
   if (!list.length) return null;
 
-  const first = list[0];
   const [pcMap, serverMap] = await Promise.all([getPcData(), getServerData()]);
+  const normalizedRace = filters?.race
+    ? String(filters.race).toLowerCase()
+    : null;
+  const normalizedClassKeyword = filters?.classKeyword
+    ? String(filters.classKeyword).toLowerCase().trim()
+    : null;
 
-  return {
-    name: first.name.trim(),
-    level: String(first.level),
-    server: serverMap[first.serverId] || first.serverName || "N/A",
-    race: first.race === 1 ? "Elyos" : first.race === 2 ? "Asmodian" : "N/A",
-    className: pcMap[first.pcId] || "N/A",
-    imageUrl: first.profileImageUrl
-      ? PROFILE_IMG_BASE + first.profileImageUrl
+  const mapped = list.map((entry) => ({
+    name: entry.name.trim(),
+    level: String(entry.level),
+    server: serverMap[entry.serverId] || entry.serverName || "N/A",
+    race: entry.race === 1 ? "Elyos" : entry.race === 2 ? "Asmodian" : "N/A",
+    className: pcMap[entry.pcId] || "N/A",
+    imageUrl: entry.profileImageUrl
+      ? PROFILE_IMG_BASE + entry.profileImageUrl
       : null,
-    url: `https://aion2.plaync.com/ko-kr/characters/${first.serverId}/${first.characterId}`,
-    resultCount: list.length,
+    url: `https://aion2.plaync.com/ko-kr/characters/${entry.serverId}/${entry.characterId}`,
     combatPower: null,
+  }));
+
+  const filtered = mapped.filter((entry) => {
+    const raceOk =
+      !normalizedRace || entry.race.toLowerCase() === normalizedRace;
+    const classOk =
+      !normalizedClassKeyword ||
+      entry.className.toLowerCase().includes(normalizedClassKeyword);
+    return raceOk && classOk;
+  });
+
+  if (!filtered.length) return null;
+  return {
+    ...filtered[0],
+    resultCount: filtered.length,
+    totalResultCount: mapped.length,
   };
 }
 
@@ -716,7 +824,9 @@ function buildCharacterEmbed(info, query) {
     .setFooter({
       text:
         info.resultCount && info.resultCount > 1
-          ? `Showing first result out of ${info.resultCount}`
+          ? `Showing first filtered result (${info.resultCount} filtered / ${
+              info.totalResultCount || info.resultCount
+            } total)`
           : "Live lookup",
     });
 
@@ -740,18 +850,118 @@ function buildItemLookupEmbed(query) {
     .setColor(0x16a34a);
 }
 
+function buildCollectionLookupEmbed(query) {
+  const encoded = encodeURIComponent(query);
+  return new EmbedBuilder()
+    .setTitle(`Collection Lookup: ${query}`)
+    .setDescription(
+      [
+        "Find collection sets by desired stat keyword:",
+        "",
+        `[Talentbuilds Collection Search](https://talentbuilds.com/aion2/armory?search=${encoded}&region=korea)`,
+        `[Shugo.GG Search](https://shugo.gg/?q=${encoded})`,
+        `[Google site search](https://www.google.com/search?q=site%3Aaion2.plaync.com+${encoded}+collection)`,
+      ].join("\n")
+    )
+    .setColor(0x0891b2);
+}
+
+function buildBuildLookupEmbed(query) {
+  const encoded = encodeURIComponent(query);
+  return new EmbedBuilder()
+    .setTitle(`Build Lookup: ${query}`)
+    .setDescription(
+      [
+        "Find community build guides and skill tree references:",
+        "",
+        `[Talentbuilds Build Search](https://talentbuilds.com/aion2/armory?search=${encoded}&region=korea)`,
+        `[Shugo.GG Build Search](https://shugo.gg/?q=${encoded})`,
+        `[YouTube Search](https://www.youtube.com/results?search_query=aion2+${encoded}+build)`,
+      ].join("\n")
+    )
+    .setColor(0xdc2626);
+}
+
+function buildVerificationConfigEmbed(guildState) {
+  const conf = guildState.verification || {};
+  return new EmbedBuilder()
+    .setTitle("Verification Setup")
+    .setDescription(
+      [
+        `Temp role: ${conf.tempRoleId ? `<@&${conf.tempRoleId}>` : "Not set"}`,
+        `Verified role: ${
+          conf.verifiedRoleId ? `<@&${conf.verifiedRoleId}>` : "Not set"
+        }`,
+        `Verification category: ${
+          conf.categoryId ? `<#${conf.categoryId}>` : "Not set"
+        }`,
+        `Verification log channel: ${
+          conf.logChannelId ? `<#${conf.logChannelId}>` : "Not set"
+        }`,
+      ].join("\n")
+    )
+    .setColor(0xf59e0b);
+}
+
+function buildVerificationButtons(userId, ticketId, disabled = false) {
+  const approve = new ButtonBuilder()
+    .setCustomId(`verify|approve|${userId}|${ticketId}`)
+    .setLabel("Approve")
+    .setStyle(ButtonStyle.Success)
+    .setDisabled(disabled);
+  const reject = new ButtonBuilder()
+    .setCustomId(`verify|reject|${userId}|${ticketId}`)
+    .setLabel("Reject")
+    .setStyle(ButtonStyle.Danger)
+    .setDisabled(disabled);
+  return new ActionRowBuilder().addComponents(approve, reject);
+}
+
+async function sendVerificationLog(
+  client,
+  guildId,
+  guildState,
+  ticket,
+  status,
+  actorId,
+  note = ""
+) {
+  const conf = guildState.verification || {};
+  if (!conf.logChannelId) return;
+  const logChannel = await client.channels.fetch(conf.logChannelId).catch(() => null);
+  if (!logChannel || !logChannel.isTextBased()) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle(`Verification ${status.toUpperCase()}`)
+    .setDescription(
+      [
+        `User: <@${ticket.userId}>`,
+        `Character: ${ticket.characterName || "N/A"}`,
+        `Ticket channel: <#${ticket.channelId}>`,
+        `Handled by: <@${actorId}>`,
+        note ? `Note: ${note}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    )
+    .setColor(status === "approved" ? 0x22c55e : 0xef4444)
+    .setTimestamp();
+
+  await logChannel.send({ embeds: [embed] }).catch(() => {});
+}
+
 const commandPayload = [
   new SlashCommandBuilder()
     .setName("help")
     .setDescription("Show setup and command guide"),
   new SlashCommandBuilder()
     .setName("preset")
-    .setDescription("One-click setup for field boss presets")
+    .setDescription("Apply preset or display current boss list")
     .addStringOption((opt) =>
       opt
         .setName("mode")
-        .setDescription("Preset mode")
-        .setRequired(true)
+        .setDescription("Preset mode (optional)")
+        .setRequired(false)
         .addChoices(
           { name: "Elyos", value: "elyos" },
           { name: "Asmodian", value: "asmodian" },
@@ -809,6 +1019,30 @@ const commandPayload = [
       opt.setName("boss_name").setDescription("Boss name").setRequired(true)
     ),
   new SlashCommandBuilder()
+    .setName("boss_alert_mode")
+    .setDescription("Choose boss alerts in channel or DM")
+    .addStringOption((opt) =>
+      opt
+        .setName("mode")
+        .setDescription("Delivery mode")
+        .setRequired(true)
+        .addChoices(
+          { name: "public channel", value: "channel" },
+          { name: "DM only", value: "dm" }
+        )
+    ),
+  new SlashCommandBuilder()
+    .setName("boss_event_multiplier")
+    .setDescription("Set event respawn multiplier (e.g. 0.8)")
+    .addNumberOption((opt) =>
+      opt
+        .setName("multiplier")
+        .setDescription("Respawn multiplier: 0.1 ~ 2.0")
+        .setRequired(true)
+        .setMinValue(0.1)
+        .setMaxValue(2)
+    ),
+  new SlashCommandBuilder()
     .setName("notice_set")
     .setDescription("Configure live notice relay channel and filters")
     .addChannelOption((opt) =>
@@ -840,6 +1074,50 @@ const commandPayload = [
   new SlashCommandBuilder()
     .setName("notice_status")
     .setDescription("Show current notice relay settings"),
+  new SlashCommandBuilder()
+    .setName("myinfo_register")
+    .setDescription("Create your private verification channel")
+    .addStringOption((opt) =>
+      opt
+        .setName("character_name")
+        .setDescription("Main character name")
+        .setRequired(true)
+    ),
+  new SlashCommandBuilder()
+    .setName("temp_role_set")
+    .setDescription("Set role assigned before verification")
+    .addRoleOption((opt) =>
+      opt.setName("role").setDescription("Temporary role").setRequired(true)
+    ),
+  new SlashCommandBuilder()
+    .setName("verified_role_set")
+    .setDescription("Set role assigned after verification")
+    .addRoleOption((opt) =>
+      opt.setName("role").setDescription("Verified role").setRequired(true)
+    ),
+  new SlashCommandBuilder()
+    .setName("verify_channel_set")
+    .setDescription("Set category where private verify channels are created")
+    .addChannelOption((opt) =>
+      opt
+        .setName("category")
+        .setDescription("Target category")
+        .setRequired(true)
+        .addChannelTypes(ChannelType.GuildCategory)
+    ),
+  new SlashCommandBuilder()
+    .setName("verify_log_set")
+    .setDescription("Set channel where verify approve/reject logs are sent")
+    .addChannelOption((opt) =>
+      opt
+        .setName("channel")
+        .setDescription("Log channel")
+        .setRequired(true)
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+    ),
+  new SlashCommandBuilder()
+    .setName("verification_status")
+    .setDescription("Show current verification setup"),
   new SlashCommandBuilder()
     .setName("profile_set")
     .setDescription("Register your party profile for one-click joining")
@@ -888,12 +1166,46 @@ const commandPayload = [
     .setDescription("Lookup a character by name or profile URL")
     .addStringOption((opt) =>
       opt.setName("query").setDescription("Name or URL").setRequired(true)
+    )
+    .addStringOption((opt) =>
+      opt
+        .setName("race")
+        .setDescription("Optional race filter")
+        .setRequired(false)
+        .addChoices(
+          { name: "Elyos", value: "elyos" },
+          { name: "Asmodian", value: "asmodian" }
+        )
+    )
+    .addStringOption((opt) =>
+      opt
+        .setName("class_keyword")
+        .setDescription("Optional class keyword filter")
+        .setRequired(false)
     ),
   new SlashCommandBuilder()
     .setName("item")
     .setDescription("Lookup an item by keyword")
     .addStringOption((opt) =>
       opt.setName("query").setDescription("Item name").setRequired(true)
+    ),
+  new SlashCommandBuilder()
+    .setName("collection")
+    .setDescription("Find equipment collections by stat keyword")
+    .addStringOption((opt) =>
+      opt
+        .setName("query")
+        .setDescription("Stat keyword, e.g. crit")
+        .setRequired(true)
+    ),
+  new SlashCommandBuilder()
+    .setName("build")
+    .setDescription("Find recommended builds and skill trees")
+    .addStringOption((opt) =>
+      opt
+        .setName("query")
+        .setDescription("Class or build keyword")
+        .setRequired(true)
     ),
 ].map((c) => c.toJSON());
 
@@ -934,14 +1246,20 @@ async function handleSlash(interaction) {
         [
           "1) Run `/preset mode:combined` in your boss channel.",
           "2) Use `/cut boss_name:<name>` whenever a boss is killed.",
-          "3) Run `/notice_set` to enable announcement relay.",
-          "4) Run `/profile_set` once, then create `/party_recruit` panels.",
+          "3) Optional: `/boss_alert_mode mode:dm` for private alerts.",
+          "4) Configure verification with:",
+          "   `/temp_role_set` `/verified_role_set`",
+          "   `/verify_channel_set` `/verify_log_set`",
+          "5) Users run `/myinfo_register` to open private verify channel.",
+          "6) Party: `/profile_set` then `/party_recruit`.",
           "",
           "Main commands:",
           "- /preset /boss /cut /server_open /boss_add /boss_remove",
+          "- /boss_alert_mode /boss_event_multiplier",
           "- /notice_set /notice_status",
+          "- /myinfo_register /verification_status",
           "- /profile_set /party_recruit",
-          "- /character /item",
+          "- /character /item /collection /build",
         ].join("\n")
       )
       .setColor(0x2563eb);
@@ -950,11 +1268,26 @@ async function handleSlash(interaction) {
   }
 
   if (interaction.commandName === "preset") {
+    const mode = interaction.options.getString("mode");
+    if (!mode) {
+      if (!Object.keys(guildState.bosses).length) {
+        await safeEphemeral(
+          interaction,
+          "No bosses configured yet. Run `/preset mode:combined` first."
+        );
+        return;
+      }
+      await interaction.reply({
+        embeds: [buildBossListEmbed(guildState)],
+        ephemeral: true,
+      });
+      return;
+    }
+
     if (!hasManageGuild(interaction)) {
       await safeEphemeral(interaction, "Manage Server permission is required.");
       return;
     }
-    const mode = interaction.options.getString("mode", true);
     const bosses = listPreset(mode);
     guildState.bosses = {};
     for (const b of bosses) {
@@ -1008,7 +1341,7 @@ async function handleSlash(interaction) {
       return;
     }
     await interaction.reply({
-      embeds: [buildSingleBossEmbed(resolved.boss)],
+      embeds: [buildSingleBossEmbed(guildState, resolved.boss)],
       ephemeral: true,
     });
     return;
@@ -1042,7 +1375,8 @@ async function handleSlash(interaction) {
 
     const boss = resolved.boss;
     boss.lastCutAt = killedAt.getTime();
-    boss.nextSpawnAt = boss.lastCutAt + boss.respawnMinutes * 60_000;
+    const effectiveRespawnMinutes = getEffectiveRespawnMinutes(guildState, boss);
+    boss.nextSpawnAt = boss.lastCutAt + effectiveRespawnMinutes * 60_000;
     boss.warnedForSpawnAt = null;
     boss.announcedForSpawnAt = null;
     saveState();
@@ -1050,7 +1384,7 @@ async function handleSlash(interaction) {
     await interaction.reply({
       content: `Cut recorded for **${boss.name}**.\nNext spawn: ${toDiscordTime(
         boss.nextSpawnAt
-      )}`,
+      )}\nRespawn applied: ${effectiveRespawnMinutes}m`,
       ephemeral: true,
     });
     return;
@@ -1077,7 +1411,8 @@ async function handleSlash(interaction) {
 
     for (const boss of Object.values(guildState.bosses)) {
       boss.lastCutAt = parsed.getTime();
-      boss.nextSpawnAt = parsed.getTime() + boss.respawnMinutes * 60_000;
+      const effectiveRespawnMinutes = getEffectiveRespawnMinutes(guildState, boss);
+      boss.nextSpawnAt = parsed.getTime() + effectiveRespawnMinutes * 60_000;
       boss.warnedForSpawnAt = null;
       boss.announcedForSpawnAt = null;
     }
@@ -1135,6 +1470,247 @@ async function handleSlash(interaction) {
     saveState();
     await interaction.reply({
       content: `Boss removed: **${resolved.boss.name}**.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "boss_alert_mode") {
+    const mode = interaction.options.getString("mode", true);
+    const current = new Set(guildState.bossSettings.dmSubscribers || []);
+    if (mode === "dm") current.add(interaction.user.id);
+    else current.delete(interaction.user.id);
+    guildState.bossSettings.dmSubscribers = [...current];
+    if (!guildState.bossChannelId) guildState.bossChannelId = interaction.channelId;
+    saveState();
+    await interaction.reply({
+      content:
+        mode === "dm"
+          ? "Boss alerts will be delivered to your DM. If DM fails, alerts fall back to the alert channel."
+          : "Boss alerts for you are switched to public channel mode.",
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "boss_event_multiplier") {
+    if (!hasManageGuild(interaction)) {
+      await safeEphemeral(interaction, "Manage Server permission is required.");
+      return;
+    }
+    const multiplier = interaction.options.getNumber("multiplier", true);
+    guildState.bossSettings.eventMultiplier = multiplier;
+    saveState();
+    await interaction.reply({
+      content: `Event respawn multiplier set to ${multiplier}x. New \`/cut\` and \`/server_open\` calculations will use this value.`,
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "temp_role_set") {
+    if (!hasManageGuild(interaction)) {
+      await safeEphemeral(interaction, "Manage Server permission is required.");
+      return;
+    }
+    const role = interaction.options.getRole("role", true);
+    guildState.verification.tempRoleId = role.id;
+    saveState();
+    await interaction.reply({
+      embeds: [buildVerificationConfigEmbed(guildState)],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "verified_role_set") {
+    if (!hasManageGuild(interaction)) {
+      await safeEphemeral(interaction, "Manage Server permission is required.");
+      return;
+    }
+    const role = interaction.options.getRole("role", true);
+    guildState.verification.verifiedRoleId = role.id;
+    saveState();
+    await interaction.reply({
+      embeds: [buildVerificationConfigEmbed(guildState)],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "verify_channel_set") {
+    if (!hasManageGuild(interaction)) {
+      await safeEphemeral(interaction, "Manage Server permission is required.");
+      return;
+    }
+    const category = interaction.options.getChannel("category", true);
+    guildState.verification.categoryId = category.id;
+    saveState();
+    await interaction.reply({
+      embeds: [buildVerificationConfigEmbed(guildState)],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "verify_log_set") {
+    if (!hasManageGuild(interaction)) {
+      await safeEphemeral(interaction, "Manage Server permission is required.");
+      return;
+    }
+    const channel = interaction.options.getChannel("channel", true);
+    guildState.verification.logChannelId = channel.id;
+    saveState();
+    await interaction.reply({
+      embeds: [buildVerificationConfigEmbed(guildState)],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "verification_status") {
+    await interaction.reply({
+      embeds: [buildVerificationConfigEmbed(guildState)],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "myinfo_register") {
+    const characterName = interaction.options
+      .getString("character_name", true)
+      .trim();
+    const conf = guildState.verification || {};
+    if (!conf.categoryId) {
+      await safeEphemeral(
+        interaction,
+        "Verification category is not configured. Ask admins to run `/verify_channel_set`."
+      );
+      return;
+    }
+
+    const existing = Object.values(conf.tickets || {}).find(
+      (ticket) =>
+        ticket.userId === interaction.user.id && ticket.status === "pending"
+    );
+    if (existing) {
+      await safeEphemeral(
+        interaction,
+        `You already have an open verification ticket: <#${existing.channelId}>`
+      );
+      return;
+    }
+
+    const managerRoleIds = interaction.guild.roles.cache
+      .filter(
+        (role) =>
+          role.permissions.has(PermissionFlagsBits.Administrator) ||
+          role.permissions.has(PermissionFlagsBits.ManageGuild)
+      )
+      .map((role) => role.id);
+    const botMemberId = interaction.guild.members.me?.id || client.user.id;
+
+    const overwrites = [
+      {
+        id: interaction.guild.roles.everyone.id,
+        deny: [PermissionFlagsBits.ViewChannel],
+      },
+      {
+        id: interaction.user.id,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.AttachFiles,
+          PermissionFlagsBits.EmbedLinks,
+        ],
+      },
+      {
+        id: botMemberId,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.ManageChannels,
+          PermissionFlagsBits.ManageMessages,
+        ],
+      },
+      ...managerRoleIds.map((roleId) => ({
+        id: roleId,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+        ],
+      })),
+    ];
+
+    const channelNameBase =
+      sanitizeChannelName(`verify-${characterName}`) || "verify-ticket";
+    const channelName = `${channelNameBase}-${Math.random()
+      .toString(36)
+      .slice(2, 5)}`;
+    const verifyChannel = await interaction.guild.channels
+      .create({
+        name: channelName,
+        type: ChannelType.GuildText,
+        parent: conf.categoryId,
+        permissionOverwrites: overwrites,
+      })
+      .catch(() => null);
+
+    if (!verifyChannel) {
+      await safeEphemeral(
+        interaction,
+        "Failed to create verification channel. Please check bot permissions."
+      );
+      return;
+    }
+
+    const ticket = {
+      ticketId: verifyChannel.id,
+      userId: interaction.user.id,
+      characterName,
+      status: "pending",
+      channelId: verifyChannel.id,
+      createdAt: Date.now(),
+      handledAt: null,
+      handledBy: null,
+    };
+    guildState.verification.tickets[verifyChannel.id] = ticket;
+
+    const member = await interaction.guild.members
+      .fetch(interaction.user.id)
+      .catch(() => null);
+    if (member && conf.tempRoleId) {
+      await member.roles.add(conf.tempRoleId).catch(() => {});
+    }
+
+    const userEmbed = new EmbedBuilder()
+      .setTitle("Private Verification Ticket")
+      .setDescription(
+        [
+          `User: <@${interaction.user.id}>`,
+          `Character: ${characterName}`,
+          "",
+          "Please upload your verification screenshot in this channel.",
+          "Staff will review and approve/reject with buttons below.",
+        ].join("\n")
+      )
+      .setColor(0xf59e0b)
+      .setTimestamp();
+
+    await verifyChannel.send({ embeds: [userEmbed] }).catch(() => {});
+    await verifyChannel
+      .send({
+        content: "Staff review controls:",
+        components: [buildVerificationButtons(interaction.user.id, verifyChannel.id)],
+      })
+      .catch(() => {});
+
+    saveState();
+    await interaction.reply({
+      content: `Verification channel created: ${verifyChannel}`,
       ephemeral: true,
     });
     return;
@@ -1245,6 +1821,8 @@ async function handleSlash(interaction) {
 
   if (interaction.commandName === "character") {
     const query = interaction.options.getString("query", true).trim();
+    const raceFilter = interaction.options.getString("race");
+    const classKeyword = interaction.options.getString("class_keyword");
     await interaction.deferReply({ ephemeral: true });
     const urlMatch = query.match(PLAYNC_CHAR_URL);
     const normalizedUrl = urlMatch
@@ -1256,7 +1834,12 @@ async function handleSlash(interaction) {
     try {
       let info;
       if (normalizedUrl) info = await scrapeCharacterByUrl(normalizedUrl);
-      else info = await searchCharacterByName(query);
+      else {
+        info = await searchCharacterByName(query, {
+          race: raceFilter || null,
+          classKeyword: classKeyword || null,
+        });
+      }
 
       if (!info) {
         await interaction.editReply({
@@ -1283,6 +1866,25 @@ async function handleSlash(interaction) {
       embeds: [buildItemLookupEmbed(query)],
       ephemeral: true,
     });
+    return;
+  }
+
+  if (interaction.commandName === "collection") {
+    const query = interaction.options.getString("query", true).trim();
+    await interaction.reply({
+      embeds: [buildCollectionLookupEmbed(query)],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.commandName === "build") {
+    const query = interaction.options.getString("query", true).trim();
+    await interaction.reply({
+      embeds: [buildBuildLookupEmbed(query)],
+      ephemeral: true,
+    });
+    return;
   }
 }
 
@@ -1369,6 +1971,84 @@ async function handlePartyButton(interaction) {
   }
 }
 
+async function handleVerificationButton(interaction) {
+  const [scope, action, userId, ticketId] = (interaction.customId || "").split("|");
+  if (scope !== "verify" || !action || !userId || !ticketId) return false;
+  if (!interaction.guildId) {
+    await safeEphemeral(interaction, "This button only works in a guild.");
+    return true;
+  }
+  if (!hasManageGuild(interaction)) {
+    await safeEphemeral(interaction, "Manage Server permission is required.");
+    return true;
+  }
+
+  const guildState = ensureGuildState(interaction.guildId);
+  const ticket = guildState.verification?.tickets?.[ticketId];
+  if (!ticket) {
+    await safeEphemeral(interaction, "Verification ticket was not found.");
+    return true;
+  }
+  if (ticket.status !== "pending") {
+    await safeEphemeral(interaction, `This ticket is already ${ticket.status}.`);
+    return true;
+  }
+  if (!["approve", "reject"].includes(action)) {
+    await safeEphemeral(interaction, "Invalid verification action.");
+    return true;
+  }
+
+  const member = await interaction.guild.members.fetch(userId).catch(() => null);
+  const conf = guildState.verification || {};
+  if (action === "approve") {
+    if (member && conf.tempRoleId) await member.roles.remove(conf.tempRoleId).catch(() => {});
+    if (member && conf.verifiedRoleId) {
+      await member.roles.add(conf.verifiedRoleId).catch(() => {});
+    }
+    ticket.status = "approved";
+  } else {
+    if (member && conf.tempRoleId) await member.roles.remove(conf.tempRoleId).catch(() => {});
+    ticket.status = "rejected";
+  }
+
+  ticket.handledAt = Date.now();
+  ticket.handledBy = interaction.user.id;
+  saveState();
+
+  await interaction
+    .update({
+      components: [buildVerificationButtons(ticket.userId, ticket.ticketId, true)],
+    })
+    .catch(async () => {
+      await interaction.deferUpdate().catch(() => {});
+    });
+
+  await sendVerificationLog(
+    client,
+    interaction.guildId,
+    guildState,
+    ticket,
+    ticket.status,
+    interaction.user.id
+  );
+
+  if (member) {
+    await member
+      .send(
+        `Your verification was **${ticket.status}** in **${interaction.guild.name}**.`
+      )
+      .catch(() => {});
+  }
+
+  await interaction.channel
+    ?.send(
+      `Verification ${ticket.status}: <@${ticket.userId}> by <@${interaction.user.id}>`
+    )
+    .catch(() => {});
+  await safeEphemeral(interaction, `Ticket marked as ${ticket.status}.`);
+  return true;
+}
+
 const app = express();
 app.get("/", (_, res) => res.send("Aon English Bot is online."));
 app.listen(CONFIG.port, () => {
@@ -1427,6 +2107,8 @@ client.on("interactionCreate", async (interaction) => {
       return;
     }
     if (interaction.isButton()) {
+      const handled = await handleVerificationButton(interaction);
+      if (handled) return;
       await handlePartyButton(interaction);
       return;
     }

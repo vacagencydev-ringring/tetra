@@ -5,28 +5,42 @@ https://koreanbots.dev/bots/1436590099235340410
 
 ## Implemented Features
 
-1. **Field Boss Manager**
+1. **Smart Verification System**
+   - `/myinfo_register` creates private verification channel
+   - Admin review buttons: Approve / Reject
+   - Admin setup commands:
+     - `/temp_role_set`
+     - `/verified_role_set`
+     - `/verify_channel_set`
+     - `/verify_log_set`
+     - `/verification_status`
+
+2. **Field Boss Manager**
    - `/preset` (elyos/asmodian/combined)
    - `/boss` status board
    - `/cut` smart next-spawn calculation
    - `/server_open` mass timer reset
    - `/boss_add`, `/boss_remove` for custom tracking
    - 10-minute warning + spawn-now alerts
+   - `/boss_alert_mode` (public channel or DM)
+   - `/boss_event_multiplier` for event-time shorter respawns
 
-2. **Live Notice Relay**
+3. **Live Notice Relay**
    - `/notice_set` to configure target channel/category
    - `/notice_status` to inspect current settings
    - Feed crawler with source/category filtering
 
-3. **Party Recruit System**
+4. **Party Recruit System**
    - `/profile_set` for player profile registration
    - `/party_recruit` panel with one-click buttons
    - Join/Leave/Close actions
    - Persistent data across bot restarts
 
-4. **Search Utilities**
-   - `/character` (name or profile URL)
+5. **Search Utilities**
+   - `/character` (name or profile URL + race/class filter)
    - `/item` (quick lookup links)
+   - `/collection` (stat-based lookup links)
+   - `/build` (build/skill-tree lookup links)
 
 ## Environment Variables
 
