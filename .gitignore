@@ -5,3 +5,4 @@ credentials.json.json
 payments.json
 *.log
 .DS_Store
+bot_state.json

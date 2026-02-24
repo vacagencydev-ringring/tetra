@@ -1,17 +1,52 @@
-# TETRA Sync Bot
+# Aon English Discord Bot
 
-Discord 리포트/급여 관리 봇 (Google Sheets 연동)
+English-focused Discord bot inspired by the feature set shown at:
+https://koreanbots.dev/bots/1436590099235340410
 
-## 기능
-- **일일 리포트**: Kinah / Level-Up 팀 (PH/ID 구분)
-- **급여 확인**: PH/ID 버튼 1클릭 확인
-- **!confirm**: 회원 입금 확인 (스크린샷 선택)
-- **!char**: 캐릭터 검색 (plaync)
+## Implemented Features
 
-## 설정
-1. `credentials.json.json` - Google Service Account 키
-2. `tetra_sync.js` 내 CONFIG - TOKEN, SHEET_ID, 채널 ID
+1. **Field Boss Manager**
+   - `/preset` (elyos/asmodian/combined)
+   - `/boss` status board
+   - `/cut` smart next-spawn calculation
+   - `/server_open` mass timer reset
+   - `/boss_add`, `/boss_remove` for custom tracking
+   - 10-minute warning + spawn-now alerts
 
-## Render 배포
-- `npm start` → `node tetra_sync.js`
-- UptimeRobot으로 5분마다 Ping하여 Sleep 방지
+2. **Live Notice Relay**
+   - `/notice_set` to configure target channel/category
+   - `/notice_status` to inspect current settings
+   - Feed crawler with source/category filtering
+
+3. **Party Recruit System**
+   - `/profile_set` for player profile registration
+   - `/party_recruit` panel with one-click buttons
+   - Join/Leave/Close actions
+   - Persistent data across bot restarts
+
+4. **Search Utilities**
+   - `/character` (name or profile URL)
+   - `/item` (quick lookup links)
+
+## Environment Variables
+
+See `.env.example`:
+
+- `DISCORD_TOKEN` (required)
+- `PORT` (optional, keep-alive HTTP)
+- `BOSS_WARNING_MINUTES`
+- `BOSS_TICKER_MS`
+- `NOTICE_TICKER_MS`
+- `NOTICE_SOURCES_JSON` (optional custom source list)
+
+## Run
+
+```bash
+npm install
+npm start
+```
+
+## Notes
+
+- Runtime state is persisted to `bot_state.json`.
+- Command registration is guild-scoped for immediate updates.
