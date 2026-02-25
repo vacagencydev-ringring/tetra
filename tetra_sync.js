@@ -989,6 +989,7 @@ function buildAonTranslateStatusEmbed(guildState) {
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
     ]
@@ -1164,7 +1165,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '💎 4. 입금 확인',
-                value: '**`/panel type:payment`** — Submit Payment 버튼으로 금액·사유 입력 → Payment Log 시트 저장',
+                value: '**`/panel type:payment`** — Submit Payment → 통화 선택(KRW/USD/PHP 등) → 금액·사유 입력 → Payment Log 시트 저장',
                 inline: false
             },
             {
@@ -1217,7 +1218,7 @@ function buildGuideEmbedsKo() {
         .addFields(
             {
                 name: '캐릭터·아이템·빌드',
-                value: '**`/character query:<이름|URL> race:elyos|asmodian class_keyword:<>`** — 캐릭터\n**`/item query:<키워드>`** — 아이템\n**`/collection query:<스탯>`** — 세트 (crit, accuracy 등)\n**`/build query:<클래스>`** — 빌드/스킬트리',
+                value: '**`/character`** **`/item`** **`/collection`** **`/build`** — 검색 결과 본인만 보임 (ephemeral)\n**`!char <캐릭터명>`** — 결과 DM 전송',
                 inline: false
             },
             {
@@ -1233,7 +1234,7 @@ function buildGuideEmbedsKo() {
         .addFields(
             {
                 name: '회원목록·프리픽스',
-                value: '**`/member_list_organize`** — Member_List_* → 회원목록정리 시트 재구성 (Admin)\n**`/myinfo_register`** Approve 시 캐릭터명이 회원목록정리 G열에 반영\n**`!char <캐릭터명>`** — 메시지로 캐릭터 검색 (슬래시 `/character`와 동일)',
+                value: '**`/member_list_organize`** — Member_List_* → 회원목록정리 시트 재구성 (Admin)\n**`/myinfo_register`** Approve 시 캐릭터명이 회원목록정리 G열에 반영\n**`!char <캐릭터명>`** — 캐릭터 검색 결과 DM 전송',
                 inline: false
             }
         )
@@ -1270,7 +1271,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: '💎 4. Payment Confirmation',
-                value: '**`/panel type:payment`** — Submit Payment button → amount & reason → Payment Log sheet',
+                value: '**`/panel type:payment`** — Submit Payment → select currency (KRW/USD/PHP...) → amount & reason → Payment Log sheet',
                 inline: false
             },
             {
@@ -1323,7 +1324,7 @@ function buildGuideEmbedsEn() {
         .addFields(
             {
                 name: 'Character · Item · Build',
-                value: '**`/character query:<name|URL> race:elyos|asmodian class_keyword:<>`** — Character\n**`/item query:<keyword>`** — Item\n**`/collection query:<stat>`** — Set (crit, accuracy)\n**`/build query:<class>`** — Build/skill tree',
+                value: '**`/character`** **`/item`** **`/collection`** **`/build`** — Results visible only to you (ephemeral)\n**`!char <name>`** — Results sent via DM',
                 inline: false
             },
             {
@@ -1339,7 +1340,7 @@ function buildGuideEmbedsEn() {
         .addFields(
             {
                 name: 'Member List · Prefix',
-                value: '**`/member_list_organize`** — Rebuild member list from Member_List_* (Admin)\n**`/myinfo_register`** Approve adds character name to 회원목록정리 column G\n**`!char <character name>`** — Character search via message (same as `/character`)',
+                value: '**`/member_list_organize`** — Rebuild member list from Member_List_* (Admin)\n**`/myinfo_register`** Approve adds character name to 회원목록정리 column G\n**`!char <name>`** — Character search results sent via DM',
                 inline: false
             }
         )
@@ -1351,7 +1352,7 @@ function buildGuideEmbedsEn() {
 function buildGuideEmbedsUser() {
     const e1 = new EmbedBuilder()
         .setTitle('👤 TETRA Sync — Member Guide (English)')
-        .setDescription('Commands you can use without Manage Server permission.\n_※ All members can post this guide_')
+        .setDescription('Commands you can use without Manage Server permission.\n_※ Shown only to you (ephemeral)_')
         .setColor(0x22c55e)
         .addFields(
             {
@@ -1371,7 +1372,7 @@ function buildGuideEmbedsUser() {
             },
             {
                 name: '💎 Payment Confirmation',
-                value: '_Click **Submit Payment** on the Payment panel (if posted) → enter amount & reason._',
+                value: '_Click **Submit Payment** on the Payment panel (if posted) → select currency → enter amount & reason._',
                 inline: false
             }
         )
@@ -1408,7 +1409,7 @@ function buildGuideEmbedsUser() {
             },
             {
                 name: 'AION2 Search (EN/KR → EN results)',
-                value: '**`/character query:<name|URL>`** — Character lookup (optional: race, class_keyword)\n**`/item query:<keyword>`** — Item search\n**`/collection query:<stat>`** — Set by stat (crit, accuracy)\n**`/build query:<class>`** — Build / skill tree',
+                value: '**`/character`** **`/item`** **`/collection`** **`/build`** — Results visible only to you (ephemeral)\n**`!char <name>`** — Results sent to your DM\n_Channel stays clean_',
                 inline: false
             },
             {
@@ -1424,13 +1425,13 @@ function buildGuideEmbedsUser() {
         .addFields(
             {
                 name: '!char',
-                value: '**`!char <character name>`** — Same as `/character`, search via message',
+                value: '**`!char <character name>`** — Same as `/character`, results sent to your DM (channel stays clean)',
                 inline: false
             }
         )
         .addFields({
-                name: 'Post this guide',
-                value: '**`/guide`** — Post this member guide (no Admin required, all members can use)',
+                name: 'View this guide',
+                value: '**`/guide`** — View this member guide (shown only to you, ephemeral)',
                 inline: false
             })
         .setFooter({ text: 'TETRA Sync | Member Guide (All members)' })
@@ -1482,8 +1483,8 @@ function createCharVerifyModal() {
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('character_name')
-                    .setLabel('AION2 Character Name')
-                    .setPlaceholder('Your in-game character name')
+                    .setLabel('AION2 Character Name (screenshot upload in channel after submit)')
+                    .setPlaceholder('e.g. YourCharacterName')
                     .setStyle(TextInputStyle.Short)
                     .setRequired(true)
             )
@@ -2085,7 +2086,7 @@ const commands = [
         .toJSON(),
     new SlashCommandBuilder()
         .setName('guide')
-        .setDescription('Post member guide to this channel (no Admin required)')
+        .setDescription('View member guide (shown only to you, ephemeral)')
         .toJSON(),
     new SlashCommandBuilder()
         .setName('report_kinah')
@@ -2151,6 +2152,20 @@ const commands = [
             .setDescription('Category for verification channels')
             .setRequired(true)
             .addChannelTypes(ChannelType.GuildCategory))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('welcome_set')
+        .setDescription('Set welcome & announcements for new member greeting (Admin)')
+        .addChannelOption(o => o
+            .setName('announcements_channel')
+            .setDescription('Announcements channel to link (𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀)')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText))
+        .addChannelOption(o => o
+            .setName('fallback_channel')
+            .setDescription('Optional: channel when DM fails (user has DMs disabled)')
+            .setRequired(false)
+            .addChannelTypes(ChannelType.GuildText))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('join_verify_panel')
@@ -2375,15 +2390,40 @@ function createLevelUpModal(region) {
         );
 }
 
-function createPaymentConfirmModal() {
+const PAYMENT_CURRENCIES = [
+    { value: 'KRW', label: 'KRW (Korean Won)', emoji: '🇰🇷' },
+    { value: 'USD', label: 'USD (US Dollar)', emoji: '🇺🇸' },
+    { value: 'PHP', label: 'PHP (Philippine Peso)', emoji: '🇵🇭' },
+    { value: 'INR', label: 'INR (Indian Rupee)', emoji: '🇮🇳' },
+    { value: 'NPR', label: 'NPR (Nepalese Rupee)', emoji: '🇳🇵' },
+    { value: 'CNY', label: 'CNY (Chinese Yuan)', emoji: '🇨🇳' },
+    { value: 'TWD', label: 'TWD (Taiwan Dollar)', emoji: '🇹🇼' },
+];
+
+function buildPaymentCurrencySelectRow() {
+    const menu = new StringSelectMenuBuilder()
+        .setCustomId('select_payment_currency')
+        .setPlaceholder('Select currency')
+        .addOptions(
+            PAYMENT_CURRENCIES.map(c => ({
+                label: c.label,
+                value: c.value,
+                emoji: c.emoji,
+            }))
+        );
+    return new ActionRowBuilder().addComponents(menu);
+}
+
+function createPaymentConfirmModal(currency = 'KRW') {
+    const currLabel = PAYMENT_CURRENCIES.find(c => c.value === currency)?.label || currency;
     return new ModalBuilder()
-        .setCustomId('modal_payment_confirm')
-        .setTitle('Submit Payment Confirmation')
+        .setCustomId(`modal_payment_confirm_${currency}`)
+        .setTitle(`Payment Confirmation (${currency})`)
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('amount')
-                    .setLabel('Amount (KRW)')
+                    .setLabel(`Amount (${currency})`)
                     .setPlaceholder('e.g. 500,000')
                     .setStyle(TextInputStyle.Short)
                     .setRequired(true)
@@ -2472,6 +2512,34 @@ client.on('guildCreate', async (guild) => {
     await registerGuildSlashCommands(rest, guild);
 });
 
+client.on('guildMemberAdd', async (member) => {
+    try {
+        const guild = member.guild;
+        const state = loadPanelState();
+        const cfg = state.welcomeConfig && state.welcomeConfig[guild.id];
+        if (!cfg?.announcementsChannelId) return;
+        const embed = new EmbedBuilder()
+            .setTitle('👋 Welcome!')
+            .setDescription(
+                `Welcome to **${guild.name}**!\n\n` +
+                `📢 **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** — Please check <#${cfg.announcementsChannelId}> for server announcements.\n\n` +
+                `⚠️ You must complete **member registration** before you can start activities.`
+            )
+            .setColor(0x5865F2)
+            .setTimestamp();
+        try {
+            await member.send({ embeds: [embed] });
+        } catch (dmErr) {
+            const ch = cfg.welcomeChannelId ? guild.channels.cache.get(cfg.welcomeChannelId) : null;
+            if (ch) {
+                await ch.send({ content: `${member}`, embeds: [embed] });
+            }
+        }
+    } catch (err) {
+        console.error('[guildMemberAdd]', err);
+    }
+});
+
 client.on('interactionCreate', async (interaction) => {
     try {
     if (interaction.isChatInputCommand()) {
@@ -2486,28 +2554,17 @@ client.on('interactionCreate', async (interaction) => {
                     '**Verify:** `/myinfo_register character_name:<name>` — Screenshot → staff Approve → verified char to 회원목록정리\n\n' +
                     '**Boss:** `/preset` `/boss` `/cut boss_name:<name>` `/boss_alert_mode`\n\n' +
                     '**Kinah:** `/kinah_watch_now` `/kinah_watch_status`\n\n' +
-                    '**Search:** `/character` `/item` `/collection` `/build`\n\n' +
-                    '**Other:** `/youtube_ready` `/aon_translate_status` `!char <name>`\n\n' +
-                    '_Post **`/guide`** to show the full member guide_'
+                    '**Search:** `/character` `/item` `/collection` `/build` — results only you see\n' +
+                    '**Search:** `!char <name>` — results via DM\n\n' +
+                    '**Other:** `/youtube_ready` `/aon_translate_status`\n\n' +
+                    '_Use **`/guide`** to view full member guide (ephemeral)_'
                 )
                 .setColor(0x5865F2)
                 .setTimestamp();
             await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
         } else if (interaction.commandName === 'guide') {
-            if (!interaction.guildId) { await safeEphemeral(interaction, 'Use this command in a server channel.'); return; }
-            const channel = interaction.channel;
-            if (!channel?.send) { await safeEphemeral(interaction, 'Cannot post to this channel.'); return; }
             const embeds = buildGuideEmbedsUser();
-            const titleKey = 'Member Guide';
-            const isGuideMsg = m => m.author?.id === client.user?.id && m.embeds?.[0]?.title?.includes(titleKey);
-            let allGuides = (await channel.messages.fetch({ limit: 50 })).filter(isGuideMsg);
-            for (const m of allGuides.values()) await m.delete().catch(() => {});
-            const sent = await channel.send({ embeds });
-            allGuides = (await channel.messages.fetch({ limit: 50 })).filter(isGuideMsg);
-            for (const m of allGuides.values()) {
-                if (m.id !== sent.id) await m.delete().catch(() => {});
-            }
-            await interaction.reply({ content: '✅ Member guide posted.', flags: EPHEMERAL_FLAGS });
+            await interaction.reply({ embeds, flags: EPHEMERAL_FLAGS });
         } else if (interaction.commandName === 'faq_admin') {
             if (!hasManageGuild(interaction)) {
                 await safeEphemeral(interaction, '❌ Manage Server permission required.');
@@ -2525,7 +2582,7 @@ client.on('interactionCreate', async (interaction) => {
                     },
                     {
                         name: 'Q: 전체 가이드 vs 일반 가이드 차이는?',
-                        value: '**전체 가이드** (`/panel type:guide_ko`, `guide_en`) — 모든 명령어, Admin만 게시\n**일반 가이드** (`/guide`) — 멤버용 명령어만, 누구나 게시 가능',
+                        value: '**전체 가이드** (`/panel type:guide_ko`, `guide_en`) — 모든 명령어, Admin만 채널에 게시\n**일반 가이드** (`/guide`) — 멤버용 명령어, 실행한 본인만 보임 (ephemeral)',
                         inline: false
                     },
                     {
@@ -2546,6 +2603,16 @@ client.on('interactionCreate', async (interaction) => {
                     {
                         name: 'Q: 캐릭터 인증(myinfo_register) 설정은?',
                         value: '**`/join_verify`**는 검증 없음 (Role만). 캐릭터명은 **`/myinfo_register`**로만 추가됨 (스크린샷 검증 필수).\n1. Admin: **`/verify_channel_set category:<카테고리>`**\n2. 유저: **`/myinfo_register character_name:<캐릭터명>`** → 스크린샷 업로드\n3. 스태프: Approve → Region 선택 → 회원목록정리 G열에 **검증된** 캐릭터명 반영',
+                        inline: false
+                    },
+                    {
+                        name: 'Q: 입금 확인 통화는 어떻게 선택하나요?',
+                        value: '**Submit Payment** 클릭 → 통화 선택(KRW, USD, PHP, INR, NPR, CNY, TWD) → 금액·사유 입력. Payment Log 시트는 A:G (Date, Type, Tag, Amount, **Currency**, Reason, Status)',
+                        inline: false
+                    },
+                    {
+                        name: 'Q: 검색 결과·가이드는 누가 보나요?',
+                        value: '**`/character`** **`/item`** **`/collection`** **`/build`** — 실행한 본인만 보임 (ephemeral)\n**`!char <캐릭터명>`** — 결과가 DM으로 전송 (채널 정리)\n**`/guide`** — 본인만 보임',
                         inline: false
                     },
                     {
@@ -2616,6 +2683,7 @@ client.on('interactionCreate', async (interaction) => {
                     parent: categoryId,
                     permissionOverwrites: [
                         { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                        { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] },
                         { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] },
                     ],
                 });
@@ -2647,7 +2715,8 @@ client.on('interactionCreate', async (interaction) => {
                     .setTitle('🎮 Character Verification')
                     .setDescription(
                         `**Character:** \`${characterName}\`\n**User:** ${interaction.user}\n\n` +
-                        '📷 **Upload your in-game screenshot below** (character select or profile).\n' +
+                        '📷 **Upload your screenshot HERE** — Drag & drop an image, or click **+** to attach file.\n' +
+                        '_(Discord modals cannot accept files. Upload in this channel.)_\n\n' +
                         'Staff will review and click **Approve** or **Reject**.'
                     )
                     .setColor(0x5865F2)
@@ -2657,7 +2726,7 @@ client.on('interactionCreate', async (interaction) => {
                     embeds: [embed],
                     components: [row],
                 });
-                await interaction.editReply({ content: `✅ Verification channel created: <#${channel.id}>\nUpload your screenshot there.` });
+                await interaction.editReply({ content: `✅ Verification channel created: <#${channel.id}>\n\n**→ Go to that channel and upload your screenshot** (drag & drop or click + to attach). The modal cannot accept files.` });
             } catch (err) {
                 console.error('[myinfo_register]', err);
                 await interaction.editReply({ content: `❌ Failed to create channel: ${err.message}` }).catch(() => {});
@@ -2673,6 +2742,22 @@ client.on('interactionCreate', async (interaction) => {
             const state = loadPanelState();
             savePanelState({ ...state, verifyCategoryId: category.id });
             await safeEphemeral(interaction, `✅ Verification channels will be created in **${category.name}**.`);
+        } else if (interaction.commandName === 'welcome_set') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const announceCh = interaction.options.getChannel('announcements_channel', true);
+            const fallbackCh = interaction.options.getChannel('fallback_channel');
+            const state = loadPanelState();
+            const welcomeConfig = state.welcomeConfig && typeof state.welcomeConfig === 'object' ? state.welcomeConfig : {};
+            welcomeConfig[interaction.guildId] = {
+                announcementsChannelId: announceCh.id,
+                welcomeChannelId: fallbackCh?.id || null
+            };
+            savePanelState({ ...state, welcomeConfig });
+            const msg = fallbackCh
+                ? `✅ Welcome **DM first**, fallback to <#${fallbackCh.id}> if DM disabled. Links to **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** <#${announceCh.id}>.`
+                : `✅ Welcome via **DM**. Links to **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** <#${announceCh.id}>. (No fallback channel — users with DMs disabled won't receive it.)`;
+            await safeEphemeral(interaction, msg);
         } else if (interaction.commandName === 'join_verify_panel') {
         } else if (interaction.commandName === 'member_list_organize') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
@@ -3225,7 +3310,7 @@ client.on('interactionCreate', async (interaction) => {
                     .setTitle('💎 Payment Confirmation')
                     .setDescription(
                         '**Submit Member Payment Confirmation**\n\n' +
-                        '• Enter amount and description to submit.\n' +
+                        '• Select currency (KRW, USD, PHP, etc.) then enter amount and description.\n' +
                         '• If you need to attach a screenshot, post it separately after submitting.\n\n' +
                         '👇 Click **Submit Payment** below.'
                     )
@@ -3360,7 +3445,11 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 await interaction.showModal(createYoutubeAddModal());
             } else if (id === 'btn_payment_confirm') {
-                await interaction.showModal(createPaymentConfirmModal());
+                await interaction.reply({
+                    content: '💎 Select currency for payment confirmation.',
+                    components: [buildPaymentCurrencySelectRow()],
+                    flags: EPHEMERAL_FLAGS
+                });
             } else if (id.startsWith('verify_approve_')) {
                 if (!hasManageGuild(interaction)) {
                     await safeEphemeral(interaction, 'Manage Server permission required to approve.');
@@ -3411,17 +3500,23 @@ client.on('interactionCreate', async (interaction) => {
         return;
     }
 
-    // 나라 선택 드롭다운
+    // 나라 선택 / 통화 선택 드롭다운
     if (interaction.isStringSelectMenu()) {
-        if (interaction.customId !== 'select_join_country') return;
-        const selected = interaction.values?.[0];
-        const regionCfg = getRegionConfig(selected);
-        if (!regionCfg) {
-            await interaction.reply({ content: `❌ Invalid country selection. Supported: ${SUPPORTED_REGION_CODES}.`, flags: EPHEMERAL_FLAGS });
+        if (interaction.customId === 'select_join_country') {
+            const selected = interaction.values?.[0];
+            const regionCfg = getRegionConfig(selected);
+            if (!regionCfg) {
+                await interaction.reply({ content: `❌ Invalid country selection. Supported: ${SUPPORTED_REGION_CODES}.`, flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            await interaction.showModal(createJoinVerifyModal(regionCfg.value));
             return;
         }
-        await interaction.showModal(createJoinVerifyModal(regionCfg.value));
-        return;
+        if (interaction.customId === 'select_payment_currency') {
+            const currency = interaction.values?.[0] || 'KRW';
+            await interaction.showModal(createPaymentConfirmModal(currency));
+            return;
+        }
     }
 
     // 모달 제출
@@ -3462,6 +3557,7 @@ client.on('interactionCreate', async (interaction) => {
                     parent: categoryId,
                     permissionOverwrites: [
                         { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                        { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] },
                         { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] },
                     ],
                 });
@@ -3492,7 +3588,8 @@ client.on('interactionCreate', async (interaction) => {
                     .setTitle('🎮 Character Verification')
                     .setDescription(
                         `**Character:** \`${characterName}\`\n**User:** ${interaction.user}\n\n` +
-                        '📷 **Upload your in-game screenshot below** (character select or profile).\n' +
+                        '📷 **Upload your screenshot HERE** — Drag & drop an image, or click **+** to attach file.\n' +
+                        '_(Discord modals cannot accept files. Upload in this channel.)_\n\n' +
                         'Staff will review and click **Approve** or **Reject**.'
                     )
                     .setColor(0x5865F2)
@@ -3502,7 +3599,7 @@ client.on('interactionCreate', async (interaction) => {
                     embeds: [embed],
                     components: [row],
                 });
-                await interaction.editReply({ content: `✅ Verification channel created: <#${channel.id}>\nUpload your screenshot there.` });
+                await interaction.editReply({ content: `✅ Verification channel created: <#${channel.id}>\n\n**→ Go to that channel and upload your screenshot** (drag & drop or click + to attach). The modal cannot accept files.` });
             } catch (err) {
                 console.error('[modal_char_verify]', err);
                 await interaction.editReply({ content: `❌ Failed to create channel: ${err.message}` }).catch(() => {});
@@ -3568,7 +3665,8 @@ client.on('interactionCreate', async (interaction) => {
             return;
         }
 
-        if (customId === 'modal_payment_confirm') {
+        if (customId.startsWith('modal_payment_confirm_')) {
+            const currency = customId.replace('modal_payment_confirm_', '') || 'KRW';
             const amount = interaction.fields.getTextInputValue('amount')?.trim();
             const reason = (interaction.fields.getTextInputValue('reason') || '').trim() || 'N/A';
             if (!amount) {
@@ -3578,10 +3676,10 @@ client.on('interactionCreate', async (interaction) => {
             await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
             try {
                 const discordTag = interaction.user.tag || interaction.user.username;
-                const row = [new Date().toLocaleString('ko-KR'), 'MEMBER_CONFIRM', discordTag, amount, reason, 'Pending Verification'];
-                const res = await appendToSheet("'Payment Log'!A:F", row);
+                const row = [new Date().toLocaleString('ko-KR'), 'MEMBER_CONFIRM', discordTag, amount, currency, reason, 'Pending Verification'];
+                const res = await appendToSheet("'Payment Log'!A:G", row);
                 if (!res.ok) {
-                    await interaction.editReply({ content: `❌ Failed to save: ${res.error}\nCreate **Payment Log** sheet in Google Sheets with A:F columns.` });
+                    await interaction.editReply({ content: `❌ Failed to save: ${res.error}\nCreate **Payment Log** sheet with columns A:G (Date, Type, Tag, Amount, Currency, Reason, Status).` });
                     return;
                 }
                 const proofEmbed = new EmbedBuilder()
@@ -3589,7 +3687,7 @@ client.on('interactionCreate', async (interaction) => {
                     .setAuthor({ name: interaction.user.username, iconURL: interaction.user.displayAvatarURL() })
                     .setColor(0x7289DA)
                     .addFields(
-                        { name: '💵 Amount Received', value: `\`${amount} KRW\``, inline: true },
+                        { name: '💵 Amount Received', value: `\`${amount} ${currency}\``, inline: true },
                         { name: '📝 Description', value: reason || 'N/A', inline: true }
                     )
                     .setFooter({ text: 'TETRA Agency Public Ledger' })
@@ -4096,21 +4194,28 @@ client.on('messageCreate', async (message) => {
         } catch (_) {}
     }
 
-    // ── !confirm 금액 / 내용 (회원 입금 확인, 스크린샷 필수)
+    // ── !confirm 금액 / [통화] / 내용 (회원 입금 확인, 스크린샷 선택)
     if (content.startsWith('!confirm ')) {
         const raw = content.slice(9).trim();
         const parts = raw.split('/').map(s => s.trim());
         const amount = parts[0];
-        const reason = parts[1] || 'N/A';
+        let currency = 'KRW';
+        let reason = 'N/A';
+        if (parts.length >= 3) {
+            currency = (parts[1] || 'KRW').toUpperCase();
+            reason = parts[2] || 'N/A';
+        } else if (parts.length === 2) {
+            reason = parts[1] || 'N/A';
+        }
         const attachment = message.attachments?.first();
 
         if (!amount) {
-            return message.reply('⚠️ **Usage:** `!confirm [Amount] / [Reason]` (스크린샷 선택)\nExample: `!confirm 500,000 / Weekly Settlement`');
+            return message.reply('⚠️ **Usage:** `!confirm [Amount] / [Reason]` or `!confirm [Amount] / [Currency] / [Reason]`\nExample: `!confirm 500,000 / Weekly Settlement` or `!confirm 100 / USD / Initial payment`');
         }
 
         try {
-            const row = [new Date().toLocaleString('ko-KR'), 'MEMBER_CONFIRM', message.author.tag, amount, reason, 'Pending Verification'];
-            const res = await appendToSheet("'Payment Log'!A:F", row);
+            const row = [new Date().toLocaleString('ko-KR'), 'MEMBER_CONFIRM', message.author.tag, amount, currency, reason, 'Pending Verification'];
+            const res = await appendToSheet("'Payment Log'!A:G", row);
             if (!res.ok) throw new Error(res.error);
 
             const proofEmbed = new EmbedBuilder()
@@ -4118,7 +4223,7 @@ client.on('messageCreate', async (message) => {
                 .setAuthor({ name: message.author.username, iconURL: message.author.displayAvatarURL() })
                 .setColor(0x7289DA)
                 .addFields(
-                    { name: '💵 Amount Received', value: `\`${amount} KRW\``, inline: true },
+                    { name: '💵 Amount Received', value: `\`${amount} ${currency}\``, inline: true },
                     { name: '📝 Description', value: reason || 'No details provided', inline: true }
                 )
                 .setFooter({ text: 'TETRA Agency Public Ledger' })
