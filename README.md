@@ -95,6 +95,7 @@ Use `google_sheet_country_bootstrap.gs` in Google Apps Script to automatically c
 - `Daily_Log_PH`, `Daily_Log_ID`, `Daily_Log_IN`, `Daily_Log_NP`, `Daily_Log_CH`, `Daily_Log_TW`
 - `Salary_Log_PH`, `Salary_Log_ID`, `Salary_Log_IN`, `Salary_Log_NP`, `Salary_Log_CH`, `Salary_Log_TW`
 - `Member_List_PH`, `Member_List_ID`, `Member_List_IN`, `Member_List_NP`, `Member_List_CH`, `Member_List_TW`
+- `회원목록정리` (country-merged member organizer sheet)
 
 Quick setup:
 
@@ -102,7 +103,8 @@ Quick setup:
 2. Go to **Extensions -> Apps Script**.
 3. Paste `google_sheet_country_bootstrap.gs` code.
 4. Run `setupCountrySheets()` once (authorize when prompted).
-5. Optional: run `installDailySetupTrigger()` for daily auto-check.
+5. Run `refreshMemberListOrganized()` whenever you want to rebuild merged member rows.
+6. Optional: run `installDailySetupTrigger()` for daily auto-check.
 
 ## Notes
 
