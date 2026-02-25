@@ -1900,6 +1900,13 @@ async function getServerNameEn(serverId) {
     return serverCache[serverId] || null;
 }
 
+function stripHtmlTags(text) {
+    return String(text || '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 async function searchPlayncByName(charName) {
     const { data } = await axios.get(SEARCH_API, {
         params: { keyword: charName.trim() },
@@ -1911,8 +1918,9 @@ async function searchPlayncByName(charName) {
     const [pcMap, serverEn] = await Promise.all([getPcData(), getServerNameEn(list[0].serverId)]);
     const first = list[0];
     const charUrl = `https://aion2.plaync.com/ko-kr/characters/${first.serverId}/${first.characterId}`;
+    const safeName = stripHtmlTags(first.name) || charName.trim();
     return {
-        name: first.name.trim(),
+        name: safeName,
         level: String(first.level),
         server: serverEn || SERVER_KO_TO_EN[first.serverName] || first.serverName || 'N/A',
         race: first.race === 1 ? 'Elyos' : first.race === 2 ? 'Asmodian' : 'N/A',
@@ -2140,10 +2148,11 @@ client.on('messageCreate', async (message) => {
 
         const toEnRace = (r) => (r === '천족' ? 'Elyos' : r === '마족' ? 'Asmodian' : r) || 'N/A';
         const buildEmbed = (info) => {
-            const enc = encodeURIComponent(info.name || input);
+            const safeName = stripHtmlTags(info.name || input) || input;
+            const enc = encodeURIComponent(safeName);
             const linkLine = `[Full Profile](${info.link}) · [Talentbuilds](https://talentbuilds.com/aion2/armory?search=${enc}&region=korea) · [Shugo.GG](https://shugo.gg/?q=${enc})`;
             return new EmbedBuilder()
-                .setTitle(`🛡️ TETRA INTEL: ${info.name}`)
+                .setTitle(`🛡️ TETRA INTEL: ${safeName}`)
                 .setDescription(`**${linkLine}**`)
                 .setThumbnail(info.img || 'https://i.imgur.com/8fXU89V.png')
                 .addFields(
