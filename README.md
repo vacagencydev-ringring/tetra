@@ -1,4 +1,4 @@
-# Aon English Discord Bot
+# TETRA AION2 Discord Bot
 
 English-focused Discord bot inspired by the feature set shown at:
 https://koreanbots.dev/bots/1436590099235340410

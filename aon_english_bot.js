@@ -1655,7 +1655,7 @@ function buildBuildLookupEmbed(query) {
 
 function buildGuideEmbeds() {
   const embed1 = new EmbedBuilder()
-    .setTitle("📘 AON2 Bot Guide (Ver 2.1)")
+    .setTitle("📘 TETRA AION2 Bot Guide (Ver 2.1)")
     .setDescription(
       [
         "A must-have support bot for AION2 communities.",
@@ -2268,7 +2268,7 @@ async function handleSlash(interaction) {
 
   if (interaction.commandName === "help") {
     const embed = new EmbedBuilder()
-      .setTitle("Aon English Bot - Quick Start")
+      .setTitle("TETRA AION2 Bot - Quick Start")
       .setDescription(
         [
           "1) Run `/preset mode:combined` in your boss channel.",
@@ -3389,7 +3389,7 @@ async function handleVerificationButton(interaction) {
 }
 
 const app = express();
-app.get("/", (_, res) => res.send("Aon English Bot is online."));
+app.get("/", (_, res) => res.send("TETRA AION2 Bot is online."));
 app.listen(CONFIG.port, () => {
   console.log(`[http] keep-alive server on ${CONFIG.port}`);
 });
