@@ -7,3 +7,4 @@ payments.json
 .DS_Store
 bot_state.json
 aon_translate_state.json
+kinah_state.json
