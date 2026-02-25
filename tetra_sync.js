@@ -1326,6 +1326,18 @@ function createLevelUpModal(region) {
         );
 }
 
+async function registerGuildSlashCommands(rest, guild) {
+    if (!client.user) return false;
+    try {
+        await rest.put(Routes.applicationGuildCommands(client.user.id, guild.id), { body: commands });
+        console.log(`   Slash commands synced: ${guild.name} (${guild.id})`);
+        return true;
+    } catch (err) {
+        console.error(`   Slash command sync failed: ${guild.name} (${guild.id}) -> ${err.message}`);
+        return false;
+    }
+}
+
 // ═══════════════════════════════════════════════════════════
 // [5] 이벤트 핸들러
 // ═══════════════════════════════════════════════════════════
@@ -1334,20 +1346,32 @@ client.once('ready', async () => {
     try {
         const rest = new REST({ version: '10' }).setToken(CONFIG.TOKEN);
         // 서버별 등록 (즉시 반영)
+        let success = 0;
+        let failed = 0;
         for (const guild of client.guilds.cache.values()) {
             ensureKinahGuildState(guild.id);
-            await rest.put(Routes.applicationGuildCommands(client.user.id, guild.id), { body: commands });
-            console.log(`   슬래시 커맨드 등록: ${guild.name}`);
+            const ok = await registerGuildSlashCommands(rest, guild);
+            if (ok) success += 1;
+            else failed += 1;
         }
         saveKinahState();
+        console.log(`   Slash command sync done: ${success} success / ${failed} failed (total ${commands.length} commands).`);
     } catch (e) {
-        console.error('   슬래시 커맨드 등록 실패:', e.message);
+        console.error('   Slash command setup failed:', e.message);
     }
 
     setInterval(() => {
         runKinahTicker(client).catch(err => console.error('[kinah-ticker]', err.message));
     }, CONFIG.KINAH_TICKER_MS);
     runKinahTicker(client).catch(() => {});
+});
+
+client.on('guildCreate', async (guild) => {
+    if (!client.user) return;
+    ensureKinahGuildState(guild.id);
+    saveKinahState();
+    const rest = new REST({ version: '10' }).setToken(CONFIG.TOKEN);
+    await registerGuildSlashCommands(rest, guild);
 });
 
 client.on('interactionCreate', async (interaction) => {
