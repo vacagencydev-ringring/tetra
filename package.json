@@ -2,9 +2,9 @@
   "name": "tetra-aion2",
   "version": "1.0.0",
   "description": "",
-  "main": "aon_english_bot.js",
+  "main": "tetra_sync.js",
   "scripts": {
-    "start": "node aon_english_bot.js",
+    "start": "node tetra_sync.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
