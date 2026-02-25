@@ -587,6 +587,7 @@ function buildJoinVerifyPanelPayload() {
         new ButtonBuilder()
             .setCustomId('btn_join_verify_open')
             .setLabel('Start Join Verification')
+            .setEmoji('🌍')
             .setStyle(ButtonStyle.Success)
     );
     return { embeds: [embed], components: [row] };
