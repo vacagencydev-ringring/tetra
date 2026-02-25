@@ -43,6 +43,8 @@ const CONFIG = {
     TOKEN: process.env.DISCORD_TOKEN,
     CREDENTIALS_PATH: path.join(__dirname, 'credentials.json.json'),
     PANEL_STATE_PATH: path.join(__dirname, 'panel_state.json'),
+    KINAH_STATE_PATH: path.join(__dirname, 'kinah_state.json'),
+    KINAH_TICKER_MS: Math.max(60_000, parseInt(process.env.KINAH_TICKER_MS || '300000', 10) || 300_000),
     AON_TRANSLATE_STATE_PATH: path.join(__dirname, 'aon_translate_state.json'),
     AON_SOURCE_BOT_ID: process.env.AON_SOURCE_BOT_ID || '1436590099235340410',
     PANEL_IMAGES: {
@@ -54,6 +56,22 @@ function loadPanelState() { try { return JSON.parse(fs.readFileSync(CONFIG.PANEL
 function savePanelState(s) { fs.writeFileSync(CONFIG.PANEL_STATE_PATH, JSON.stringify(s, null, 2)); }
 
 const panelUpdateLocks = new Set();
+const KINAH_PRESET_TYPES = ['itembay_aion2', 'itemmania_aion2', 'dual_market_aion2'];
+const KINAH_PRESET_DEFAULTS = {
+    itembay_aion2: {
+        primaryUrl: 'https://www.itembay.com/item/sell/game-3603/type-3',
+        sourceKeyword: '아이온2 키나',
+    },
+    itemmania_aion2: {
+        primaryUrl: 'https://trade.itemmania.com/list/search.html?searchString=%EC%95%84%EC%9D%B4%EC%98%A82%20%ED%82%A4%EB%82%98',
+        sourceKeyword: '아이온2 키나',
+    },
+    dual_market_aion2: {
+        primaryUrl: 'https://www.itembay.com/item/sell/game-3603/type-3',
+        secondaryUrl: 'https://trade.itemmania.com/list/search.html?searchString=%EC%95%84%EC%9D%B4%EC%98%A82%20%ED%82%A4%EB%82%98',
+        sourceKeyword: '아이온2 키나',
+    },
+};
 
 function createAonRouteMap(seed = null) {
     const map = { notice: null, update: null, event: null };
@@ -92,6 +110,68 @@ function ensureAonTranslateGuildState(guildId) {
     g.sourceBotId = typeof g.sourceBotId === 'string' && g.sourceBotId.length ? g.sourceBotId : CONFIG.AON_SOURCE_BOT_ID;
     g.routes = createAonRouteMap(g.routes);
     g.translatedMessageIds = Array.isArray(g.translatedMessageIds) ? g.translatedMessageIds.slice(-1000) : [];
+    return g;
+}
+
+function createDefaultKinahWatch(seed = null) {
+    const base = {
+        enabled: false,
+        sourcePreset: null,
+        sourceKeyword: '아이온2 키나',
+        channelId: null,
+        sourceUrl: null,
+        secondarySourceUrl: null,
+        selector: null,
+        valueRegex: null,
+        pollMinutes: 5,
+        mentionRoleId: null,
+        lastRate: null,
+        lastRawText: null,
+        lastSourceSummary: null,
+        lastCheckedAt: null,
+        lastPostedAt: null,
+        lastError: null,
+    };
+    if (!seed || typeof seed !== 'object') return base;
+    return {
+        ...base,
+        enabled: Boolean(seed.enabled),
+        sourcePreset: typeof seed.sourcePreset === 'string' && KINAH_PRESET_TYPES.includes(seed.sourcePreset) ? seed.sourcePreset : null,
+        sourceKeyword: typeof seed.sourceKeyword === 'string' && seed.sourceKeyword.length ? seed.sourceKeyword : base.sourceKeyword,
+        channelId: typeof seed.channelId === 'string' && seed.channelId.length ? seed.channelId : null,
+        sourceUrl: typeof seed.sourceUrl === 'string' && seed.sourceUrl.length ? seed.sourceUrl : null,
+        secondarySourceUrl: typeof seed.secondarySourceUrl === 'string' && seed.secondarySourceUrl.length ? seed.secondarySourceUrl : null,
+        selector: typeof seed.selector === 'string' && seed.selector.length ? seed.selector : null,
+        valueRegex: typeof seed.valueRegex === 'string' && seed.valueRegex.length ? seed.valueRegex : null,
+        pollMinutes: Math.max(1, Math.min(60, Number.parseInt(String(seed.pollMinutes || 5), 10) || 5)),
+        mentionRoleId: typeof seed.mentionRoleId === 'string' && seed.mentionRoleId.length ? seed.mentionRoleId : null,
+        lastRate: Number.isFinite(Number(seed.lastRate)) ? Number(seed.lastRate) : null,
+        lastRawText: typeof seed.lastRawText === 'string' && seed.lastRawText.length ? seed.lastRawText : null,
+        lastSourceSummary: typeof seed.lastSourceSummary === 'string' && seed.lastSourceSummary.length ? seed.lastSourceSummary : null,
+        lastCheckedAt: Number.isFinite(Number(seed.lastCheckedAt)) ? Number(seed.lastCheckedAt) : null,
+        lastPostedAt: Number.isFinite(Number(seed.lastPostedAt)) ? Number(seed.lastPostedAt) : null,
+        lastError: typeof seed.lastError === 'string' && seed.lastError.length ? seed.lastError : null,
+    };
+}
+
+function loadKinahState() {
+    try {
+        const raw = fs.readFileSync(CONFIG.KINAH_STATE_PATH, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return { guilds: {} };
+        parsed.guilds = parsed.guilds || {};
+        return parsed;
+    } catch {
+        return { guilds: {} };
+    }
+}
+const kinahState = loadKinahState();
+function saveKinahState() { fs.writeFileSync(CONFIG.KINAH_STATE_PATH, JSON.stringify(kinahState, null, 2)); }
+
+function ensureKinahGuildState(guildId) {
+    if (!kinahState.guilds[guildId]) kinahState.guilds[guildId] = { kinah: createDefaultKinahWatch() };
+    const g = kinahState.guilds[guildId];
+    g.kinah = createDefaultKinahWatch(g.kinah);
     return g;
 }
 
@@ -423,6 +503,381 @@ async function rebuildMemberOrganizedSheet() {
     return { ok: true, count: values.length };
 }
 
+function toDiscordTime(epochMs) {
+    return `<t:${Math.floor(epochMs / 1000)}:F> (<t:${Math.floor(epochMs / 1000)}:R>)`;
+}
+
+function extractNumericTokens(text) {
+    return String(text || '').match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g)?.map(token => token.trim()) || [];
+}
+
+function parseNumericValue(token) {
+    const value = Number.parseFloat(String(token || '').replace(/,/g, ''));
+    return Number.isFinite(value) ? value : null;
+}
+
+function pickMedian(values) {
+    if (!Array.isArray(values) || values.length === 0) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    if (sorted.length % 2 === 0) return (sorted[mid - 1] + sorted[mid]) / 2;
+    return sorted[mid];
+}
+
+function pickTrimmedMedian(values) {
+    if (!Array.isArray(values) || values.length === 0) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    if (sorted.length <= 4) return pickMedian(sorted);
+    const trimCount = Math.floor(sorted.length * 0.1);
+    const trimmed = trimCount > 0 && sorted.length - trimCount * 2 >= 3
+        ? sorted.slice(trimCount, sorted.length - trimCount)
+        : sorted;
+    return pickMedian(trimmed);
+}
+
+function collectJsonNodes(value, out = []) {
+    if (value == null) return out;
+    if (Array.isArray(value)) {
+        for (const item of value) collectJsonNodes(item, out);
+        return out;
+    }
+    if (typeof value === 'object') {
+        out.push(value);
+        for (const child of Object.values(value)) {
+            if (child && typeof child === 'object') collectJsonNodes(child, out);
+        }
+    }
+    return out;
+}
+
+function parseJsonLdBlocks($) {
+    const parsed = [];
+    $('script[type="application/ld+json"]').each((_, element) => {
+        const raw = $(element).contents().text().trim();
+        if (!raw) return;
+        try {
+            parsed.push(JSON.parse(raw));
+        } catch (_) {}
+    });
+    return parsed;
+}
+
+function formatKrw(value) {
+    if (!Number.isFinite(value)) return 'N/A';
+    return `${Math.round(value).toLocaleString()} KRW`;
+}
+
+async function fetchItembayAion2Snapshot(sourceUrl) {
+    const url = sourceUrl || KINAH_PRESET_DEFAULTS.itembay_aion2.primaryUrl;
+    const { data } = await axios.get(url, {
+        timeout: 20_000,
+        maxRedirects: 5,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            Accept: 'text/html,application/xhtml+xml',
+        },
+    });
+    const $ = cheerio.load(data);
+    const canonical = $('link[rel="canonical"]').attr('href') || url;
+    const jsonBlocks = parseJsonLdBlocks($);
+    const nodes = jsonBlocks.flatMap(block => collectJsonNodes(block));
+
+    const aggregateOffer = nodes.find(
+        node => node['@type'] === 'AggregateOffer' && parseNumericValue(node.lowPrice) != null && parseNumericValue(node.highPrice) != null
+    );
+    const lowPrice = aggregateOffer ? parseNumericValue(aggregateOffer.lowPrice) : null;
+    const highPrice = aggregateOffer ? parseNumericValue(aggregateOffer.highPrice) : null;
+    const offerCount = aggregateOffer ? parseNumericValue(aggregateOffer.offerCount) : null;
+
+    const listItems = nodes
+        .filter(node => node['@type'] === 'ListItem' && node.item)
+        .map(node => node.item)
+        .filter(item => /아이온2|aion2/i.test(`${item.name || ''} ${item.category || ''}`));
+    const kinahItems = listItems.filter(item => /키나|kinah|게임머니|game.?money/i.test(`${item.name || ''} ${item.description || ''}`));
+
+    const prices = (kinahItems.length ? kinahItems : listItems)
+        .map(item => parseNumericValue(item?.offers?.price))
+        .filter(value => value != null);
+    const representative = pickTrimmedMedian(prices) ?? lowPrice ?? pickMedian(prices) ?? highPrice;
+    if (!Number.isFinite(representative)) {
+        throw new Error('ItemBay AION2 parser could not find numeric price.');
+    }
+
+    return {
+        token: formatKrw(representative),
+        numeric: Math.round(representative),
+        snippet: `ItemBay low ${formatKrw(lowPrice)} / high ${formatKrw(highPrice)} / offers ${offerCount ? offerCount.toLocaleString() : 'N/A'}`,
+        sourceUrl: canonical,
+        sourceName: 'ItemBay AION2',
+        sourceSummary: `ItemBay:${formatKrw(representative)}`,
+    };
+}
+
+async function fetchItemmaniaAion2Snapshot(sourceUrl, sourceKeyword) {
+    const url = sourceUrl || KINAH_PRESET_DEFAULTS.itemmania_aion2.primaryUrl;
+    const { data } = await axios.get(url, {
+        timeout: 20_000,
+        maxRedirects: 5,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            Accept: 'text/html,application/xhtml+xml',
+        },
+    });
+    const $ = cheerio.load(data);
+    const bodyText = $('body').text().replace(/\r/g, '\n');
+    const keyword = String(sourceKeyword || '아이온2 키나').trim();
+    const keywordLines = bodyText
+        .split('\n')
+        .map(line => line.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .filter(line => {
+            if (!keyword) return true;
+            const words = keyword.split(/\s+/).filter(Boolean);
+            return words.every(word => line.toLowerCase().includes(word.toLowerCase()));
+        });
+    const candidateText = keywordLines.length ? keywordLines.slice(0, 100).join('\n') : bodyText;
+    const candidates = extractNumericTokens(candidateText)
+        .map(token => parseNumericValue(token))
+        .filter(value => value != null)
+        .filter(value => value >= 10 && value <= 500_000_000);
+    const representative = pickTrimmedMedian(candidates) ?? pickMedian(candidates);
+    if (!Number.isFinite(representative)) {
+        throw new Error('ItemMania parser could not find numeric price.');
+    }
+
+    return {
+        token: formatKrw(representative),
+        numeric: Math.round(representative),
+        snippet: `ItemMania keyword: ${keyword || 'AION2'} (${candidates.length} candidates)`,
+        sourceUrl: url,
+        sourceName: 'ItemMania AION2',
+        sourceSummary: `ItemMania:${formatKrw(representative)}`,
+    };
+}
+
+async function fetchKinahRateByPreset(watchConfig) {
+    const preset = watchConfig?.sourcePreset;
+    if (!KINAH_PRESET_TYPES.includes(preset)) throw new Error('Unknown kinah preset.');
+
+    if (preset === 'itembay_aion2') {
+        return fetchItembayAion2Snapshot(watchConfig?.sourceUrl || KINAH_PRESET_DEFAULTS.itembay_aion2.primaryUrl);
+    }
+    if (preset === 'itemmania_aion2') {
+        return fetchItemmaniaAion2Snapshot(watchConfig?.sourceUrl || KINAH_PRESET_DEFAULTS.itemmania_aion2.primaryUrl, watchConfig?.sourceKeyword);
+    }
+
+    const results = await Promise.allSettled([
+        fetchItembayAion2Snapshot(watchConfig?.sourceUrl || KINAH_PRESET_DEFAULTS.dual_market_aion2.primaryUrl),
+        fetchItemmaniaAion2Snapshot(
+            watchConfig?.secondarySourceUrl || KINAH_PRESET_DEFAULTS.dual_market_aion2.secondaryUrl,
+            watchConfig?.sourceKeyword
+        ),
+    ]);
+    const success = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+    if (!success.length) {
+        const reasons = results.filter(r => r.status === 'rejected').map(r => r.reason?.message || String(r.reason));
+        throw new Error(`Dual market fetch failed: ${reasons.join(' / ')}`);
+    }
+    if (success.length === 1) return success[0];
+
+    const average = success.reduce((sum, item) => sum + Number(item.numeric || 0), 0) / success.length;
+    const summary = success.map(item => item.sourceSummary).join(' | ');
+    return {
+        token: formatKrw(average),
+        numeric: Math.round(average),
+        snippet: `Dual market avg from ${success.length} sources`,
+        sourceUrl: success[0].sourceUrl,
+        sourceName: 'Dual Market AION2',
+        sourceSummary: summary,
+        sourceValues: success.map(item => ({
+            name: item.sourceName,
+            token: item.token,
+            numeric: item.numeric,
+            sourceUrl: item.sourceUrl,
+        })),
+    };
+}
+
+function extractKinahValueFromText(text) {
+    const lines = String(text || '')
+        .split('\n')
+        .map(line => line.replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+    if (!lines.length) return null;
+
+    const keywordLines = lines.filter(line => /(kinah|키나|시세|rate|exchange|market)/i.test(line));
+    const candidates = keywordLines.length ? keywordLines : lines.slice(0, 50);
+    const tokens = extractNumericTokens(candidates.join('\n'));
+    if (!tokens.length) return null;
+
+    const ranked = tokens
+        .map(token => ({ token, numeric: parseNumericValue(token) }))
+        .filter(item => item.numeric != null)
+        .sort((a, b) => b.numeric - a.numeric);
+    if (!ranked.length) return null;
+    return { token: ranked[0].token, numeric: ranked[0].numeric, snippet: candidates.slice(0, 3).join('\n') };
+}
+
+async function fetchKinahRateSnapshot(watchConfig) {
+    const sourcePreset = String(watchConfig?.sourcePreset || '').trim();
+    if (sourcePreset) return fetchKinahRateByPreset(watchConfig);
+
+    const sourceUrl = String(watchConfig?.sourceUrl || '').trim();
+    if (!sourceUrl) throw new Error('Source URL is not configured.');
+    let parsedUrl;
+    try {
+        parsedUrl = new URL(sourceUrl);
+    } catch (_) {
+        throw new Error('Source URL is invalid.');
+    }
+    if (!['https:', 'http:'].includes(parsedUrl.protocol)) {
+        throw new Error('Source URL must start with http(s).');
+    }
+
+    const { data } = await axios.get(sourceUrl, {
+        timeout: 15_000,
+        maxRedirects: 5,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            Accept: 'text/html,application/xhtml+xml',
+        },
+    });
+    const $ = cheerio.load(data);
+    const selector = String(watchConfig?.selector || '').trim();
+    const regexRaw = String(watchConfig?.valueRegex || '').trim();
+
+    let targetText = '';
+    if (selector) {
+        const matches = $(selector)
+            .slice(0, 20)
+            .map((_, el) => $(el).text().replace(/\s+/g, ' ').trim())
+            .get()
+            .filter(Boolean);
+        targetText = matches.join('\n');
+    }
+    const bodyText = $('body').text().replace(/\r/g, '\n');
+    if (!targetText) targetText = bodyText;
+
+    if (regexRaw) {
+        let regex;
+        try {
+            regex = new RegExp(regexRaw, 'i');
+        } catch (err) {
+            throw new Error(`Invalid regex: ${err.message}`);
+        }
+        const match = targetText.match(regex) || bodyText.match(regex);
+        if (!match) throw new Error('Regex did not match any value.');
+        const picked = match[1] || match[0];
+        const token = String(picked).trim();
+        const numeric = parseNumericValue(token);
+        if (numeric == null) throw new Error('Matched value is not numeric.');
+        return { token, numeric, snippet: targetText.split('\n').slice(0, 3).join('\n'), sourceUrl };
+    }
+
+    const parsed = extractKinahValueFromText(targetText);
+    if (!parsed) throw new Error('Could not extract kinah rate. Configure `selector` or `value_regex`.');
+    return { token: parsed.token, numeric: parsed.numeric, snippet: parsed.snippet, sourceUrl };
+}
+
+function buildKinahStatusEmbed(guildState) {
+    const watch = createDefaultKinahWatch(guildState?.kinah);
+    const presetLabel = watch.sourcePreset || 'custom';
+    return new EmbedBuilder()
+        .setTitle('Kinah Rate Crawler Status')
+        .setDescription([
+            `Enabled: ${watch.enabled ? 'Yes' : 'No'}`,
+            `Post channel: ${watch.channelId ? `<#${watch.channelId}>` : 'Not set'}`,
+            `Preset: ${presetLabel}`,
+            `Keyword: ${watch.sourceKeyword || 'N/A'}`,
+            `Source URL: ${watch.sourceUrl || 'Not set'}`,
+            `Secondary URL: ${watch.secondarySourceUrl || 'N/A'}`,
+            `Selector: ${watch.selector || 'Auto detect'}`,
+            `Regex: ${watch.valueRegex || 'Auto detect'}`,
+            `Poll interval: ${watch.pollMinutes} minute(s)`,
+            `Mention role: ${watch.mentionRoleId ? `<@&${watch.mentionRoleId}>` : 'None'}`,
+            `Last value: ${watch.lastRawText || 'N/A'}`,
+            `Last sources: ${watch.lastSourceSummary || 'N/A'}`,
+            `Last check: ${watch.lastCheckedAt ? toDiscordTime(watch.lastCheckedAt) : 'N/A'}`,
+            `Last error: ${watch.lastError || 'None'}`,
+        ].join('\n'))
+        .setColor(0x14b8a6);
+}
+
+function buildKinahRateEmbed(snapshot, previousValue = null) {
+    const isFirst = previousValue == null;
+    const diff = previousValue == null ? null : Number(snapshot.numeric) - Number(previousValue);
+    const diffLine = diff == null ? 'Initial baseline captured.' : `${diff >= 0 ? '+' : ''}${diff.toLocaleString()} vs previous`;
+    return new EmbedBuilder()
+        .setTitle('💰 Kinah Rate Update')
+        .setDescription([
+            `Current: **${snapshot.token}**`,
+            `Change: ${diffLine}`,
+            snapshot.sourceName ? `Source: ${snapshot.sourceName}` : null,
+            snapshot.sourceSummary ? `Source summary: ${snapshot.sourceSummary}` : null,
+            snapshot.snippet ? `Snapshot: \`${snapshot.snippet.slice(0, 220)}\`` : null,
+            `[Source link](${snapshot.sourceUrl})`,
+        ].filter(Boolean).join('\n'))
+        .addFields(
+            ...(Array.isArray(snapshot.sourceValues) && snapshot.sourceValues.length
+                ? [{ name: 'Source breakdown', value: snapshot.sourceValues.map(item => `- ${item.name}: ${item.token}`).join('\n').slice(0, 1000) }]
+                : [])
+        )
+        .setColor(isFirst ? 0x0ea5e9 : diff >= 0 ? 0x22c55e : 0xef4444)
+        .setTimestamp();
+}
+
+let kinahTickerActive = false;
+async function runKinahTicker(client) {
+    if (kinahTickerActive) return;
+    kinahTickerActive = true;
+    try {
+        const now = Date.now();
+        let changed = false;
+        for (const guildId of Object.keys(kinahState.guilds || {})) {
+            const guildState = ensureKinahGuildState(guildId);
+            const watch = createDefaultKinahWatch(guildState.kinah);
+            guildState.kinah = watch;
+            if (!watch.enabled || !watch.sourceUrl || !watch.channelId) continue;
+
+            const intervalMs = Math.max(60_000, watch.pollMinutes * 60_000);
+            if (watch.lastCheckedAt && now - watch.lastCheckedAt < intervalMs) continue;
+
+            watch.lastCheckedAt = now;
+            changed = true;
+            let snapshot;
+            try {
+                snapshot = await fetchKinahRateSnapshot(watch);
+                watch.lastError = null;
+            } catch (err) {
+                watch.lastError = err.message || 'Fetch failed';
+                changed = true;
+                continue;
+            }
+
+            const isChanged = watch.lastRate == null || snapshot.numeric !== watch.lastRate;
+            watch.lastRawText = snapshot.token;
+            watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
+            if (!isChanged) continue;
+
+            const channel = await client.channels.fetch(watch.channelId).catch(() => null);
+            if (!channel || !channel.isTextBased()) {
+                watch.lastError = 'Post channel is missing or not text-based.';
+                changed = true;
+                continue;
+            }
+
+            const mention = watch.mentionRoleId ? `<@&${watch.mentionRoleId}>` : undefined;
+            await channel.send({ content: mention, embeds: [buildKinahRateEmbed(snapshot, watch.lastRate)] }).catch(() => {});
+            watch.lastRate = snapshot.numeric;
+            watch.lastPostedAt = Date.now();
+            changed = true;
+        }
+        if (changed) saveKinahState();
+    } finally {
+        kinahTickerActive = false;
+    }
+}
+
 // ═══════════════════════════════════════════════════════════
 // [3] 슬래시 커맨드 등록
 // ═══════════════════════════════════════════════════════════
@@ -477,6 +932,54 @@ const commands = [
     new SlashCommandBuilder()
         .setName('member_list_organize')
         .setDescription('Rebuild 회원목록정리 sheet from Member_List_* sheets')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('kinah_watch_set')
+        .setDescription('Configure kinah rate crawler and target channel')
+        .addChannelOption(o => o
+            .setName('channel')
+            .setDescription('Channel where kinah updates are posted')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+        .addStringOption(o => o.setName('source_url').setDescription('Market/source page URL').setRequired(true))
+        .addStringOption(o => o.setName('selector').setDescription('Optional CSS selector for price text').setRequired(false))
+        .addStringOption(o => o.setName('value_regex').setDescription('Optional regex (capture group #1 preferred)').setRequired(false))
+        .addIntegerOption(o => o.setName('poll_minutes').setDescription('How often to check (1-60)').setRequired(false).setMinValue(1).setMaxValue(60))
+        .addRoleOption(o => o.setName('mention_role').setDescription('Optional role mention on updates').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('kinah_watch_preset')
+        .setDescription('Quick setup for ItemBay/ItemMania AION2 presets')
+        .addStringOption(o => o
+            .setName('preset')
+            .setDescription('Market preset')
+            .setRequired(true)
+            .addChoices(
+                { name: 'ItemBay AION2', value: 'itembay_aion2' },
+                { name: 'ItemMania AION2', value: 'itemmania_aion2' },
+                { name: 'Dual Market AION2', value: 'dual_market_aion2' }
+            ))
+        .addChannelOption(o => o
+            .setName('channel')
+            .setDescription('Channel where kinah updates are posted')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+        .addIntegerOption(o => o.setName('poll_minutes').setDescription('How often to check (1-60)').setRequired(false).setMinValue(1).setMaxValue(60))
+        .addRoleOption(o => o.setName('mention_role').setDescription('Optional role mention on updates').setRequired(false))
+        .addStringOption(o => o.setName('source_keyword').setDescription('Keyword hint (default: 아이온2 키나)').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('kinah_watch_now')
+        .setDescription('Fetch kinah rate immediately')
+        .addBooleanOption(o => o.setName('public_post').setDescription('Post result publicly to configured channel').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('kinah_watch_stop')
+        .setDescription('Stop kinah rate crawler for this guild')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('kinah_watch_status')
+        .setDescription('Show kinah rate crawler settings and last state')
         .toJSON(),
     new SlashCommandBuilder()
         .setName('aon_translate_set')
@@ -563,12 +1066,19 @@ client.once('ready', async () => {
         const rest = new REST({ version: '10' }).setToken(CONFIG.TOKEN);
         // 서버별 등록 (즉시 반영)
         for (const guild of client.guilds.cache.values()) {
+            ensureKinahGuildState(guild.id);
             await rest.put(Routes.applicationGuildCommands(client.user.id, guild.id), { body: commands });
             console.log(`   슬래시 커맨드 등록: ${guild.name}`);
         }
+        saveKinahState();
     } catch (e) {
         console.error('   슬래시 커맨드 등록 실패:', e.message);
     }
+
+    setInterval(() => {
+        runKinahTicker(client).catch(err => console.error('[kinah-ticker]', err.message));
+    }, CONFIG.KINAH_TICKER_MS);
+    runKinahTicker(client).catch(() => {});
 });
 
 client.on('interactionCreate', async (interaction) => {
@@ -634,6 +1144,149 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             await interaction.editReply({ content: `✅ 회원목록정리 갱신 완료: ${merged.count} row(s).` });
+        } else if (interaction.commandName.startsWith('kinah_watch_')) {
+            const guildId = interaction.guildId;
+            if (!guildId) { await safeEphemeral(interaction, 'This command can only be used in a guild.'); return; }
+            const guildState = ensureKinahGuildState(guildId);
+
+            if (interaction.commandName === 'kinah_watch_preset') {
+                if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+                const preset = interaction.options.getString('preset', true);
+                const presetConfig = KINAH_PRESET_DEFAULTS[preset];
+                if (!presetConfig) { await safeEphemeral(interaction, 'Invalid preset value.'); return; }
+                const channel = interaction.options.getChannel('channel', true);
+                const pollMinutes = interaction.options.getInteger('poll_minutes') ?? 5;
+                const mentionRole = interaction.options.getRole('mention_role');
+                const sourceKeyword = (interaction.options.getString('source_keyword') || '').trim() || presetConfig.sourceKeyword || '아이온2 키나';
+
+                const watch = createDefaultKinahWatch(guildState.kinah);
+                watch.enabled = true;
+                watch.sourcePreset = preset;
+                watch.sourceKeyword = sourceKeyword;
+                watch.channelId = channel.id;
+                watch.sourceUrl = presetConfig.primaryUrl || null;
+                watch.secondarySourceUrl = presetConfig.secondaryUrl || null;
+                watch.selector = null;
+                watch.valueRegex = null;
+                watch.pollMinutes = Math.max(1, Math.min(60, pollMinutes));
+                watch.mentionRoleId = mentionRole ? mentionRole.id : null;
+                watch.lastError = null;
+
+                let snapshot = null;
+                try {
+                    snapshot = await fetchKinahRateSnapshot(watch);
+                    watch.lastRate = snapshot.numeric;
+                    watch.lastRawText = snapshot.token;
+                    watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
+                    watch.lastCheckedAt = Date.now();
+                } catch (err) {
+                    watch.lastError = err.message || 'Initial preset fetch failed.';
+                }
+
+                guildState.kinah = watch;
+                saveKinahState();
+                const embeds = [buildKinahStatusEmbed(guildState)];
+                if (snapshot) embeds.push(buildKinahRateEmbed(snapshot, null));
+                await interaction.reply({ embeds, ephemeral: true });
+            } else if (interaction.commandName === 'kinah_watch_set') {
+                if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+                const channel = interaction.options.getChannel('channel', true);
+                const sourceUrl = interaction.options.getString('source_url', true).trim();
+                const selector = (interaction.options.getString('selector') || '').trim();
+                const valueRegex = (interaction.options.getString('value_regex') || '').trim();
+                const pollMinutes = interaction.options.getInteger('poll_minutes') ?? 5;
+                const mentionRole = interaction.options.getRole('mention_role');
+
+                try {
+                    const u = new URL(sourceUrl);
+                    if (!['https:', 'http:'].includes(u.protocol)) { await safeEphemeral(interaction, 'source_url must be http(s).'); return; }
+                } catch (_) {
+                    await safeEphemeral(interaction, 'source_url is invalid.');
+                    return;
+                }
+                if (valueRegex) {
+                    try { new RegExp(valueRegex, 'i'); } catch (err) { await safeEphemeral(interaction, `Invalid value_regex: ${err.message}`); return; }
+                }
+
+                const watch = createDefaultKinahWatch(guildState.kinah);
+                watch.enabled = true;
+                watch.sourcePreset = null;
+                watch.channelId = channel.id;
+                watch.sourceUrl = sourceUrl;
+                watch.secondarySourceUrl = null;
+                watch.selector = selector || null;
+                watch.valueRegex = valueRegex || null;
+                watch.pollMinutes = Math.max(1, Math.min(60, pollMinutes));
+                watch.mentionRoleId = mentionRole ? mentionRole.id : null;
+                watch.lastError = null;
+
+                let snapshot = null;
+                try {
+                    snapshot = await fetchKinahRateSnapshot(watch);
+                    watch.lastRate = snapshot.numeric;
+                    watch.lastRawText = snapshot.token;
+                    watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
+                    watch.lastCheckedAt = Date.now();
+                } catch (err) {
+                    watch.lastError = err.message || 'Initial fetch failed.';
+                }
+
+                guildState.kinah = watch;
+                saveKinahState();
+                const embeds = [buildKinahStatusEmbed(guildState)];
+                if (snapshot) embeds.push(buildKinahRateEmbed(snapshot, null));
+                await interaction.reply({ embeds, ephemeral: true });
+            } else if (interaction.commandName === 'kinah_watch_status') {
+                await interaction.reply({ embeds: [buildKinahStatusEmbed(guildState)], ephemeral: true });
+            } else if (interaction.commandName === 'kinah_watch_stop') {
+                if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+                const watch = createDefaultKinahWatch(guildState.kinah);
+                watch.enabled = false;
+                guildState.kinah = watch;
+                saveKinahState();
+                await interaction.reply({ content: 'Kinah rate crawler stopped for this guild.', ephemeral: true });
+            } else if (interaction.commandName === 'kinah_watch_now') {
+                const watch = createDefaultKinahWatch(guildState.kinah);
+                if (!watch.sourceUrl) {
+                    await safeEphemeral(interaction, 'Kinah crawler is not configured. Run `/kinah_watch_preset` or `/kinah_watch_set` first.');
+                    return;
+                }
+                await interaction.deferReply({ ephemeral: true });
+                let snapshot;
+                try {
+                    snapshot = await fetchKinahRateSnapshot(watch);
+                } catch (err) {
+                    watch.lastError = err.message || 'Fetch failed';
+                    guildState.kinah = watch;
+                    saveKinahState();
+                    await interaction.editReply({ content: `Failed to fetch kinah rate: ${watch.lastError}` });
+                    return;
+                }
+
+                const previousRate = watch.lastRate;
+                watch.lastRate = snapshot.numeric;
+                watch.lastRawText = snapshot.token;
+                watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
+                watch.lastCheckedAt = Date.now();
+                watch.lastError = null;
+                guildState.kinah = watch;
+                saveKinahState();
+
+                const embed = buildKinahRateEmbed(snapshot, previousRate);
+                const publicPost = interaction.options.getBoolean('public_post') ?? false;
+                if (publicPost) {
+                    const postChannelId = watch.channelId || interaction.channelId;
+                    const postChannel = await interaction.guild.channels.fetch(postChannelId).catch(() => null);
+                    if (postChannel && postChannel.isTextBased()) {
+                        const mention = watch.mentionRoleId ? `<@&${watch.mentionRoleId}>` : undefined;
+                        await postChannel.send({ content: mention, embeds: [embed] }).catch(() => {});
+                        watch.lastPostedAt = Date.now();
+                        guildState.kinah = watch;
+                        saveKinahState();
+                    }
+                }
+                await interaction.editReply({ embeds: [embed, buildKinahStatusEmbed(guildState)] });
+            }
         } else if (interaction.commandName === 'aon_translate_set') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
@@ -766,6 +1419,8 @@ client.on('interactionCreate', async (interaction) => {
                 await new Promise(r => setTimeout(r, 2000));
                 panelUpdateLocks.delete(lockKey);
             }
+        } else {
+            await safeEphemeral(interaction, `Command is registered but not handled yet: /${interaction.commandName}`);
         }
         return;
     }
