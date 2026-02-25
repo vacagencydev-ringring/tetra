@@ -347,7 +347,14 @@ function getDiscordTag(user) {
 async function appendMemberListRecord(interaction, regionCfg, nickname, roleNote) {
     const member = interaction.member;
     const displayName = String(nickname || member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
-    const roleSummary = String(roleNote || '').trim() || 'N/A';
+    const autoRoleSummary = member?.roles?.cache
+        ? Array.from(member.roles.cache.values())
+            .filter(role => role.name !== '@everyone')
+            .map(role => role.name)
+            .slice(0, 3)
+            .join(', ')
+        : '';
+    const roleSummary = String(roleNote || '').trim() || autoRoleSummary || 'N/A';
     const joinedAt = makeLocalTimestamp(regionCfg.timeZone);
     const row = [
         interaction.user.id,
