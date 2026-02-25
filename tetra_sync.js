@@ -21,6 +21,7 @@ const {
     EmbedBuilder,
     ButtonBuilder,
     ButtonStyle,
+    StringSelectMenuBuilder,
     AttachmentBuilder,
     REST,
     Routes
@@ -179,12 +180,41 @@ const client = new Client({
 // ═══════════════════════════════════════════════════════════
 // [2] 구글 시트 기록
 // ═══════════════════════════════════════════════════════════
-/** Region(PH/ID) → 타임존 & 시트 범위 */
+/** Region(PH/IN/NP/CH/TW) → 타임존 & 시트 범위 */
+const REGION_CONFIGS = [
+    { value: 'ph', code: 'PH', label: 'Philippines', timeZone: 'Asia/Manila', emoji: '🇵🇭', aliases: ['philippines'] },
+    // Legacy compatibility: old "id/indonesia" values are mapped to IN.
+    { value: 'in', code: 'IN', label: 'India', timeZone: 'Asia/Kolkata', emoji: '🇮🇳', aliases: ['india', 'id', 'indonesia'] },
+    { value: 'np', code: 'NP', label: 'Nepal', timeZone: 'Asia/Kathmandu', emoji: '🇳🇵', aliases: ['nepal'] },
+    { value: 'ch', code: 'CH', label: 'China', timeZone: 'Asia/Shanghai', emoji: '🇨🇳', aliases: ['china'] },
+    { value: 'tw', code: 'TW', label: 'Taiwan', timeZone: 'Asia/Taipei', emoji: '🇹🇼', aliases: ['taiwan'] },
+];
+const SUPPORTED_REGION_CODES = REGION_CONFIGS.map(r => r.code).join('/');
+const MEMBER_ORGANIZED_HEADERS = ['Country', 'User ID', 'Discord Tag', 'Display Name', 'Role', 'Joined At', 'Source Sheet', 'Refreshed At'];
+const REGION_LOOKUP = new Map();
+for (const region of REGION_CONFIGS) {
+    for (const key of [region.value, region.code.toLowerCase(), ...(region.aliases || [])]) {
+        REGION_LOOKUP.set(String(key || '').toLowerCase(), region);
+    }
+}
+
 function getRegionConfig(regionInput) {
-    const r = (regionInput || '').trim().toLowerCase();
-    if (r === 'ph' || r === 'philippines') return { timeZone: 'Asia/Manila', sheetRange: 'Daily_Log_PH!A:G', salarySheetRange: 'Salary_Log_PH!A:D', code: 'PH' };
-    if (r === 'id' || r === 'indonesia') return { timeZone: 'Asia/Jakarta', sheetRange: 'Daily_Log_ID!A:G', salarySheetRange: 'Salary_Log_ID!A:D', code: 'ID' };
-    return null;
+    const region = REGION_LOOKUP.get(String(regionInput || '').trim().toLowerCase());
+    if (!region) return null;
+    return {
+        ...region,
+        sheetRange: `Daily_Log_${region.code}!A:G`,
+        salarySheetRange: `Salary_Log_${region.code}!A:D`,
+        memberSheetRange: `Member_List_${region.code}!A:F`,
+    };
+}
+
+function getRegionChoices() {
+    return REGION_CONFIGS.map(region => ({ name: `${region.label} (${region.code})`, value: region.value }));
+}
+
+function makeLocalTimestamp(timeZone) {
+    return new Date().toLocaleString('sv-SE', { timeZone }).slice(0, 16);
 }
 
 async function appendToSheet(range, values) {
@@ -208,6 +238,184 @@ async function appendToSheet(range, values) {
     }
 }
 
+async function readSheetRows(range) {
+    try {
+        const auth = new google.auth.GoogleAuth({
+            keyFile: CONFIG.CREDENTIALS_PATH,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+        const sheets = google.sheets({ version: 'v4', auth });
+        const { data } = await sheets.spreadsheets.values.get({
+            spreadsheetId: CONFIG.SHEET_ID,
+            range,
+        });
+        return { ok: true, values: data.values || [] };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+}
+
+async function updateSheetRows(range, values) {
+    try {
+        const auth = new google.auth.GoogleAuth({
+            keyFile: CONFIG.CREDENTIALS_PATH,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+        const sheets = google.sheets({ version: 'v4', auth });
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: CONFIG.SHEET_ID,
+            range,
+            valueInputOption: 'USER_ENTERED',
+            resource: { values },
+        });
+        return { ok: true };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+}
+
+async function clearSheetRows(range) {
+    try {
+        const auth = new google.auth.GoogleAuth({
+            keyFile: CONFIG.CREDENTIALS_PATH,
+            scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+        const sheets = google.sheets({ version: 'v4', auth });
+        await sheets.spreadsheets.values.clear({
+            spreadsheetId: CONFIG.SHEET_ID,
+            range,
+        });
+        return { ok: true };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+}
+
+function buildJoinCountrySelectRow() {
+    const menu = new StringSelectMenuBuilder()
+        .setCustomId('select_join_country')
+        .setPlaceholder('Select your country / 나라를 선택하세요')
+        .addOptions(
+            REGION_CONFIGS.map(region => ({
+                label: `${region.label} (${region.code})`,
+                value: region.value,
+                emoji: region.emoji,
+                description: `Register as ${region.label} member`,
+            }))
+        );
+    return new ActionRowBuilder().addComponents(menu);
+}
+
+function createJoinVerifyModal(region) {
+    const cfg = getRegionConfig(region);
+    const label = cfg ? `${cfg.label} (${cfg.code})` : String(region || '').toUpperCase();
+    return new ModalBuilder()
+        .setCustomId(`modal_join_verify_${region}`)
+        .setTitle(`Join Verification - ${label}`)
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('nickname')
+                    .setLabel('In-game name / Nickname')
+                    .setPlaceholder('Optional')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('role_note')
+                    .setLabel('Role/Note')
+                    .setPlaceholder('Optional')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+            ),
+        );
+}
+
+function parseRegionFromCustomId(customId, prefix) {
+    const pattern = new RegExp(`^${prefix}_([a-z]{2})$`, 'i');
+    const match = String(customId || '').match(pattern);
+    return match ? match[1].toLowerCase() : null;
+}
+
+function getDiscordTag(user) {
+    if (!user) return 'Unknown';
+    if (user.tag) return user.tag;
+    return user.discriminator && user.discriminator !== '0' ? `${user.username}#${user.discriminator}` : user.username;
+}
+
+async function appendMemberListRecord(interaction, regionCfg, nickname, roleNote) {
+    const member = interaction.member;
+    const displayName = String(nickname || member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
+    const roleSummary = String(roleNote || '').trim() || 'N/A';
+    const joinedAt = makeLocalTimestamp(regionCfg.timeZone);
+    const row = [
+        interaction.user.id,
+        getDiscordTag(interaction.user),
+        displayName,
+        regionCfg.code,
+        roleSummary,
+        joinedAt,
+    ];
+    return appendToSheet(regionCfg.memberSheetRange, row);
+}
+
+async function rebuildMemberOrganizedSheet() {
+    const merged = [];
+    for (const region of REGION_CONFIGS) {
+        const sourceSheetName = `Member_List_${region.code}`;
+        const sourceRange = `${sourceSheetName}!A2:F`;
+        const read = await readSheetRows(sourceRange);
+        if (!read.ok) continue;
+        for (const row of read.values) {
+            const [userId, discordTag, displayName, country, role, joinedAt] = row;
+            const hasData = [userId, discordTag, displayName, country, role, joinedAt].some(v => String(v || '').trim().length > 0);
+            if (!hasData) continue;
+            merged.push({
+                country: String(country || region.code).trim().toUpperCase(),
+                userId: String(userId || '').trim(),
+                discordTag: String(discordTag || '').trim(),
+                displayName: String(displayName || '').trim(),
+                role: String(role || '').trim(),
+                joinedAt: joinedAt || '',
+                sourceSheet: sourceSheetName,
+            });
+        }
+    }
+
+    const dedupedMap = new Map();
+    for (const item of merged) {
+        const identity = item.userId || item.discordTag || item.displayName;
+        if (!identity) continue;
+        dedupedMap.set(`${item.country}|${identity}`, item);
+    }
+    const deduped = Array.from(dedupedMap.values()).sort((a, b) => {
+        const byCountry = a.country.localeCompare(b.country);
+        if (byCountry !== 0) return byCountry;
+        return a.displayName.localeCompare(b.displayName);
+    });
+    const refreshedAt = makeLocalTimestamp('UTC');
+    const values = deduped.map(item => [
+        item.country,
+        item.userId,
+        item.discordTag,
+        item.displayName,
+        item.role,
+        item.joinedAt,
+        item.sourceSheet,
+        refreshedAt,
+    ]);
+
+    const headerRes = await updateSheetRows('회원목록정리!A1:H1', [MEMBER_ORGANIZED_HEADERS]);
+    if (!headerRes.ok) return { ok: false, error: headerRes.error };
+    await clearSheetRows('회원목록정리!A2:H');
+    if (values.length > 0) {
+        const up = await updateSheetRows(`회원목록정리!A2:H${values.length + 1}`, values);
+        if (!up.ok) return { ok: false, error: up.error };
+    }
+    return { ok: true, count: values.length };
+}
+
 // ═══════════════════════════════════════════════════════════
 // [3] 슬래시 커맨드 등록
 // ═══════════════════════════════════════════════════════════
@@ -215,28 +423,29 @@ const commands = [
     new SlashCommandBuilder()
         .setName('report_kinah')
         .setDescription('Submit Kinah Team daily report')
-        .addStringOption(o => o.setName('region').setDescription('Your region').setRequired(true).addChoices(
-            { name: 'Philippines (PH)', value: 'ph' }, { name: 'Indonesia (ID)', value: 'id' }
-        ))
-        .toJSON(),
-    new SlashCommandBuilder()
-        .setName('report_levelup')
-        .setDescription('Submit Level-Up Team daily report')
-        .addStringOption(o => o.setName('region').setDescription('Your region').setRequired(true).addChoices(
-            { name: 'Philippines (PH)', value: 'ph' }, { name: 'Indonesia (ID)', value: 'id' }
-        ))
-        .toJSON(),
-    new SlashCommandBuilder()
-        .setName('salary_confirm')
-        .setDescription('Confirm salary receipt (1-click, select PH or ID)')
         .addStringOption(o => o
             .setName('region')
             .setDescription('Your region')
             .setRequired(true)
-            .addChoices(
-                { name: 'Philippines (PH)', value: 'ph' },
-                { name: 'Indonesia (ID)', value: 'id' }
-            ))
+            .addChoices(...getRegionChoices()))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('report_levelup')
+        .setDescription('Submit Level-Up Team daily report')
+        .addStringOption(o => o
+            .setName('region')
+            .setDescription('Your region')
+            .setRequired(true)
+            .addChoices(...getRegionChoices()))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('salary_confirm')
+        .setDescription(`Confirm salary receipt (1-click, select ${SUPPORTED_REGION_CODES})`)
+        .addStringOption(o => o
+            .setName('region')
+            .setDescription('Your region')
+            .setRequired(true)
+            .addChoices(...getRegionChoices()))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('panel')
@@ -249,6 +458,18 @@ const commands = [
                 { name: 'Daily Report', value: 'report' },
                 { name: 'Salary Confirm', value: 'salary' }
             ))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('join_verify')
+        .setDescription('Open country selection popup for join verification')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('join_verify_panel')
+        .setDescription('Post join verification panel button to this channel')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('member_list_organize')
+        .setDescription('Rebuild 회원목록정리 sheet from Member_List_* sheets')
         .toJSON(),
     new SlashCommandBuilder()
         .setName('aon_translate_set')
@@ -357,17 +578,55 @@ client.on('interactionCreate', async (interaction) => {
             const regionOpt = interaction.options.getString('region');
             const regionCfg = getRegionConfig(regionOpt);
             if (!regionCfg) {
-                await interaction.reply({ content: '❌ Region must be PH or ID.', ephemeral: true });
+                await interaction.reply({ content: `❌ Region must be one of: ${SUPPORTED_REGION_CODES}.`, ephemeral: true });
                 return;
             }
             const worker = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
-            const timestamp = new Date().toLocaleString('sv-SE', { timeZone: regionCfg.timeZone }).slice(0, 16);
+            const timestamp = makeLocalTimestamp(regionCfg.timeZone);
             const data = [timestamp, worker, 'Confirmed', ''];
             const res = await appendToSheet(regionCfg.salarySheetRange, data);
             await interaction.reply({
                 content: res.ok ? `✅ Salary confirmation submitted (${worker}) → ${regionCfg.code}` : `❌ Failed to save (${regionCfg.code}). Create **Salary_Log_${regionCfg.code}** sheet in Google Sheets.`,
                 ephemeral: true
             });
+        } else if (interaction.commandName === 'join_verify') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            await interaction.reply({
+                content: '🌍 가입확인 나라를 선택해 주세요. / Select your country for join verification.',
+                components: [buildJoinCountrySelectRow()],
+                ephemeral: true
+            });
+        } else if (interaction.commandName === 'join_verify_panel') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            await interaction.deferReply({ ephemeral: true });
+            const embed = new EmbedBuilder()
+                .setTitle('✅ Join Verification')
+                .setDescription([
+                    '신규 인원은 아래 버튼을 눌러 나라 코드를 선택해 주세요.',
+                    'Pick your country code, then submit your basic info.',
+                    '',
+                    `Supported: ${SUPPORTED_REGION_CODES}`
+                ].join('\n'))
+                .setColor(0x22c55e);
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('btn_join_verify_open')
+                    .setLabel('가입확인 시작 / Start Join Verify')
+                    .setStyle(ButtonStyle.Success)
+            );
+            await interaction.channel.send({ embeds: [embed], components: [row] });
+            await interaction.editReply({ content: '✅ Join verification panel posted.' });
+        } else if (interaction.commandName === 'member_list_organize') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            await interaction.deferReply({ ephemeral: true });
+            const merged = await rebuildMemberOrganizedSheet();
+            if (!merged.ok) {
+                await interaction.editReply({ content: `❌ 회원목록정리 갱신 실패: ${merged.error}` });
+                return;
+            }
+            await interaction.editReply({ content: `✅ 회원목록정리 갱신 완료: ${merged.count} row(s).` });
         } else if (interaction.commandName === 'aon_translate_set') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
@@ -426,18 +685,29 @@ client.on('interactionCreate', async (interaction) => {
                         '**How to submit:** Select your region + team below → fill the form → done.\n' +
                         '• **Kinah** (💰) — Login, Logout, Profit\n' +
                         '• **Level-Up** (📈) — Login, Logout, Level, CP\n\n' +
-                        '**Rules:** Select Philippines or Indonesia, enter timestamps in your local time.\n' +
+                        `**Rules:** Select one of ${SUPPORTED_REGION_CODES}, enter timestamps in your local time.\n` +
                         '_Data syncs to management database automatically._'
                     )
                     .setColor(0x5865F2);
-                const kinahPh = new ButtonBuilder().setCustomId('btn_kinah_ph').setLabel('Kinah (PH)').setStyle(ButtonStyle.Primary).setEmoji('🇵🇭');
-                const kinahId = new ButtonBuilder().setCustomId('btn_kinah_id').setLabel('Kinah (ID)').setStyle(ButtonStyle.Primary).setEmoji('🇮🇩');
-                const levelUpPh = new ButtonBuilder().setCustomId('btn_levelup_ph').setLabel('Level-Up (PH)').setStyle(ButtonStyle.Danger).setEmoji('🇵🇭');
-                const levelUpId = new ButtonBuilder().setCustomId('btn_levelup_id').setLabel('Level-Up (ID)').setStyle(ButtonStyle.Danger).setEmoji('🇮🇩');
-                const row = new ActionRowBuilder().addComponents(kinahPh, kinahId, levelUpPh, levelUpId);
+                const kinahButtons = REGION_CONFIGS.map(region =>
+                    new ButtonBuilder()
+                        .setCustomId(`btn_kinah_${region.value}`)
+                        .setLabel(`Kinah (${region.code})`)
+                        .setStyle(ButtonStyle.Primary)
+                        .setEmoji(region.emoji)
+                );
+                const levelUpButtons = REGION_CONFIGS.map(region =>
+                    new ButtonBuilder()
+                        .setCustomId(`btn_levelup_${region.value}`)
+                        .setLabel(`Level-Up (${region.code})`)
+                        .setStyle(ButtonStyle.Danger)
+                        .setEmoji(region.emoji)
+                );
+                const rowTop = new ActionRowBuilder().addComponents(...kinahButtons);
+                const rowBottom = new ActionRowBuilder().addComponents(...levelUpButtons);
                 const files = [];
                 const state = loadPanelState();
-                const payload = { embeds: [embed], components: [row], files: files.length ? files : undefined };
+                const payload = { embeds: [embed], components: [rowTop, rowBottom], files: files.length ? files : undefined };
                 const isReportPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('DAILY WORK LOG') || m.components?.some(c => c.components?.some(b => b.customId?.startsWith('btn_kinah') || b.customId?.startsWith('btn_levelup'))));
                 let allReportPanels = (await channel.messages.fetch({ limit: 100 })).filter(isReportPanel);
                 for (const m of allReportPanels.values()) await m.delete().catch(() => {});
@@ -456,13 +726,17 @@ client.on('interactionCreate', async (interaction) => {
                         'Your salary for this period has been officially processed.\n\n' +
                         '**How to confirm (1-click, no typing):**\n' +
                         '• Check your bank/wallet balance.\n' +
-                        '• Click **Philippines** 🇵🇭 or **Indonesia** 🇮🇩 below — no form, no typing.\n\n' +
+                        `• Click one of **${SUPPORTED_REGION_CODES}** below — no form, no typing.\n\n` +
                         'Thank you for your excellent performance.'
                     )
                     .setColor(0x57F287);
-                const confirmPhBtn = new ButtonBuilder().setCustomId('btn_salary_ph').setLabel('🇵🇭 Philippines (1-Click)').setStyle(ButtonStyle.Success);
-                const confirmIdBtn = new ButtonBuilder().setCustomId('btn_salary_id').setLabel('🇮🇩 Indonesia (1-Click)').setStyle(ButtonStyle.Success);
-                const row = new ActionRowBuilder().addComponents(confirmPhBtn, confirmIdBtn);
+                const salaryButtons = REGION_CONFIGS.map(region =>
+                    new ButtonBuilder()
+                        .setCustomId(`btn_salary_${region.value}`)
+                        .setLabel(`${region.emoji} ${region.code} (1-Click)`)
+                        .setStyle(ButtonStyle.Success)
+                );
+                const row = new ActionRowBuilder().addComponents(...salaryButtons);
                 const files = [];
                 if (fs.existsSync(CONFIG.PANEL_IMAGES.salary)) {
                     files.push(new AttachmentBuilder(CONFIG.PANEL_IMAGES.salary, { name: 'salary.png' }));
@@ -470,7 +744,7 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 const state = loadPanelState();
                 const payload = { embeds: [embed], components: [row], files: files.length ? files : undefined };
-                const isSalaryPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('Salary') || m.components?.some(c => c.components?.some(b => ['btn_salary','btn_salary_ph','btn_salary_id'].includes(b.customId))));
+                const isSalaryPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('Salary') || m.components?.some(c => c.components?.some(b => b.customId === 'btn_salary' || b.customId?.startsWith('btn_salary_'))));
                 let allPanels = (await channel.messages.fetch({ limit: 100 })).filter(isSalaryPanel);
                 for (const m of allPanels.values()) await m.delete().catch(() => {});
                 const sent = await channel.send(payload);
@@ -493,23 +767,42 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isButton()) {
         try {
             const id = interaction.customId;
-            if (id === 'btn_kinah_ph') await interaction.showModal(createKinahModal('ph'));
-            else if (id === 'btn_kinah_id') await interaction.showModal(createKinahModal('id'));
-            else if (id === 'btn_levelup_ph') await interaction.showModal(createLevelUpModal('ph'));
-            else if (id === 'btn_levelup_id') await interaction.showModal(createLevelUpModal('id'));
-            else if (id === 'btn_salary') {
+            if (id === 'btn_join_verify_open') {
                 await interaction.reply({
-                    content: '⚠️ 이 버튼은 더 이상 사용되지 않습니다. `/panel type:salary` 로 패널을 새로 고친 후 **Philippines** 또는 **Indonesia** 버튼을 클릭하세요. (작성 없이 1클릭)',
+                    content: '🌍 가입확인 나라를 선택해 주세요. / Select your country for join verification.',
+                    components: [buildJoinCountrySelectRow()],
                     ephemeral: true
                 });
-            } else if (id === 'btn_salary_ph' || id === 'btn_salary_id') {
+            } else if (id.startsWith('btn_kinah_')) {
+                const region = parseRegionFromCustomId(id, 'btn_kinah');
+                const cfg = getRegionConfig(region);
+                if (!cfg) {
+                    await interaction.reply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES}.`, ephemeral: true });
+                    return;
+                }
+                await interaction.showModal(createKinahModal(cfg.value));
+            } else if (id.startsWith('btn_levelup_')) {
+                const region = parseRegionFromCustomId(id, 'btn_levelup');
+                const cfg = getRegionConfig(region);
+                if (!cfg) {
+                    await interaction.reply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES}.`, ephemeral: true });
+                    return;
+                }
+                await interaction.showModal(createLevelUpModal(cfg.value));
+            }
+            else if (id === 'btn_salary') {
+                await interaction.reply({
+                    content: `⚠️ 이 버튼은 더 이상 사용되지 않습니다. \`/panel type:salary\` 로 패널을 새로 고친 후 국가 버튼(${SUPPORTED_REGION_CODES})을 클릭하세요.`,
+                    ephemeral: true
+                });
+            } else if (id.startsWith('btn_salary_')) {
                 if (interaction.user.bot) return;
                 if (interaction.user.id === client.user?.id) return;
-                const region = id === 'btn_salary_ph' ? 'ph' : 'id';
+                const region = parseRegionFromCustomId(id, 'btn_salary');
                 const regionCfg = getRegionConfig(region);
                 if (!regionCfg) return;
                 const username = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
-                const timestamp = new Date().toLocaleString('sv-SE', { timeZone: regionCfg.timeZone }).slice(0, 16);
+                const timestamp = makeLocalTimestamp(regionCfg.timeZone);
                 const data = [timestamp, username, 'Confirmed', ''];
                 const res = await appendToSheet(regionCfg.salarySheetRange, data);
                 await interaction.reply({
@@ -522,7 +815,7 @@ client.on('interactionCreate', async (interaction) => {
             try {
                 if (!interaction.replied && !interaction.deferred) {
                     await interaction.reply({
-                        content: 'Interaction failed. Please try again or use `/salary_confirm` (choose PH or ID).',
+                        content: `Interaction failed. Please try again or use \`/salary_confirm\` (choose ${SUPPORTED_REGION_CODES}).`,
                         ephemeral: true
                     });
                 }
@@ -531,27 +824,46 @@ client.on('interactionCreate', async (interaction) => {
         return;
     }
 
+    // 나라 선택 드롭다운
+    if (interaction.isStringSelectMenu()) {
+        if (interaction.customId !== 'select_join_country') return;
+        const selected = interaction.values?.[0];
+        const regionCfg = getRegionConfig(selected);
+        if (!regionCfg) {
+            await interaction.reply({ content: `❌ Invalid country selection. Supported: ${SUPPORTED_REGION_CODES}.`, ephemeral: true });
+            return;
+        }
+        await interaction.showModal(createJoinVerifyModal(regionCfg.value));
+        return;
+    }
+
     // 모달 제출 → 시트 기록
     if (interaction.isModalSubmit()) {
         if (interaction.user.bot) return;
         if (interaction.user.id === client.user?.id) return;
         const customId = interaction.customId;
-        const worker = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
-        const region = customId.endsWith('_ph') ? 'ph' : customId.endsWith('_id') ? 'id' : null;
-        const regionCfg = region ? getRegionConfig(region) : null;
-        if (!regionCfg) {
-            await interaction.reply({ content: '❌ Invalid region.', ephemeral: true });
+        const match = String(customId || '').match(/^modal_(kinah|levelup|join_verify)_([a-z]{2})$/i);
+        if (!match) {
+            await interaction.reply({ content: '❌ Unknown modal request.', ephemeral: true });
             return;
         }
-        const timestamp = new Date().toLocaleString('sv-SE', { timeZone: regionCfg.timeZone }).slice(0, 16);
-        if (customId.startsWith('modal_kinah')) {
+        const modalType = match[1].toLowerCase();
+        const region = match[2].toLowerCase();
+        const worker = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
+        const regionCfg = getRegionConfig(region);
+        if (!regionCfg) {
+            await interaction.reply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES}.`, ephemeral: true });
+            return;
+        }
+        const timestamp = makeLocalTimestamp(regionCfg.timeZone);
+        if (modalType === 'kinah') {
             const login = interaction.fields.getTextInputValue('login');
             const logout = interaction.fields.getTextInputValue('logout');
             const profit = interaction.fields.getTextInputValue('profit');
             const data = [timestamp, worker, 'Kinah', login, logout, profit, ''];
             const res = await appendToSheet(regionCfg.sheetRange, data);
             await interaction.reply({ content: res.ok ? `✅ Kinah report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`, ephemeral: true });
-        } else if (customId.startsWith('modal_levelup')) {
+        } else if (modalType === 'levelup') {
             const login = interaction.fields.getTextInputValue('login');
             const logout = interaction.fields.getTextInputValue('logout');
             const level = interaction.fields.getTextInputValue('level');
@@ -560,6 +872,25 @@ client.on('interactionCreate', async (interaction) => {
             const data = [timestamp, worker, 'LevelUp', login, logout, progress, ''];
             const res = await appendToSheet(regionCfg.sheetRange, data);
             await interaction.reply({ content: res.ok ? `✅ Level-Up report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`, ephemeral: true });
+        } else if (modalType === 'join_verify') {
+            const nickname = (interaction.fields.getTextInputValue('nickname') || '').trim();
+            const roleNote = (interaction.fields.getTextInputValue('role_note') || '').trim();
+            const saved = await appendMemberListRecord(interaction, regionCfg, nickname, roleNote);
+            if (!saved.ok) {
+                await interaction.reply({
+                    content: `❌ 가입확인 저장 실패 (${regionCfg.code}). Create **Member_List_${regionCfg.code}** sheet in Google Sheets.`,
+                    ephemeral: true
+                });
+                return;
+            }
+            const merged = await rebuildMemberOrganizedSheet();
+            const mergedMsg = merged.ok
+                ? `\n📚 회원목록정리 갱신: ${merged.count} row(s)`
+                : `\n⚠️ 회원목록정리 갱신 실패: ${merged.error}`;
+            await interaction.reply({
+                content: `✅ 가입확인 완료 (${regionCfg.code})\n- User: ${worker}${mergedMsg}`,
+                ephemeral: true
+            });
         }
     }
 

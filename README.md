@@ -69,6 +69,19 @@ https://koreanbots.dev/bots/1436590099235340410
    - `/guide` posts a full command guide panel (capture-style)
    - `/guide public:false` sends it as ephemeral to yourself
 
+## Multi-country Workflow (PH/IN/NP/CH/TW)
+
+- Daily reports:
+  - `/report_kinah region:<country>`
+  - `/report_levelup region:<country>`
+- Salary confirmations:
+  - `/salary_confirm region:<country>`
+- Join verification country popup:
+  - `/join_verify` (ephemeral country selector)
+  - `/join_verify_panel` (posts verification button in channel)
+- Member list organize:
+  - `/member_list_organize` (rebuilds `회원목록정리` from `Member_List_*`)
+
 ## Environment Variables
 
 See `.env.example`:
