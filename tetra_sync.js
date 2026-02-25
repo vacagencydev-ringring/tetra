@@ -392,6 +392,47 @@ function buildJoinCountrySelectRow() {
     return new ActionRowBuilder().addComponents(menu);
 }
 
+function buildJoinVerifyPanelPayload() {
+    const embed = new EmbedBuilder()
+        .setTitle('✅ Join Verification')
+        .setDescription([
+            '신규 인원은 아래 버튼을 눌러 나라 코드를 선택해 주세요.',
+            'Pick your country code, then submit your basic info.',
+            '',
+            `Supported: ${SUPPORTED_REGION_CODES}`,
+        ].join('\n'))
+        .setColor(0x22c55e);
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('btn_join_verify_open')
+            .setLabel('가입확인 시작 / Start Join Verify')
+            .setStyle(ButtonStyle.Success)
+    );
+    return { embeds: [embed], components: [row] };
+}
+
+function isJoinVerifyPanelMessage(message) {
+    if (!message || message.author?.id !== client.user?.id) return false;
+    const hasTitle = Boolean(message.embeds?.[0]?.title?.includes('Join Verification'));
+    const hasButton = Boolean(
+        message.components?.some(row =>
+            row.components?.some(component => component.customId === 'btn_join_verify_open')
+        )
+    );
+    return hasTitle || hasButton;
+}
+
+async function upsertJoinVerifyPanel(channel) {
+    let panels = (await channel.messages.fetch({ limit: 100 })).filter(isJoinVerifyPanelMessage);
+    for (const msg of panels.values()) await msg.delete().catch(() => {});
+    const sent = await channel.send(buildJoinVerifyPanelPayload());
+    panels = (await channel.messages.fetch({ limit: 100 })).filter(isJoinVerifyPanelMessage);
+    for (const msg of panels.values()) {
+        if (msg.id !== sent.id) await msg.delete().catch(() => {});
+    }
+    return sent;
+}
+
 function createJoinVerifyModal(region) {
     const cfg = getRegionConfig(region);
     const label = cfg ? `${cfg.label} (${cfg.code})` : String(region || '').toUpperCase();
@@ -948,14 +989,15 @@ const commands = [
         .toJSON(),
     new SlashCommandBuilder()
         .setName('panel')
-        .setDescription('Post report/salary panel to this channel')
+        .setDescription('Post report/salary/join-verify panel to this channel')
         .addStringOption(o => o
             .setName('type')
             .setDescription('Panel type')
             .setRequired(true)
             .addChoices(
                 { name: 'Daily Report', value: 'report' },
-                { name: 'Salary Confirm', value: 'salary' }
+                { name: 'Salary Confirm', value: 'salary' },
+                { name: 'Join Verification', value: 'join_verify' }
             ))
         .toJSON(),
     new SlashCommandBuilder()
@@ -1154,23 +1196,8 @@ client.on('interactionCreate', async (interaction) => {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
             await interaction.deferReply({ ephemeral: true });
-            const embed = new EmbedBuilder()
-                .setTitle('✅ Join Verification')
-                .setDescription([
-                    '신규 인원은 아래 버튼을 눌러 나라 코드를 선택해 주세요.',
-                    'Pick your country code, then submit your basic info.',
-                    '',
-                    `Supported: ${SUPPORTED_REGION_CODES}`
-                ].join('\n'))
-                .setColor(0x22c55e);
-            const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId('btn_join_verify_open')
-                    .setLabel('가입확인 시작 / Start Join Verify')
-                    .setStyle(ButtonStyle.Success)
-            );
-            await interaction.channel.send({ embeds: [embed], components: [row] });
-            await interaction.editReply({ content: '✅ Join verification panel posted.' });
+            await upsertJoinVerifyPanel(interaction.channel);
+            await interaction.editReply({ content: '✅ Join verification panel updated (1 only).' });
         } else if (interaction.commandName === 'member_list_organize') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
@@ -1480,6 +1507,9 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 savePanelState({ ...state, salaryMsgId: sent.id, salaryChannelId: channel.id });
                 await interaction.editReply({ content: '✅ Salary panel updated (1 only).' });
+            } else if (kind === 'join_verify') {
+                await upsertJoinVerifyPanel(channel);
+                await interaction.editReply({ content: '✅ Join verification panel updated (1 only).' });
             }
             } finally {
                 await new Promise(r => setTimeout(r, 2000));
