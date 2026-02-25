@@ -29,6 +29,7 @@ const {
 } = require('discord.js');
 const { google } = require('googleapis');
 const path = require('path');
+const os = require('os');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer');
@@ -99,6 +100,7 @@ function resolveStateDir() {
     if (RAW_ENV_STATE_DIR) candidates.push(path.resolve(RAW_ENV_STATE_DIR));
     if (IS_RENDER_ENV) candidates.push(RENDER_PERSISTENT_STATE_DIR);
     candidates.push(path.resolve(DEFAULT_STATE_DIR));
+    candidates.push(path.join(os.tmpdir(), 'tetra-state'));
 
     const tried = new Set();
     for (const candidate of candidates) {
@@ -106,7 +108,7 @@ function resolveStateDir() {
         tried.add(candidate);
         if (canWriteDirectory(candidate)) return candidate;
     }
-    return path.resolve(DEFAULT_STATE_DIR);
+    return path.join(os.tmpdir(), 'tetra-state');
 }
 
 const STATE_DIR = resolveStateDir();
@@ -191,6 +193,8 @@ function buildRuntimeStateRows() {
         ['panel_state_json', JSON.stringify(panelStateSnapshot)],
         ['kinah_state_json', JSON.stringify(kinahState)],
         ['aon_translate_state_json', JSON.stringify(aonTranslateState)],
+        ['boss_state_json', JSON.stringify(bossState)],
+        ['mvp_schedule_state_json', JSON.stringify(mvpScheduleState)],
         ['updated_at', String(Date.now())],
     ];
 }
@@ -203,17 +207,21 @@ async function loadRuntimeStateFromSheet() {
         const sheets = await getSheetsApiForState();
         const { data } = await sheets.spreadsheets.values.get({
             spreadsheetId: CONFIG.SHEET_ID,
-            range: `${RUNTIME_STATE_SHEET_NAME}!A2:B5`,
+            range: `${RUNTIME_STATE_SHEET_NAME}!A2:B20`,
         });
         const rows = data?.values || [];
         const map = new Map(rows.map(row => [String(row[0] || '').trim(), String(row[1] || '').trim()]));
         const panelRaw = map.get('panel_state_json');
         const kinahRaw = map.get('kinah_state_json');
         const aonRaw = map.get('aon_translate_state_json');
+        const bossRaw = map.get('boss_state_json');
+        const mvpRaw = map.get('mvp_schedule_state_json');
         return {
             panel: panelRaw ? JSON.parse(panelRaw) : null,
             kinah: kinahRaw ? JSON.parse(kinahRaw) : null,
             aonTranslate: aonRaw ? JSON.parse(aonRaw) : null,
+            boss: bossRaw ? JSON.parse(bossRaw) : null,
+            mvp: mvpRaw ? JSON.parse(mvpRaw) : null,
         };
     } catch (err) {
         console.warn(`[state] runtime sheet load failed: ${err.message}`);
@@ -230,6 +238,8 @@ async function flushRuntimeStateToSheet(force = false) {
             panel: loadPanelState(),
             kinah: kinahState,
             aonTranslate: aonTranslateState,
+            boss: bossState,
+            mvp: mvpScheduleState,
         });
         if (!force && payloadHash === runtimeStateLastPayloadHash) return true;
         const ready = await ensureRuntimeStateSheet();
@@ -237,7 +247,7 @@ async function flushRuntimeStateToSheet(force = false) {
         const sheets = await getSheetsApiForState();
         await sheets.spreadsheets.values.update({
             spreadsheetId: CONFIG.SHEET_ID,
-            range: `${RUNTIME_STATE_SHEET_NAME}!A2:B5`,
+            range: `${RUNTIME_STATE_SHEET_NAME}!A2:B7`,
             valueInputOption: 'RAW',
             requestBody: { values: buildRuntimeStateRows() },
         });
@@ -286,6 +296,16 @@ async function hydrateRuntimeStateFromSheet() {
             : {};
         hydrated = true;
     }
+    if (loaded?.boss && typeof loaded.boss === 'object' && loaded.boss.guilds) {
+        bossState.guilds = loaded.boss.guilds;
+        saveBossState();
+        hydrated = true;
+    }
+    if (loaded?.mvp && typeof loaded.mvp === 'object' && loaded.mvp.guilds) {
+        mvpScheduleState.guilds = loaded.mvp.guilds;
+        saveMvpScheduleState();
+        hydrated = true;
+    }
 
     if (hydrated) {
         saveKinahState();
@@ -310,9 +330,13 @@ function loadVerifyPendingState() {
 function saveVerifyPendingState(state) {
     saveJsonState(CONFIG.VERIFY_PENDING_PATH, state || { pending: {} });
 }
-function savePanelState(s) {
+function savePanelState(s, immediateFlush = false) {
     saveJsonState(CONFIG.PANEL_STATE_PATH, s || {});
-    scheduleRuntimeStateFlush(true);
+    if (immediateFlush && ENABLE_SHEETS_STATE && runtimeStatePersistenceActive) {
+        flushRuntimeStateToSheet(true).catch(() => {});
+    } else {
+        scheduleRuntimeStateFlush(true);
+    }
 }
 
 const panelUpdateLocks = new Set();
@@ -330,6 +354,15 @@ const mvpScheduleState = loadMvpScheduleState();
 function saveMvpScheduleState() {
     ensureDirectory(path.dirname(CONFIG.MVP_SCHEDULE_PATH));
     fs.writeFileSync(CONFIG.MVP_SCHEDULE_PATH, JSON.stringify(mvpScheduleState, null, 2));
+    scheduleRuntimeStateFlush(true);
+}
+function ensureMvpGuildState(guildId) {
+    if (!mvpScheduleState.guilds[guildId]) {
+        mvpScheduleState.guilds[guildId] = { schedule: {}, channelId: null };
+    }
+    const g = mvpScheduleState.guilds[guildId];
+    g.schedule = g.schedule && typeof g.schedule === 'object' ? g.schedule : {};
+    return g;
 }
 function parseTime24(str) {
     const m = String(str || '').trim().match(/^(\d{1,2}):(\d{2})$/);
@@ -369,6 +402,7 @@ const bossState = loadBossState();
 function saveBossState() {
     ensureDirectory(path.dirname(CONFIG.BOSS_STATE_PATH));
     fs.writeFileSync(CONFIG.BOSS_STATE_PATH, JSON.stringify(bossState, null, 2));
+    scheduleRuntimeStateFlush(true);
 }
 function ensureBossGuildState(guildId) {
     if (!bossState.guilds[guildId]) {
@@ -418,6 +452,64 @@ function listPreset(mode) {
     if (mode === 'combined') return [...BOSS_PRESETS.elyos, ...BOSS_PRESETS.asmodian];
     return BOSS_PRESETS[mode] || [];
 }
+/** Parse boss list from JSON. Returns { elyos: [], asmodian: [], all: [] } with location, description, image, level, faction */
+function parseBossListFromJson(data) {
+    if (!data || typeof data !== 'object') return null;
+    const str = (v) => (v != null && String(v).trim()) ? String(v).trim() : null;
+    const toBoss = (b, faction) => {
+        const name = b?.name || b?.boss;
+        const min = b?.respawnMinutes ?? b?.respawn ?? b?.minutes;
+        if (!name || !Number.isFinite(Number(min))) return null;
+        const location = str(b?.location || b?.zone || b?.map);
+        const description = str(b?.description || b?.desc);
+        const image = str(b?.image || b?.thumbnail || b?.thumbnailUrl || b?.icon);
+        const level = b?.level != null ? (Number(b.level) || str(b.level)) : null;
+        const f = faction || str(b?.faction) || null;
+        return {
+            name: String(name),
+            respawnMinutes: Math.max(1, Math.min(10080, Math.round(Number(min)))),
+            location: location || null,
+            description: description || null,
+            image: image || null,
+            level: level != null ? (typeof level === 'number' ? level : String(level)) : null,
+            faction: f ? (String(f).toLowerCase() === 'asmodian' ? 'asmodian' : 'elyos') : null,
+        };
+    };
+    const elyos = [];
+    const asmodian = [];
+    if (Array.isArray(data.elyos)) for (const b of data.elyos) { const x = toBoss(b, 'elyos'); if (x) elyos.push(x); }
+    if (Array.isArray(data.asmodian)) for (const b of data.asmodian) { const x = toBoss(b, 'asmodian'); if (x) asmodian.push(x); }
+    if (Array.isArray(data.bosses) && !elyos.length && !asmodian.length) {
+        for (const b of data.bosses) {
+            const f = (b?.faction || '').toLowerCase();
+            const x = toBoss(b, f === 'asmodian' ? 'asmodian' : 'elyos');
+            if (!x) continue;
+            if (f === 'asmodian') asmodian.push(x); else elyos.push(x);
+        }
+    }
+    const all = [...elyos, ...asmodian];
+    return all.length ? { elyos, asmodian, all } : null;
+}
+async function fetchBossListFromUrl(url) {
+    const { data } = await axios.get(url, { timeout: 15_000 });
+    const parsed = parseBossListFromJson(data);
+    if (!parsed) return null;
+    const translateName = async (name) => hasHangul(name) ? (await translateKoToEn(name) || name) : name;
+    const translateDesc = async (desc) => desc && hasHangul(desc) ? (await translateKoToEn(desc) || desc) : desc;
+    const translateLoc = async (loc) => loc && hasHangul(loc) ? (await translateKoToEn(loc) || loc) : loc;
+    for (const b of parsed.elyos) {
+        b.name = await translateName(b.name);
+        if (b.description) b.description = await translateDesc(b.description);
+        if (b.location) b.location = await translateLoc(b.location);
+    }
+    for (const b of parsed.asmodian) {
+        b.name = await translateName(b.name);
+        if (b.description) b.description = await translateDesc(b.description);
+        if (b.location) b.location = await translateLoc(b.location);
+    }
+    return parsed;
+}
+const BOSS_FETCH_DEFAULT_URL = 'https://raw.githubusercontent.com/vacagencydev-ringring/tetra/main/boss_presets.json';
 function getBossEventMultiplier(guildState) {
     const value = Number(guildState?.bossSettings?.eventMultiplier ?? 1);
     if (!Number.isFinite(value) || value <= 0) return 1;
@@ -439,7 +531,10 @@ function buildBossListEmbed(guildState) {
         const respawnLabel = effective === boss.respawnMinutes
             ? `${boss.respawnMinutes}m`
             : `${boss.respawnMinutes}m -> ${effective}m`;
-        return `- **${boss.name}** (${respawnLabel}) -> ${statusForBoss(boss, now)} | Next: ${next}`;
+        let line = `- **${boss.name}** (${respawnLabel}) -> ${statusForBoss(boss, now)} | Next: ${next}`;
+        if (boss.location) line += ` | 📍 ${boss.location}`;
+        if (boss.faction) line += ` | ${boss.faction === 'asmodian' ? 'Asmodian' : 'Elyos'}`;
+        return line;
     });
     return new EmbedBuilder()
         .setTitle('Field Boss Board')
@@ -455,16 +550,23 @@ function buildSingleBossEmbed(guildState, boss) {
     const respawnLabel = effective === boss.respawnMinutes
         ? `${boss.respawnMinutes} minutes`
         : `${boss.respawnMinutes} minutes (event: ${effective} minutes)`;
-    return new EmbedBuilder()
+    const parts = [
+        `**Respawn:** ${respawnLabel}`,
+        `**Status:** ${statusForBoss(boss)}`,
+        `**Next Spawn:** ${next}`,
+        `**Last Cut:** ${lastCut}`,
+    ];
+    if (boss.location) parts.push(`**Location:** ${boss.location}`);
+    if (boss.level != null) parts.push(`**Level:** ${boss.level}`);
+    if (boss.faction) parts.push(`**Faction:** ${boss.faction === 'asmodian' ? 'Asmodian' : 'Elyos'}`);
+    if (boss.description) parts.push(`\n${boss.description}`);
+    const embed = new EmbedBuilder()
         .setTitle(`Boss: ${boss.name}`)
-        .setDescription([
-            `Respawn: ${respawnLabel}`,
-            `Status: ${statusForBoss(boss)}`,
-            `Next Spawn: ${next}`,
-            `Last Cut: ${lastCut}`,
-        ].join('\n'))
+        .setDescription(parts.join('\n').slice(0, 4000))
         .setColor(0x1d4ed8)
         .setTimestamp();
+    if (boss.image) embed.setThumbnail(boss.image);
+    return embed;
 }
 function parseHHmm(input) {
     const raw = String(input || '').trim();
@@ -530,16 +632,16 @@ const KINAH_PRESET_TYPES = ['itembay_aion2', 'itemmania_aion2', 'dual_market_aio
 const KINAH_PRESET_DEFAULTS = {
     itembay_aion2: {
         primaryUrl: 'https://www.itembay.com/item/sell/game-3603/type-3',
-        sourceKeyword: '아이온2 키나',
+        sourceKeyword: 'AION2 kinah',
     },
     itemmania_aion2: {
         primaryUrl: 'https://trade.itemmania.com/list/search.html?searchString=%EC%95%84%EC%9D%B4%EC%98%A82%20%ED%82%A4%EB%82%98',
-        sourceKeyword: '아이온2 키나',
+        sourceKeyword: 'AION2 kinah',
     },
     dual_market_aion2: {
         primaryUrl: 'https://www.itembay.com/item/sell/game-3603/type-3',
         secondaryUrl: 'https://trade.itemmania.com/list/search.html?searchString=%EC%95%84%EC%9D%B4%EC%98%A82%20%ED%82%A4%EB%82%98',
-        sourceKeyword: '아이온2 키나',
+        sourceKeyword: 'AION2 kinah',
     },
 };
 
@@ -585,7 +687,7 @@ function createDefaultKinahWatch(seed = null) {
     const base = {
         enabled: false,
         sourcePreset: null,
-        sourceKeyword: '아이온2 키나',
+        sourceKeyword: 'AION2 kinah',
         channelId: null,
         sourceUrl: null,
         secondarySourceUrl: null,
@@ -654,9 +756,8 @@ function hasManageGuild(interaction) {
 const EPHEMERAL_FLAGS = MessageFlags.Ephemeral;
 
 async function safeEphemeral(interaction, content) {
-    if (interaction.replied || interaction.deferred) {
-        return interaction.followUp({ content, flags: EPHEMERAL_FLAGS }).catch(() => {});
-    }
+    if (interaction.replied) return interaction.followUp({ content, flags: EPHEMERAL_FLAGS }).catch(() => {});
+    if (interaction.deferred) return interaction.editReply({ content }).catch(() => {});
     return interaction.reply({ content, flags: EPHEMERAL_FLAGS }).catch(() => {});
 }
 
@@ -869,7 +970,7 @@ function extractTitleFromWatchHtml(watchHtml) {
 
 async function fetchYouTubeVideoReadyInfo(videoInput) {
     const videoId = extractYouTubeVideoId(videoInput);
-    if (!videoId) throw new Error('유효한 YouTube URL 또는 11자리 video id를 입력해 주세요.');
+    if (!videoId) throw new Error('Please provide a valid YouTube URL or 11-character video ID.');
 
     const watchUrl = buildYouTubeWatchUrl(videoId, false);
     const readyUrlWithEnCaption = buildYouTubeWatchUrl(videoId, true, true);
@@ -986,10 +1087,11 @@ function buildAonTranslateStatusEmbed(guildState) {
         .setColor(0x4F46E5);
 }
 
+const ENABLE_WELCOME_DM = String(process.env.ENABLE_WELCOME_DM || 'false').toLowerCase() === 'true';
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
+        ...(ENABLE_WELCOME_DM ? [GatewayIntentBits.GuildMembers] : []),
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
     ]
@@ -1176,22 +1278,22 @@ function buildGuideEmbedsKo() {
         )
         .setTimestamp();
     const e2 = new EmbedBuilder()
-        .setTitle('⚔️ 6. 필드 보스 타이머')
+        .setTitle('⚔️ 6. 필드 보스 & MVP (Admin)')
         .setColor(0xef4444)
         .addFields(
             {
-                name: '설정·조회',
-                value: '**`/preset mode:elyos|asmodian|combined`** — 보스 프리셋 적용 (Admin)\n**`/preset`** — 현재 보스 목록\n**`/boss`** — 보드 전체\n**`/boss boss_name:<이름>`** — 특정 보스',
+                name: '보스 설정·조회',
+                value: '**`/preset mode:elyos|asmodian|combined`** — 보스 프리셋 적용\n**`/boss_fetch url:<JSON_URL> mode:elyos|asmodian|combined`** — URL에서 보스 목록 가져오기 (한글→영어 번역)\n**`/preset`** — 현재 보스 목록\n**`/boss`** — 보드 전체\n**`/boss boss_name:<이름>`** — 특정 보스 (자동완성)',
                 inline: false
             },
             {
                 name: '처치·관리',
-                value: '**`/cut boss_name:<이름> killed_at:HH:mm`** — 처치 기록 (killed_at 생략 시 현재 시각)\n**`/server_open open_time:HH:mm`** — 전체 리셋 (Admin)\n**`/boss_add boss_name:<> respawn_minutes:<>`** — 커스텀 보스 추가 (Admin)\n**`/boss_remove boss_name:<>`** — 보스 제거 (Admin)',
+                value: '**`/cut boss_name:<이름> killed_at:HH:mm`** — 처치 기록\n**`/server_open open_time:HH:mm`** — 전체 리셋\n**`/boss_add boss_name:<> respawn_minutes:<>`** — 커스텀 보스 추가\n**`/boss_remove boss_name:<>`** — 보스 제거',
                 inline: false
             },
             {
-                name: '알림 설정',
-                value: '**`/boss_alert_mode mode:channel|dm`** — 채널/DM 알림 선택\n**`/boss_event_multiplier multiplier:0.1~2`** — 리스폰 배율 (Admin)',
+                name: '알림·MVP',
+                value: '**`/boss_alert_mode mode:channel|dm`** — 채널/DM 알림\n**`/boss_event_multiplier multiplier:0.1~2`** — 리스폰 배율\n**`/mvp`** — MVP 스케줄 조회\n**`/mvp_set day:Sunday time:20:00`** — 요일별 MVP 시간 설정',
                 inline: false
             }
         )
@@ -1266,7 +1368,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: '✅ 3. Join Verification',
-                value: '**`/join_verify`** — Country selection → Role (no character verification)\n**`/myinfo_register character_name:<name>`** — Upload screenshot → staff Approve → **verified** character name added to 회원목록정리\n**`/join_verify_panel`** — Post join verification button panel (Admin)\n**`/verify_channel_set category:<cat>`** — Where verification channels are created (Admin)',
+                value: '**`/join_verify`** — Country selection → Role (no character verification)\n**`/myinfo_register character_name:<name>`** — Upload screenshot → staff Approve → **verified** character name added to member list\n**`/join_verify_panel`** — Post join verification button panel (Admin)\n**`/verify_channel_set category:<cat>`** — Where verification channels are created (Admin)',
                 inline: false
             },
             {
@@ -1282,22 +1384,22 @@ function buildGuideEmbedsEn() {
         )
         .setTimestamp();
     const e2 = new EmbedBuilder()
-        .setTitle('⚔️ 6. Field Boss Timer')
+        .setTitle('⚔️ 6. Field Boss & MVP (Admin)')
         .setColor(0xef4444)
         .addFields(
             {
-                name: 'Setup & View',
-                value: '**`/preset mode:elyos|asmodian|combined`** — Apply boss preset (Admin)\n**`/preset`** — Current boss list\n**`/boss`** — Full board\n**`/boss boss_name:<name>`** — Specific boss',
+                name: 'Boss Setup & View',
+                value: '**`/preset mode:elyos|asmodian|combined`** — Apply boss preset\n**`/boss_fetch url:<JSON_URL> mode:elyos|asmodian|combined`** — Fetch boss list from URL (KO→EN)\n**`/preset`** — Current boss list\n**`/boss`** — Full board\n**`/boss boss_name:<name>`** — Specific boss (autocomplete)',
                 inline: false
             },
             {
                 name: 'Kill & Management',
-                value: '**`/cut boss_name:<name> killed_at:HH:mm`** — Record kill (omit for now)\n**`/server_open open_time:HH:mm`** — Reset all (Admin)\n**`/boss_add boss_name:<> respawn_minutes:<>`** — Add custom boss (Admin)\n**`/boss_remove boss_name:<>`** — Remove boss (Admin)',
+                value: '**`/cut boss_name:<name> killed_at:HH:mm`** — Record kill\n**`/server_open open_time:HH:mm`** — Reset all\n**`/boss_add boss_name:<> respawn_minutes:<>`** — Add custom boss\n**`/boss_remove boss_name:<>`** — Remove boss',
                 inline: false
             },
             {
-                name: 'Alerts',
-                value: '**`/boss_alert_mode mode:channel|dm`** — Channel or DM alerts\n**`/boss_event_multiplier multiplier:0.1~2`** — Respawn multiplier (Admin)',
+                name: 'Alerts & MVP',
+                value: '**`/boss_alert_mode mode:channel|dm`** — Channel or DM alerts\n**`/boss_event_multiplier multiplier:0.1~2`** — Respawn multiplier\n**`/mvp`** — View MVP schedule\n**`/mvp_set day:Sunday time:20:00`** — Set MVP time per day',
                 inline: false
             }
         )
@@ -1340,7 +1442,7 @@ function buildGuideEmbedsEn() {
         .addFields(
             {
                 name: 'Member List · Prefix',
-                value: '**`/member_list_organize`** — Rebuild member list from Member_List_* (Admin)\n**`/myinfo_register`** Approve adds character name to 회원목록정리 column G\n**`!char <name>`** — Character search results sent via DM',
+                value: '**`/member_list_organize`** — Rebuild member list from Member_List_* (Admin)\n**`/myinfo_register`** Approve adds character name to member list column G\n**`!char <name>`** — Character search results sent via DM',
                 inline: false
             }
         )
@@ -1367,7 +1469,7 @@ function buildGuideEmbedsUser() {
             },
             {
                 name: '✅ Join Verification',
-                value: '**`/join_verify`** — Country selection → Role (quick signup, no verification)\n**`/myinfo_register character_name:<name>`** — Screenshot required → staff Approve → **verified** character name added to 회원목록정리',
+                value: '**`/join_verify`** — Country selection → Role (quick signup, no verification)\n**`/myinfo_register character_name:<name>`** — Screenshot required → staff Approve → **verified** character name added to member list',
                 inline: false
             },
             {
@@ -1801,7 +1903,7 @@ async function fetchItemmaniaAion2Snapshot(sourceUrl, sourceKeyword) {
     });
     const $ = cheerio.load(data);
     const bodyText = $('body').text().replace(/\r/g, '\n');
-    const keyword = String(sourceKeyword || '아이온2 키나').trim();
+    const keyword = String(sourceKeyword || 'AION2 kinah').trim();
     const keywordLines = bodyText
         .split('\n')
         .map(line => line.replace(/\s+/g, ' ').trim())
@@ -2128,7 +2230,7 @@ const commands = [
                 { name: 'Join Verification', value: 'join_verify' },
                 { name: 'Payment Confirm', value: 'payment' },
                 { name: 'Info YouTube (Translated Links)', value: 'youtube' },
-                { name: '📖 사용법 가이드 (한글)', value: 'guide_ko' },
+                { name: '📖 Usage Guide (Korean)', value: 'guide_ko' },
                 { name: '📖 Usage Guide (English)', value: 'guide_en' }
             ))
         .toJSON(),
@@ -2141,7 +2243,7 @@ const commands = [
         .setDescription('Create private verification channel — upload screenshot, staff Approve/Reject')
         .addStringOption(o => o
             .setName('character_name')
-            .setDescription('Your AION2 character name (saved to 회원목록정리 when approved)')
+            .setDescription('Your AION2 character name (saved to member list when approved)')
             .setRequired(true))
         .toJSON(),
     new SlashCommandBuilder()
@@ -2173,7 +2275,7 @@ const commands = [
         .toJSON(),
     new SlashCommandBuilder()
         .setName('member_list_organize')
-        .setDescription('Rebuild 회원목록정리 sheet from Member_List_* sheets (Admin)')
+        .setDescription('Rebuild member list sheet from Member_List_* sheets (Admin)')
         .toJSON(),
     new SlashCommandBuilder()
         .setName('preset')
@@ -2191,12 +2293,12 @@ const commands = [
     new SlashCommandBuilder()
         .setName('boss')
         .setDescription('Show boss board or a specific boss')
-        .addStringOption(o => o.setName('boss_name').setDescription('Optional: exact or partial boss name').setRequired(false))
+        .addStringOption(o => o.setName('boss_name').setDescription('Optional: exact or partial boss name').setRequired(false).setAutocomplete(true))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('cut')
         .setDescription('Record a boss kill and calculate next spawn')
-        .addStringOption(o => o.setName('boss_name').setDescription('Boss name').setRequired(true))
+        .addStringOption(o => o.setName('boss_name').setDescription('Boss name').setRequired(true).setAutocomplete(true))
         .addStringOption(o => o.setName('killed_at').setDescription('Optional kill time (HH:mm)').setRequired(false))
         .toJSON(),
     new SlashCommandBuilder()
@@ -2207,13 +2309,13 @@ const commands = [
     new SlashCommandBuilder()
         .setName('boss_add')
         .setDescription('Add or update a custom boss (Admin)')
-        .addStringOption(o => o.setName('boss_name').setDescription('Boss name').setRequired(true))
+        .addStringOption(o => o.setName('boss_name').setDescription('Boss name').setRequired(true).setAutocomplete(true))
         .addIntegerOption(o => o.setName('respawn_minutes').setDescription('Respawn minutes').setRequired(true).setMinValue(1).setMaxValue(10080))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('boss_remove')
         .setDescription('Remove a boss from tracking (Admin)')
-        .addStringOption(o => o.setName('boss_name').setDescription('Boss name').setRequired(true))
+        .addStringOption(o => o.setName('boss_name').setDescription('Boss name').setRequired(true).setAutocomplete(true))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('boss_alert_mode')
@@ -2231,6 +2333,42 @@ const commands = [
         .setName('boss_event_multiplier')
         .setDescription('Set event respawn multiplier (e.g. 0.8) (Admin)')
         .addNumberOption(o => o.setName('multiplier').setDescription('Respawn multiplier: 0.1 ~ 2.0').setRequired(true).setMinValue(0.1).setMaxValue(2))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('boss_fetch')
+        .setDescription('Fetch boss list from URL and apply as preset (Admin)')
+        .addStringOption(o => o.setName('url').setDescription('JSON URL (default: repo boss_presets.json)').setRequired(false))
+        .addStringOption(o => o
+            .setName('mode')
+            .setDescription('Which faction(s) to apply')
+            .setRequired(false)
+            .addChoices(
+                { name: 'elyos only', value: 'elyos' },
+                { name: 'asmodian only', value: 'asmodian' },
+                { name: 'combined (both)', value: 'combined' }
+            ))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('mvp')
+        .setDescription('View MVP schedule (Admin)')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('mvp_set')
+        .setDescription('Set MVP time for a day (Admin)')
+        .addStringOption(o => o
+            .setName('day')
+            .setDescription('Day of week')
+            .setRequired(true)
+            .addChoices(
+                { name: 'Sunday', value: 'Sunday' },
+                { name: 'Monday', value: 'Monday' },
+                { name: 'Tuesday', value: 'Tuesday' },
+                { name: 'Wednesday', value: 'Wednesday' },
+                { name: 'Thursday', value: 'Thursday' },
+                { name: 'Friday', value: 'Friday' },
+                { name: 'Saturday', value: 'Saturday' }
+            ))
+        .addStringOption(o => o.setName('time').setDescription('Time (HH:mm, e.g. 20:00)').setRequired(true))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('kinah_watch_set')
@@ -2265,7 +2403,7 @@ const commands = [
             .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
         .addIntegerOption(o => o.setName('poll_minutes').setDescription('How often to check (1-60)').setRequired(false).setMinValue(1).setMaxValue(60))
         .addRoleOption(o => o.setName('mention_role').setDescription('Optional role mention on updates').setRequired(false))
-        .addStringOption(o => o.setName('source_keyword').setDescription('Keyword hint (default: 아이온2 키나)').setRequired(false))
+        .addStringOption(o => o.setName('source_keyword').setDescription('Keyword hint (default: AION2 kinah)').setRequired(false))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('kinah_watch_now')
@@ -2472,6 +2610,7 @@ async function registerGuildSlashCommands(rest, guild) {
 // ═══════════════════════════════════════════════════════════
 client.once('ready', async () => {
     console.log(`🚀 TETRA Sync 봇 가동: ${client.user.tag}`);
+    if (!ENABLE_WELCOME_DM) console.log('   ℹ️ Welcome DM off (set ENABLE_WELCOME_DM=true + Server Members Intent in Discord Dev Portal to enable)');
     try {
         await hydrateRuntimeStateFromSheet().catch(err => {
             console.warn(`[state] runtime state hydrate skipped: ${err.message}`);
@@ -2508,6 +2647,8 @@ client.on('guildCreate', async (guild) => {
     saveKinahState();
     ensureBossGuildState(guild.id);
     saveBossState();
+    ensureMvpGuildState(guild.id);
+    saveMvpScheduleState();
     const rest = new REST({ version: '10' }).setToken(CONFIG.TOKEN);
     await registerGuildSlashCommands(rest, guild);
 });
@@ -2523,6 +2664,7 @@ client.on('guildMemberAdd', async (member) => {
             .setDescription(
                 `Welcome to **${guild.name}**!\n\n` +
                 `📢 **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** — Please check <#${cfg.announcementsChannelId}> for server announcements.\n\n` +
+                `📖 **Command Guide** — Use \`/guide\` to view available commands and how to use them.\n\n` +
                 `⚠️ You must complete **member registration** before you can start activities.`
             )
             .setColor(0x5865F2)
@@ -2542,8 +2684,26 @@ client.on('guildMemberAdd', async (member) => {
 
 client.on('interactionCreate', async (interaction) => {
     try {
+    if (interaction.isAutocomplete()) {
+        const focused = interaction.options.getFocused(true);
+        if (focused.name === 'boss_name' && ['boss', 'cut', 'boss_add', 'boss_remove'].includes(interaction.commandName)) {
+            const guildId = interaction.guildId;
+            const guildState = guildId ? ensureBossGuildState(guildId) : null;
+            const bosses = guildState?.bosses ? Object.values(guildState.bosses) : [];
+            const input = (focused.value || '').toLowerCase().trim();
+            let choices = bosses.map(b => ({ name: b.name, value: b.name }));
+            if (input) choices = choices.filter(b => b.name.toLowerCase().includes(input));
+            choices = choices.slice(0, 25);
+            await interaction.respond(choices.length ? choices : [{ name: '(No bosses configured)', value: '' }]).catch(() => {});
+        }
+        return;
+    }
     if (interaction.isChatInputCommand()) {
-        if (interaction.commandName === 'help') {
+        const cmd = interaction.commandName;
+        if (['panel', 'character', 'boss_fetch', 'kinah_watch_preset', 'kinah_watch_set', 'salary_confirm', 'myinfo_register', 'member_list_organize', 'join_verify_panel', 'collection', 'build', 'kinah_watch_now'].includes(cmd)) {
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS }).catch(() => {});
+        }
+        if (cmd === 'help') {
             const embed = new EmbedBuilder()
                 .setTitle('📘 TETRA Sync — Quick Help')
                 .setDescription(
@@ -2551,8 +2711,8 @@ client.on('interactionCreate', async (interaction) => {
                     '**Report:** `/report_kinah` `/report_levelup` — Use panel buttons if staff posted them\n' +
                     '**Salary:** `/salary_confirm` — Or panel region buttons\n' +
                     '**Join:** `/join_verify` — Country → Role (no char verification)\n' +
-                    '**Verify:** `/myinfo_register character_name:<name>` — Screenshot → staff Approve → verified char to 회원목록정리\n\n' +
-                    '**Boss:** `/preset` `/boss` `/cut boss_name:<name>` `/boss_alert_mode`\n\n' +
+                    '**Verify:** `/myinfo_register character_name:<name>` — Screenshot → staff Approve → verified char to member list\n\n' +
+                    '**Boss:** `/preset` `/boss` `/cut` `/boss_fetch` `/boss_alert_mode`\n**MVP:** `/mvp` `/mvp_set` (Admin)\n\n' +
                     '**Kinah:** `/kinah_watch_now` `/kinah_watch_status`\n\n' +
                     '**Search:** `/character` `/item` `/collection` `/build` — results only you see\n' +
                     '**Search:** `!char <name>` — results via DM\n\n' +
@@ -2576,48 +2736,53 @@ client.on('interactionCreate', async (interaction) => {
                 .setColor(0xf59e0b)
                 .addFields(
                     {
-                        name: 'Q: 패널은 어떻게 게시하나요?',
-                        value: '**`/panel type:<type>`** — report, salary, join_verify, payment, youtube 중 선택. 채널에서 실행하면 해당 패널이 해당 채널에 게시됩니다. 같은 타입은 1개만 유지됩니다.',
+                        name: 'Q: How do I post panels?',
+                        value: '**`/panel type:<type>`** — Choose report, salary, join_verify, payment, youtube. Run in a channel to post that panel there. One panel per type is kept.',
                         inline: false
                     },
                     {
-                        name: 'Q: 전체 가이드 vs 일반 가이드 차이는?',
-                        value: '**전체 가이드** (`/panel type:guide_ko`, `guide_en`) — 모든 명령어, Admin만 채널에 게시\n**일반 가이드** (`/guide`) — 멤버용 명령어, 실행한 본인만 보임 (ephemeral)',
+                        name: 'Q: Full guide vs member guide?',
+                        value: '**Full guide** (`/panel type:guide_ko`, `guide_en`) — All commands, Admin posts to channel\n**Member guide** (`/guide`) — Member commands, visible only to you (ephemeral)',
                         inline: false
                     },
                     {
-                        name: 'Q: 필드 보스 타이머 설정 순서는?',
-                        value: '1. 보스 채널에서 **`/preset mode:combined`** 실행\n2. 처치 시 **`/cut boss_name:<이름>`** 로 기록\n3. (선택) **`/boss_alert_mode mode:dm`** — DM 알림\n4. (선택) **`/boss_event_multiplier multiplier:0.8`** — 이벤트 시 리스폰 배율',
+                        name: 'Q: Field boss timer setup order?',
+                        value: '1. **`/preset mode:combined`** or **`/boss_fetch`** (load from URL)\n2. On kill: **`/cut boss_name:<name>`** to record\n3. **`/boss_alert_mode mode:dm`** — DM alerts (optional)\n4. **`/boss_event_multiplier multiplier:0.8`** — Event respawn rate (optional)',
                         inline: false
                     },
                     {
-                        name: 'Q: 키나 시세 모니터링 설정은?',
-                        value: '**`/kinah_watch_preset`** — ItemBay/ItemMania 프리셋으로 빠른 설정. 채널, poll_minutes, mention_role 지정. **`/kinah_watch_status`** 로 확인, **`/kinah_watch_stop`** 으로 중지.',
+                        name: 'Q: How to set MVP schedule?',
+                        value: '**`/mvp_set day:<day> time:HH:mm`** — Set MVP time per day (Admin)\n**`/mvp`** — View current schedule (Admin)',
                         inline: false
                     },
                     {
-                        name: 'Q: AON 한국어→영어 번역은?',
-                        value: '**`/aon_translate_set`** — category(notice/update/event), channel 설정. **`/aon_translate_source`** — AON 봇 ID 지정. **`/aon_translate_status`** 로 라우트 확인.',
+                        name: 'Q: Kinah rate monitoring setup?',
+                        value: '**`/kinah_watch_preset`** — ItemBay/ItemMania preset for quick setup. Set channel, poll_minutes, mention_role. **`/kinah_watch_status`** to check, **`/kinah_watch_stop`** to stop.',
                         inline: false
                     },
                     {
-                        name: 'Q: 캐릭터 인증(myinfo_register) 설정은?',
-                        value: '**`/join_verify`**는 검증 없음 (Role만). 캐릭터명은 **`/myinfo_register`**로만 추가됨 (스크린샷 검증 필수).\n1. Admin: **`/verify_channel_set category:<카테고리>`**\n2. 유저: **`/myinfo_register character_name:<캐릭터명>`** → 스크린샷 업로드\n3. 스태프: Approve → Region 선택 → 회원목록정리 G열에 **검증된** 캐릭터명 반영',
+                        name: 'Q: AON Korean→English translation?',
+                        value: '**`/aon_translate_set`** — Set category(notice/update/event), channel. **`/aon_translate_source`** — AON bot ID. **`/aon_translate_status`** to view routes.',
                         inline: false
                     },
                     {
-                        name: 'Q: 입금 확인 통화는 어떻게 선택하나요?',
-                        value: '**Submit Payment** 클릭 → 통화 선택(KRW, USD, PHP, INR, NPR, CNY, TWD) → 금액·사유 입력. Payment Log 시트는 A:G (Date, Type, Tag, Amount, **Currency**, Reason, Status)',
+                        name: 'Q: Character verification (myinfo_register) setup?',
+                        value: '**`/join_verify`** — No verification (Role only). Character names added via **`/myinfo_register`** only (screenshot required).\n1. Admin: **`/verify_channel_set category:<category>`**\n2. User: **`/myinfo_register character_name:<name>`** → Upload screenshot\n3. Staff: Approve → Select region → Character added to member list column G',
                         inline: false
                     },
                     {
-                        name: 'Q: 검색 결과·가이드는 누가 보나요?',
-                        value: '**`/character`** **`/item`** **`/collection`** **`/build`** — 실행한 본인만 보임 (ephemeral)\n**`!char <캐릭터명>`** — 결과가 DM으로 전송 (채널 정리)\n**`/guide`** — 본인만 보임',
+                        name: 'Q: How to select payment currency?',
+                        value: '**Submit Payment** → Select currency (KRW, USD, PHP, INR, NPR, CNY, TWD) → Enter amount & reason. Payment Log sheet: A:G (Date, Type, Tag, Amount, **Currency**, Reason, Status)',
                         inline: false
                     },
                     {
-                        name: 'Q: 권한 오류가 날 때는?',
-                        value: '봇에게 **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels** (인증 채널용) 권한이 있는지 확인하세요.',
+                        name: 'Q: Who sees search results & guide?',
+                        value: '**`/character`** **`/item`** **`/collection`** **`/build`** — Only you (ephemeral)\n**`!char <name>`** — Results sent via DM\n**`/guide`** — Only you',
+                        inline: false
+                    },
+                    {
+                        name: 'Q: Permission errors?',
+                        value: 'Ensure the bot has **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels** (for verification channels).',
                         inline: false
                     }
                 )
@@ -2635,17 +2800,17 @@ client.on('interactionCreate', async (interaction) => {
             const regionOpt = interaction.options.getString('region');
             const regionCfg = getRegionConfig(regionOpt);
             if (!regionCfg) {
-                await interaction.reply({ content: `❌ Region must be one of: ${SUPPORTED_REGION_CODES}.`, flags: EPHEMERAL_FLAGS });
+                await interaction.editReply({ content: `❌ Region must be one of: ${SUPPORTED_REGION_CODES}.` }).catch(() => {});
                 return;
             }
             const worker = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
             const timestamp = makeLocalTimestamp(regionCfg.timeZone);
             const data = [timestamp, worker, 'Confirmed', ''];
             const res = await appendToSheet(regionCfg.salarySheetRange, data);
-            await interaction.reply({
+            await interaction.editReply({
                 content: res.ok ? `✅ Salary confirmation submitted (${worker}) → ${regionCfg.code}` : `❌ Failed to save (${regionCfg.code}). Create **Salary_Log_${regionCfg.code}** sheet in Google Sheets.`,
                 flags: EPHEMERAL_FLAGS
-            });
+            }).catch(() => {});
         } else if (interaction.commandName === 'join_verify') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             await interaction.reply({
@@ -2654,6 +2819,7 @@ client.on('interactionCreate', async (interaction) => {
                 flags: EPHEMERAL_FLAGS
             });
         } else if (interaction.commandName === 'myinfo_register') {
+            try {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             const characterName = (interaction.options.getString('character_name') || '').trim();
             if (!characterName) {
@@ -2663,7 +2829,7 @@ client.on('interactionCreate', async (interaction) => {
             const state = loadPanelState();
             const categoryId = state.verifyCategoryId;
             if (!categoryId) {
-                await safeEphemeral(interaction, '❌ Verification not configured. Ask an admin to run `/verify_channel_set category:<category>` first.');
+                await safeEphemeral(interaction, '❌ Verification not configured. Ask an admin to run **`/verify_channel_set category:<category>`** first.');
                 return;
             }
             const guild = interaction.guild;
@@ -2672,7 +2838,6 @@ client.on('interactionCreate', async (interaction) => {
                 await safeEphemeral(interaction, '❌ Verification category not found. Admin: run `/verify_channel_set` again.');
                 return;
             }
-            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
             const displayName = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
             const safeName = characterName.replace(/[^\w\s-]/g, '').slice(0, 50) || 'verify';
             const channelName = `verify-${safeName}-${interaction.user.id.slice(-6)}`;
@@ -2731,6 +2896,16 @@ client.on('interactionCreate', async (interaction) => {
                 console.error('[myinfo_register]', err);
                 await interaction.editReply({ content: `❌ Failed to create channel: ${err.message}` }).catch(() => {});
             }
+            } catch (err) {
+                console.error('[myinfo_register]', err);
+                try {
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({ content: `❌ Error: ${err.message}. If the bot was starting up, wait 1–2 min and try again. Or ask admin to run \`/verify_channel_set\` first.`, flags: EPHEMERAL_FLAGS });
+                    } else {
+                        await interaction.editReply({ content: `❌ Error: ${err.message}. Try again or ask admin to run \`/verify_channel_set\` first.` }).catch(() => {});
+                    }
+                } catch (_) {}
+            }
         } else if (interaction.commandName === 'verify_channel_set') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
@@ -2740,8 +2915,8 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             const state = loadPanelState();
-            savePanelState({ ...state, verifyCategoryId: category.id });
-            await safeEphemeral(interaction, `✅ Verification channels will be created in **${category.name}**.`);
+            savePanelState({ ...state, verifyCategoryId: category.id }, true);
+            await safeEphemeral(interaction, `✅ Verification channels will be created in **${category.name}**.\n\n_(Settings saved to Bot_Runtime_State sheet — persisted across redeploys.)_`);
         } else if (interaction.commandName === 'welcome_set') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
@@ -2753,23 +2928,33 @@ client.on('interactionCreate', async (interaction) => {
                 announcementsChannelId: announceCh.id,
                 welcomeChannelId: fallbackCh?.id || null
             };
-            savePanelState({ ...state, welcomeConfig });
+            savePanelState({ ...state, welcomeConfig }, true);
             const msg = fallbackCh
                 ? `✅ Welcome **DM first**, fallback to <#${fallbackCh.id}> if DM disabled. Links to **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** <#${announceCh.id}>.`
                 : `✅ Welcome via **DM**. Links to **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** <#${announceCh.id}>. (No fallback channel — users with DMs disabled won't receive it.)`;
             await safeEphemeral(interaction, msg);
         } else if (interaction.commandName === 'join_verify_panel') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const ch = interaction.channel || await interaction.guild.channels.fetch(interaction.channelId).catch(() => null);
+            if (!ch?.send) { await safeEphemeral(interaction, '❌ Channel not found.'); return; }
+            try {
+                await upsertJoinVerifyPanel(ch);
+                await safeEphemeral(interaction, '✅ Join verification panel posted (1 only).');
+            } catch (err) {
+                console.error('[join_verify_panel]', err);
+                await safeEphemeral(interaction, `❌ Failed: ${err.message || 'Unknown error'}`);
+            }
         } else if (interaction.commandName === 'member_list_organize') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
-            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
             const merged = await rebuildMemberOrganizedSheet();
             if (!merged.ok) {
-                await interaction.editReply({ content: `❌ 회원목록정리 갱신 실패: ${merged.error}` });
+                await interaction.editReply({ content: `❌ Member list update failed: ${merged.error}` });
                 return;
             }
-            await interaction.editReply({ content: `✅ 회원목록정리 갱신 완료: ${merged.count} row(s).` });
-        } else if (['preset','boss','cut','server_open','boss_add','boss_remove','boss_alert_mode','boss_event_multiplier'].includes(interaction.commandName)) {
+            await interaction.editReply({ content: `✅ Member list updated: ${merged.count} row(s).` });
+        } else if (['preset','boss','cut','server_open','boss_add','boss_remove','boss_alert_mode','boss_event_multiplier','boss_fetch'].includes(interaction.commandName)) {
             const guildId = interaction.guildId;
             if (!guildId) { await safeEphemeral(interaction, 'This command can only be used in a guild.'); return; }
             const guildState = ensureBossGuildState(guildId);
@@ -2853,6 +3038,46 @@ client.on('interactionCreate', async (interaction) => {
                 delete guildState.bosses[normalizeBossName(resolved.boss.name)];
                 saveBossState();
                 await interaction.reply({ content: `Boss removed: **${resolved.boss.name}**.`, flags: EPHEMERAL_FLAGS });
+            } else if (interaction.commandName === 'boss_fetch') {
+                if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+                const url = interaction.options.getString('url') || BOSS_FETCH_DEFAULT_URL;
+                const mode = interaction.options.getString('mode') || 'combined';
+                let parsed = null;
+                try {
+                    parsed = await fetchBossListFromUrl(url);
+                } catch (err) {
+                    await interaction.editReply({ content: `❌ Fetch failed: ${err.message}\n\nUse a JSON URL with format: \`{ "elyos": [{ "name": "...", "respawnMinutes": 360 }], "asmodian": [...] }\`` }).catch(() => {});
+                    return;
+                }
+                if (!parsed) {
+                    await interaction.editReply({ content: `❌ No valid boss data from URL. Expected JSON: \`{ "elyos": [...], "asmodian": [...] }\` or \`{ "bosses": [{ "name", "respawnMinutes" }] }\`` }).catch(() => {});
+                    return;
+                }
+                const bosses = mode === 'elyos' ? parsed.elyos : mode === 'asmodian' ? parsed.asmodian : parsed.all;
+                if (!bosses.length) {
+                    await interaction.editReply({ content: `❌ No bosses for mode \`${mode}\`.` }).catch(() => {});
+                    return;
+                }
+                guildState.bosses = {};
+                for (const b of bosses) {
+                    const key = normalizeBossName(b.name);
+                    guildState.bosses[key] = {
+                        name: b.name,
+                        respawnMinutes: b.respawnMinutes,
+                        nextSpawnAt: null,
+                        lastCutAt: null,
+                        warnedForSpawnAt: null,
+                        announcedForSpawnAt: null,
+                        location: b.location || null,
+                        description: b.description || null,
+                        image: b.image || null,
+                        level: b.level != null ? b.level : null,
+                        faction: b.faction || null,
+                    };
+                }
+                guildState.bossChannelId = guildState.bossChannelId || interaction.channelId;
+                saveBossState();
+                await interaction.editReply({ content: `✅ Fetched **${bosses.length}** bosses from URL and applied.\n\n${bosses.map(b => `- ${b.name} (${b.respawnMinutes}m)${b.location ? ` @ ${b.location}` : ''}`).join('\n')}` }).catch(() => {});
             } else if (interaction.commandName === 'boss_alert_mode') {
                 const mode = interaction.options.getString('mode', true);
                 const current = new Set(guildState.bossSettings.dmSubscribers || []);
@@ -2869,6 +3094,28 @@ client.on('interactionCreate', async (interaction) => {
                 saveBossState();
                 await interaction.reply({ content: `Event respawn multiplier set to ${multiplier}x.`, flags: EPHEMERAL_FLAGS });
             }
+        } else if (['mvp', 'mvp_set'].includes(interaction.commandName)) {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const mvpGuild = ensureMvpGuildState(interaction.guildId);
+            if (interaction.commandName === 'mvp') {
+                const sched = mvpGuild.schedule || {};
+                const lines = MVP_DAY_NAMES.map(d => `**${d}:** ${sched[d] || '—'}`);
+                const embed = new EmbedBuilder()
+                    .setTitle('MVP Schedule')
+                    .setDescription(lines.join('\n') || 'No schedule set. Use `/mvp_set` to configure.')
+                    .setColor(0x9333ea)
+                    .setTimestamp();
+                await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
+            } else if (interaction.commandName === 'mvp_set') {
+                const day = interaction.options.getString('day', true);
+                const timeStr = interaction.options.getString('time', true);
+                if (!parseTime24(timeStr)) { await safeEphemeral(interaction, 'Invalid time format. Use HH:mm (e.g. 20:00).'); return; }
+                mvpGuild.schedule[day] = timeStr;
+                if (!mvpGuild.channelId) mvpGuild.channelId = interaction.channelId;
+                saveMvpScheduleState();
+                await interaction.reply({ content: `✅ MVP **${day}** set to **${timeStr}**.`, flags: EPHEMERAL_FLAGS });
+            }
         } else if (interaction.commandName.startsWith('kinah_watch_')) {
             const guildId = interaction.guildId;
             if (!guildId) { await safeEphemeral(interaction, 'This command can only be used in a guild.'); return; }
@@ -2882,8 +3129,7 @@ client.on('interactionCreate', async (interaction) => {
                 const channel = interaction.options.getChannel('channel', true);
                 const pollMinutes = interaction.options.getInteger('poll_minutes') ?? 5;
                 const mentionRole = interaction.options.getRole('mention_role');
-                const sourceKeyword = (interaction.options.getString('source_keyword') || '').trim() || presetConfig.sourceKeyword || '아이온2 키나';
-                await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+                const sourceKeyword = (interaction.options.getString('source_keyword') || '').trim() || presetConfig.sourceKeyword || 'AION2 kinah';
 
                 const watch = createDefaultKinahWatch(guildState.kinah);
                 watch.enabled = true;
@@ -2942,8 +3188,6 @@ client.on('interactionCreate', async (interaction) => {
                 if (valueRegex) {
                     try { new RegExp(valueRegex, 'i'); } catch (err) { await safeEphemeral(interaction, `Invalid value_regex: ${err.message}`); return; }
                 }
-                await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
-
                 const watch = createDefaultKinahWatch(guildState.kinah);
                 watch.enabled = true;
                 watch.sourcePreset = null;
@@ -2998,7 +3242,6 @@ client.on('interactionCreate', async (interaction) => {
                     await safeEphemeral(interaction, 'Kinah crawler is not configured. Run `/kinah_watch_preset` or `/kinah_watch_set` first.');
                     return;
                 }
-                await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
                 let snapshot;
                 try {
                     snapshot = await fetchKinahRateSnapshot(watch);
@@ -3084,7 +3327,7 @@ client.on('interactionCreate', async (interaction) => {
                     await interaction.editReply({ embeds: [buildYouTubeReadyEmbed(ready)] });
                 }
             } catch (err) {
-                await interaction.editReply({ content: `❌ YouTube 처리 실패: ${err.message || 'Unknown error'}` });
+                await interaction.editReply({ content: `❌ YouTube processing failed: ${err.message || 'Unknown error'}` });
             }
         } else if (interaction.commandName === 'item') {
             const query = (interaction.options.getString('query', true) || '').trim();
@@ -3094,7 +3337,6 @@ client.on('interactionCreate', async (interaction) => {
         } else if (interaction.commandName === 'collection') {
             const query = (interaction.options.getString('query', true) || '').trim();
             if (!query) { await safeEphemeral(interaction, 'Please enter a stat keyword (e.g. crit, accuracy).'); return; }
-            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
             let scraped = await scrapeTalentbuildsDb(query, 'armor').catch(() => null);
             if (!scraped?.items?.length) scraped = await scrapeTalentbuildsDb(query, 'accessories').catch(() => null);
             if (!scraped?.items?.length) scraped = await scrapeTalentbuildsDb(query, 'weapons').catch(() => null);
@@ -3104,7 +3346,6 @@ client.on('interactionCreate', async (interaction) => {
         } else if (interaction.commandName === 'build') {
             const query = (interaction.options.getString('query', true) || '').trim();
             if (!query) { await safeEphemeral(interaction, 'Please enter a class or build keyword.'); return; }
-            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
             let scraped = await scrapeTalentbuildsArmory(query).catch(() => null);
             if (scraped?.items?.length) scraped = { ...scraped, items: await translateItemNamesToEn(scraped.items) };
             const displayQuery = await translateQueryForDisplay(query);
@@ -3191,7 +3432,6 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.editReply({ embeds: [buildLinkFallbackEmbed(query, true, charDisplayQuery)], content: '❌ Failed to load. Check links below.' });
             }
         } else if (interaction.commandName === 'panel') {
-            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
             if (!interaction.guild) {
                 await interaction.editReply({ content: '❌ /panel can only be used in a server channel (not DM).' });
                 return;
@@ -3378,7 +3618,7 @@ client.on('interactionCreate', async (interaction) => {
                 for (const m of allGuides.values()) {
                     if (m.id !== sent.id) await m.delete().catch(() => {});
                 }
-                await interaction.editReply({ content: kind === 'guide_ko' ? '✅ 한글 사용법 가이드 패널을 등록했습니다.' : '✅ English usage guide panel posted.' });
+                await interaction.editReply({ content: kind === 'guide_ko' ? '✅ Korean guide panel posted.' : '✅ English usage guide panel posted.' });
             }
             } finally {
                 await new Promise(r => setTimeout(r, 2000));
@@ -3401,7 +3641,20 @@ client.on('interactionCreate', async (interaction) => {
                     flags: EPHEMERAL_FLAGS
                 });
             } else if (id === 'btn_char_verify_open') {
-                await interaction.showModal(createCharVerifyModal());
+                // defer first to avoid 3-sec timeout (modal requires instant response; bot cold start fails)
+                await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+                const state = loadPanelState();
+                if (!state.verifyCategoryId) {
+                    await interaction.editReply({
+                        content: '❌ Character verification is not configured. Ask an admin to run **`/verify_channel_set category:<category>`** first.\n\nOr use **`/myinfo_register character_name:<name>`** (same function).',
+                        flags: EPHEMERAL_FLAGS
+                    }).catch(() => {});
+                    return;
+                }
+                await interaction.editReply({
+                    content: '🎮 **Character Verification**\n\nUse **`/myinfo_register character_name:<name>`**\nExample: `/myinfo_register character_name:YourCharacterName`\n\n→ A private channel will be created. Upload your screenshot there and staff will Approve.',
+                    flags: EPHEMERAL_FLAGS
+                }).catch(() => {});
             } else if (id.startsWith('btn_kinah_')) {
                 const region = parseRegionFromCustomId(id, 'btn_kinah');
                 const cfg = getRegionConfig(region);
@@ -3421,7 +3674,7 @@ client.on('interactionCreate', async (interaction) => {
             }
             else if (id === 'btn_salary') {
                 await interaction.reply({
-                    content: `⚠️ 이 버튼은 더 이상 사용되지 않습니다. \`/panel type:salary\` 로 패널을 새로 고친 후 국가 버튼(${SUPPORTED_REGION_CODES})을 클릭하세요.`,
+                    content: `⚠️ This button is deprecated. Refresh the panel with \`/panel type:salary\`, then click the region buttons (${SUPPORTED_REGION_CODES}).`,
                     flags: EPHEMERAL_FLAGS
                 });
             } else if (id.startsWith('btn_salary_')) {
@@ -3430,14 +3683,15 @@ client.on('interactionCreate', async (interaction) => {
                 const region = parseRegionFromCustomId(id, 'btn_salary');
                 const regionCfg = getRegionConfig(region);
                 if (!regionCfg) return;
+                await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
                 const username = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
                 const timestamp = makeLocalTimestamp(regionCfg.timeZone);
                 const data = [timestamp, username, 'Confirmed', ''];
                 const res = await appendToSheet(regionCfg.salarySheetRange, data);
-                await interaction.reply({
+                await interaction.editReply({
                     content: res.ok ? `✅ Salary confirmation submitted (${username}) → ${regionCfg.code}` : `❌ Failed to save (${regionCfg.code}). Create **Salary_Log_${regionCfg.code}** sheet in Google Sheets.`,
                     flags: EPHEMERAL_FLAGS
-                });
+                }).catch(() => {});
             } else if (id === 'btn_youtube_add') {
                 if (!hasManageGuild(interaction)) {
                     await safeEphemeral(interaction, 'Manage Server permission required to add videos.');
@@ -3490,10 +3744,16 @@ client.on('interactionCreate', async (interaction) => {
             console.error('Button interaction error:', err);
             try {
                 if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({
-                        content: `Interaction failed. Please try again or use \`/salary_confirm\` (choose ${SUPPORTED_REGION_CODES}).`,
-                        flags: EPHEMERAL_FLAGS
-                    });
+                    const id = interaction.customId || '';
+                    let msg = 'Interaction failed. Please try again.';
+                    if (id === 'btn_char_verify_open') {
+                        msg = `Interaction failed (bot may be starting up). Please try again in a moment or use \`/myinfo_register\` for character verification.`;
+                    } else if (id === 'btn_join_verify_open') {
+                        msg = `Interaction failed (bot may be starting up). Please try again in a moment.`;
+                    } else if (id.startsWith('btn_salary')) {
+                        msg = `Interaction failed. Please try again or use \`/salary_confirm\` (choose ${SUPPORTED_REGION_CODES}).`;
+                    }
+                    await interaction.reply({ content: msg, flags: EPHEMERAL_FLAGS });
                 }
             } catch (_) {}
         }
@@ -3649,11 +3909,11 @@ client.on('interactionCreate', async (interaction) => {
                 delete verifyState.pending[channelId];
                 saveVerifyPendingState(verifyState);
                 const merged = await rebuildMemberOrganizedSheet();
-                const mergedMsg = merged.ok ? `\n📚 회원목록정리 refreshed: ${merged.count} rows` : '';
+                const mergedMsg = merged.ok ? `\n📚 Member list refreshed: ${merged.count} rows` : '';
                 try {
                     const ch = await client.channels.fetch(channelId).catch(() => null);
                     if (ch) {
-                        await ch.send({ content: `✅ Verification **approved** by ${interaction.user}! Character **${pending.characterName}** added to 회원목록정리. You can register more characters anytime with /myinfo_register or the panel button.` });
+                        await ch.send({ content: `✅ Verification **approved** by ${interaction.user}! Character **${pending.characterName}** added to member list. You can register more characters anytime with /myinfo_register or the panel button.` });
                         await ch.delete().catch(() => {});
                     }
                 } catch (_) {}
@@ -3787,9 +4047,9 @@ client.on('interactionCreate', async (interaction) => {
         try {
             if (!interaction?.isRepliable?.()) return;
             if (interaction.deferred) {
-                await interaction.editReply({ content: '❌ 처리 중 오류가 발생했어요. 다시 시도해 주세요.' }).catch(() => {});
+                await interaction.editReply({ content: '❌ An error occurred. Please try again.' }).catch(() => {});
             } else if (!interaction.replied) {
-                await interaction.reply({ content: '❌ 처리 중 오류가 발생했어요. 다시 시도해 주세요.', flags: EPHEMERAL_FLAGS }).catch(() => {});
+                await interaction.reply({ content: '❌ An error occurred. Please try again.', flags: EPHEMERAL_FLAGS }).catch(() => {});
             }
         } catch (_) {}
     }
@@ -4156,7 +4416,7 @@ client.on('messageCreate', async (message) => {
         let progressMsg = null;
         try {
             progressMsg = await message.reply({
-                content: '🎬 유튜브 링크 분석 중... (title 번역 + 영어 자막 확인)',
+                content: '🎬 Analyzing YouTube link... (title translation + EN subtitle check)',
                 allowedMentions: { repliedUser: false }
             });
         } catch (_) {}
@@ -4175,7 +4435,7 @@ client.on('messageCreate', async (message) => {
                 }).catch(() => {});
             }
         } catch (err) {
-            const errorText = `❌ YouTube 링크 처리 실패: ${err.message || 'Unknown error'}\nUsage: \`!yt <youtube-url>\``;
+            const errorText = `❌ YouTube processing failed: ${err.message || 'Unknown error'}\nUsage: \`!yt <youtube-url>\``;
             if (progressMsg) await progressMsg.edit({ content: errorText, embeds: [] }).catch(() => {});
             else await message.reply({ content: errorText, allowedMentions: { repliedUser: false } }).catch(() => {});
         }
@@ -4231,10 +4491,10 @@ client.on('messageCreate', async (message) => {
             if (attachment) proofEmbed.setImage(attachment.url);
 
             await message.delete().catch(() => {});
-            await message.channel.send({ content: `✅ **입금 확인 제출됨 — ${message.author}**`, embeds: [proofEmbed] });
+            await message.channel.send({ content: `✅ **Payment confirmation submitted — ${message.author}**`, embeds: [proofEmbed] });
         } catch (err) {
             console.error('[!confirm]', err);
-            message.reply('❌ 기록 중 오류가 발생했습니다. Google Sheet(Payment Log) 설정을 확인해 주세요.');
+            message.reply('❌ Failed to save. Check Google Sheet (Payment Log) setup.');
         }
         return;
     }
@@ -4328,7 +4588,7 @@ client.on('messageCreate', async (message) => {
 });
 
 if (!CONFIG.TOKEN) {
-    console.error('❌ DISCORD_TOKEN이 설정되지 않았습니다. .env 파일에 DISCORD_TOKEN=봇토큰 을 추가하세요.');
+    console.error('❌ DISCORD_TOKEN not set. Add DISCORD_TOKEN=<bot-token> to .env');
     process.exit(1);
 }
 client.login(CONFIG.TOKEN);
