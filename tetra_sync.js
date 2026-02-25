@@ -126,6 +126,8 @@ function createDefaultKinahWatch(seed = null) {
         pollMinutes: 5,
         mentionRoleId: null,
         lastRate: null,
+        stableRate: null,
+        rateHistory: [],
         lastRawText: null,
         lastSourceSummary: null,
         lastCheckedAt: null,
@@ -146,6 +148,10 @@ function createDefaultKinahWatch(seed = null) {
         pollMinutes: Math.max(1, Math.min(60, Number.parseInt(String(seed.pollMinutes || 5), 10) || 5)),
         mentionRoleId: typeof seed.mentionRoleId === 'string' && seed.mentionRoleId.length ? seed.mentionRoleId : null,
         lastRate: Number.isFinite(Number(seed.lastRate)) ? Number(seed.lastRate) : null,
+        stableRate: Number.isFinite(Number(seed.stableRate)) ? Number(seed.stableRate) : null,
+        rateHistory: Array.isArray(seed.rateHistory)
+            ? seed.rateHistory.map(v => Number(v)).filter(v => Number.isFinite(v) && v > 0).slice(-10)
+            : [],
         lastRawText: typeof seed.lastRawText === 'string' && seed.lastRawText.length ? seed.lastRawText : null,
         lastSourceSummary: typeof seed.lastSourceSummary === 'string' && seed.lastSourceSummary.length ? seed.lastSourceSummary : null,
         lastCheckedAt: Number.isFinite(Number(seed.lastCheckedAt)) ? Number(seed.lastCheckedAt) : null,
@@ -535,6 +541,19 @@ function pickTrimmedMedian(values) {
     return pickMedian(trimmed);
 }
 
+function applyKinahStability(watch, rawNumeric) {
+    const nextRaw = Number(rawNumeric);
+    if (!Number.isFinite(nextRaw)) return watch.lastRate;
+    const history = Array.isArray(watch.rateHistory) ? watch.rateHistory.map(v => Number(v)).filter(v => Number.isFinite(v) && v > 0) : [];
+    history.push(nextRaw);
+    watch.rateHistory = history.slice(-10);
+    const smoothWindow = watch.rateHistory.slice(-5);
+    const stable = pickMedian(smoothWindow);
+    const stableRounded = Number.isFinite(stable) ? Math.round(stable) : Math.round(nextRaw);
+    watch.stableRate = stableRounded;
+    return stableRounded;
+}
+
 function collectJsonNodes(value, out = []) {
     if (value == null) return out;
     if (Array.isArray(value)) {
@@ -795,7 +814,8 @@ function buildKinahStatusEmbed(guildState) {
             `Regex: ${watch.valueRegex || 'Auto detect'}`,
             `Poll interval: ${watch.pollMinutes} minute(s)`,
             `Mention role: ${watch.mentionRoleId ? `<@&${watch.mentionRoleId}>` : 'None'}`,
-            `Last value: ${watch.lastRawText || 'N/A'}`,
+            `Last stable value: ${watch.stableRate ? formatKrw(watch.stableRate) : 'N/A'}`,
+            `Last raw value: ${watch.lastRawText || 'N/A'}`,
             `Last sources: ${watch.lastSourceSummary || 'N/A'}`,
             `Last check: ${watch.lastCheckedAt ? toDiscordTime(watch.lastCheckedAt) : 'N/A'}`,
             `Last error: ${watch.lastError || 'None'}`,
@@ -812,6 +832,7 @@ function buildKinahRateEmbed(snapshot, previousValue = null) {
         .setDescription([
             `Current: **${snapshot.token}**`,
             `Change: ${diffLine}`,
+            snapshot.rawToken ? `Raw snapshot: ${snapshot.rawToken}` : null,
             snapshot.sourceName ? `Source: ${snapshot.sourceName}` : null,
             snapshot.sourceSummary ? `Source summary: ${snapshot.sourceSummary}` : null,
             snapshot.snippet ? `Snapshot: \`${snapshot.snippet.slice(0, 220)}\`` : null,
@@ -854,10 +875,27 @@ async function runKinahTicker(client) {
                 continue;
             }
 
-            const isChanged = watch.lastRate == null || snapshot.numeric !== watch.lastRate;
+            const stabilized = applyKinahStability(watch, snapshot.numeric);
+            const stableSnapshot = {
+                ...snapshot,
+                rawToken: snapshot.token,
+                rawNumeric: snapshot.numeric,
+                token: formatKrw(stabilized),
+                numeric: stabilized,
+            };
+            // Ignore tiny jitters under 3% after stabilization.
+            const previousStable = watch.lastRate;
+            const changeRatio = previousStable == null ? null : Math.abs(stabilized - previousStable) / Math.max(previousStable, 1);
+            const isChanged = previousStable == null || stabilized !== previousStable;
+            const shouldPost = isChanged && (changeRatio == null || changeRatio >= 0.03);
+
             watch.lastRawText = snapshot.token;
             watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
-            if (!isChanged) continue;
+            watch.lastRate = stabilized;
+            if (!shouldPost) {
+                changed = true;
+                continue;
+            }
 
             const channel = await client.channels.fetch(watch.channelId).catch(() => null);
             if (!channel || !channel.isTextBased()) {
@@ -867,8 +905,7 @@ async function runKinahTicker(client) {
             }
 
             const mention = watch.mentionRoleId ? `<@&${watch.mentionRoleId}>` : undefined;
-            await channel.send({ content: mention, embeds: [buildKinahRateEmbed(snapshot, watch.lastRate)] }).catch(() => {});
-            watch.lastRate = snapshot.numeric;
+            await channel.send({ content: mention, embeds: [buildKinahRateEmbed(stableSnapshot, previousStable)] }).catch(() => {});
             watch.lastPostedAt = Date.now();
             changed = true;
         }
@@ -1175,10 +1212,19 @@ client.on('interactionCreate', async (interaction) => {
                 let snapshot = null;
                 try {
                     snapshot = await fetchKinahRateSnapshot(watch);
-                    watch.lastRate = snapshot.numeric;
+                    const stable = applyKinahStability(watch, snapshot.numeric);
+                    watch.lastRate = stable;
+                    watch.stableRate = stable;
                     watch.lastRawText = snapshot.token;
                     watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
                     watch.lastCheckedAt = Date.now();
+                    snapshot = {
+                        ...snapshot,
+                        rawToken: snapshot.token,
+                        rawNumeric: snapshot.numeric,
+                        token: formatKrw(stable),
+                        numeric: stable,
+                    };
                 } catch (err) {
                     watch.lastError = err.message || 'Initial preset fetch failed.';
                 }
@@ -1223,10 +1269,19 @@ client.on('interactionCreate', async (interaction) => {
                 let snapshot = null;
                 try {
                     snapshot = await fetchKinahRateSnapshot(watch);
-                    watch.lastRate = snapshot.numeric;
+                    const stable = applyKinahStability(watch, snapshot.numeric);
+                    watch.lastRate = stable;
+                    watch.stableRate = stable;
                     watch.lastRawText = snapshot.token;
                     watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
                     watch.lastCheckedAt = Date.now();
+                    snapshot = {
+                        ...snapshot,
+                        rawToken: snapshot.token,
+                        rawNumeric: snapshot.numeric,
+                        token: formatKrw(stable),
+                        numeric: stable,
+                    };
                 } catch (err) {
                     watch.lastError = err.message || 'Initial fetch failed.';
                 }
@@ -1242,6 +1297,8 @@ client.on('interactionCreate', async (interaction) => {
                 if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
                 const watch = createDefaultKinahWatch(guildState.kinah);
                 watch.enabled = false;
+                watch.rateHistory = [];
+                watch.stableRate = null;
                 guildState.kinah = watch;
                 saveKinahState();
                 await interaction.reply({ content: 'Kinah rate crawler stopped for this guild.', ephemeral: true });
@@ -1264,7 +1321,9 @@ client.on('interactionCreate', async (interaction) => {
                 }
 
                 const previousRate = watch.lastRate;
-                watch.lastRate = snapshot.numeric;
+                const stable = applyKinahStability(watch, snapshot.numeric);
+                watch.lastRate = stable;
+                watch.stableRate = stable;
                 watch.lastRawText = snapshot.token;
                 watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
                 watch.lastCheckedAt = Date.now();
@@ -1272,7 +1331,14 @@ client.on('interactionCreate', async (interaction) => {
                 guildState.kinah = watch;
                 saveKinahState();
 
-                const embed = buildKinahRateEmbed(snapshot, previousRate);
+                const stableSnapshot = {
+                    ...snapshot,
+                    rawToken: snapshot.token,
+                    rawNumeric: snapshot.numeric,
+                    token: formatKrw(stable),
+                    numeric: stable,
+                };
+                const embed = buildKinahRateEmbed(stableSnapshot, previousRate);
                 const publicPost = interaction.options.getBoolean('public_post') ?? false;
                 if (publicPost) {
                     const postChannelId = watch.channelId || interaction.channelId;
