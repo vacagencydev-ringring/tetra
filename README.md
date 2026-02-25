@@ -3,6 +3,8 @@
 English-focused Discord bot inspired by the feature set shown at:
 https://koreanbots.dev/bots/1436590099235340410
 
+> Active runtime entrypoint: `tetra_sync.js` (single-bot operation)
+
 ## Implemented Features
 
 1. **Smart Verification System**
