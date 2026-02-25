@@ -69,6 +69,12 @@ https://koreanbots.dev/bots/1436590099235340410
    - `/guide` posts a full command guide panel (capture-style)
    - `/guide public:false` sends it as ephemeral to yourself
 
+9. **YouTube Quick Watch (EN)**
+   - `/youtube_ready video:<youtube-url-or-id>`
+   - Legacy alias: `!yt <youtube-url>` / `!youtube <youtube-url>`
+   - Automatically translates title to English
+   - If English subtitle track exists, returns a ready-to-watch link with EN subtitle preset
+
 ## Multi-country Workflow (PH/IN/NP/CH/TW)
 
 - Daily reports:

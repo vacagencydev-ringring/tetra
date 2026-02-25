@@ -239,6 +239,187 @@ async function translateKoToEnLong(text) {
     return translated.join('\n');
 }
 
+const YOUTUBE_VIDEO_ID_PATTERN = /^[a-zA-Z0-9_-]{11}$/;
+const YOUTUBE_HOST_ALLOWLIST = new Set([
+    'youtube.com',
+    'www.youtube.com',
+    'm.youtube.com',
+    'music.youtube.com',
+    'youtu.be',
+    'www.youtu.be',
+]);
+
+function extractYouTubeVideoId(input) {
+    const value = String(input || '').trim();
+    if (!value) return null;
+    if (YOUTUBE_VIDEO_ID_PATTERN.test(value)) return value;
+
+    let url;
+    try {
+        url = new URL(value);
+    } catch (_) {
+        return null;
+    }
+    const host = String(url.hostname || '').toLowerCase();
+    if (!YOUTUBE_HOST_ALLOWLIST.has(host)) return null;
+
+    let candidate = null;
+    if (host.endsWith('youtu.be')) {
+        candidate = url.pathname.split('/').filter(Boolean)[0] || null;
+    } else if (url.pathname === '/watch') {
+        candidate = url.searchParams.get('v');
+    } else if (url.pathname.startsWith('/shorts/')) {
+        candidate = url.pathname.split('/')[2] || null;
+    } else if (url.pathname.startsWith('/embed/')) {
+        candidate = url.pathname.split('/')[2] || null;
+    } else if (url.pathname.startsWith('/live/')) {
+        candidate = url.pathname.split('/')[2] || null;
+    }
+
+    return candidate && YOUTUBE_VIDEO_ID_PATTERN.test(candidate) ? candidate : null;
+}
+
+function buildYouTubeWatchUrl(videoId, withEnglishCaption = false) {
+    const url = new URL('https://www.youtube.com/watch');
+    url.searchParams.set('v', videoId);
+    if (withEnglishCaption) {
+        url.searchParams.set('cc_load_policy', '1');
+        url.searchParams.set('cc_lang_pref', 'en');
+        url.searchParams.set('hl', 'en');
+    }
+    return url.toString();
+}
+
+function decodeXmlAttr(value) {
+    return String(value || '')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+}
+
+function parseYouTubeEnglishCaptionInfo(captionListXml) {
+    const xml = String(captionListXml || '');
+    const none = { available: false, mode: null, languageCode: null, name: null };
+    if (!xml.includes('<track')) return none;
+
+    const trackRegex = /<track\b([^>]*)>/gi;
+    let fallbackAuto = null;
+    let match;
+    while ((match = trackRegex.exec(xml))) {
+        const attrs = match[1] || '';
+        const languageCode = ((attrs.match(/\blang_code="([^"]+)"/i) || [])[1] || '').trim().toLowerCase();
+        if (!/^en(?:[-_]|$)/i.test(languageCode)) continue;
+
+        const kind = ((attrs.match(/\bkind="([^"]+)"/i) || [])[1] || '').trim().toLowerCase();
+        const nameRaw = ((attrs.match(/\bname="([^"]*)"/i) || [])[1] || '').trim();
+        const parsed = {
+            available: true,
+            mode: kind === 'asr' ? 'auto' : 'manual',
+            languageCode,
+            name: decodeXmlAttr(nameRaw) || 'English'
+        };
+        if (parsed.mode === 'manual') return parsed;
+        fallbackAuto = parsed;
+    }
+    return fallbackAuto || none;
+}
+
+function extractTitleFromWatchHtml(watchHtml) {
+    const html = String(watchHtml || '');
+    if (!html) return '';
+    try {
+        const $ = cheerio.load(html);
+        const title = $('title').first().text().trim();
+        return title.replace(/\s*-\s*YouTube\s*$/i, '').trim();
+    } catch (_) {
+        return '';
+    }
+}
+
+async function fetchYouTubeVideoReadyInfo(videoInput) {
+    const videoId = extractYouTubeVideoId(videoInput);
+    if (!videoId) throw new Error('유효한 YouTube URL 또는 11자리 video id를 입력해 주세요.');
+
+    const watchUrl = buildYouTubeWatchUrl(videoId, false);
+    const readyUrlWithEnCaption = buildYouTubeWatchUrl(videoId, true);
+
+    let title = '';
+    try {
+        const { data } = await axios.get('https://www.youtube.com/oembed', {
+            params: { url: watchUrl, format: 'json' },
+            timeout: 10_000,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        });
+        title = String(data?.title || '').trim();
+    } catch (_) {}
+
+    if (!title) {
+        try {
+            const { data } = await axios.get(watchUrl, {
+                timeout: 15_000,
+                maxRedirects: 5,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept-Language': 'ko,en-US;q=0.9,en;q=0.8',
+                }
+            });
+            title = extractTitleFromWatchHtml(data);
+        } catch (_) {}
+    }
+    if (!title) title = `YouTube Video (${videoId})`;
+
+    let captionInfo = { available: false, mode: null, languageCode: null, name: null };
+    try {
+        const { data } = await axios.get('https://www.youtube.com/api/timedtext', {
+            params: { type: 'list', v: videoId },
+            timeout: 10_000,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        });
+        captionInfo = parseYouTubeEnglishCaptionInfo(data);
+    } catch (_) {}
+
+    const translatedTitle = await translateKoToEnLong(title);
+    return {
+        videoId,
+        watchUrl,
+        readyUrl: captionInfo.available ? readyUrlWithEnCaption : watchUrl,
+        title,
+        englishTitle: translatedTitle || title,
+        captionInfo,
+    };
+}
+
+function buildYouTubeReadyEmbed(info) {
+    const modeLabel = info.captionInfo.mode === 'manual'
+        ? 'manual EN track'
+        : info.captionInfo.mode === 'auto'
+            ? 'auto-generated EN track'
+            : null;
+    const captionStatus = info.captionInfo.available
+        ? `✅ English subtitle available (${modeLabel})`
+        : '⚠️ English subtitle was not detected for this video.';
+    const watchLine = info.captionInfo.available
+        ? `▶️ [Open now (EN subtitle preset)](${info.readyUrl})`
+        : `▶️ [Open now](${info.watchUrl})`;
+
+    return new EmbedBuilder()
+        .setTitle('🎬 YouTube Quick Watch')
+        .setDescription([
+            `**Original title**\n${String(info.title || '').slice(0, 500)}`,
+            '',
+            `**English title**\n${String(info.englishTitle || '').slice(0, 500)}`,
+            '',
+            captionStatus,
+            watchLine,
+        ].join('\n').slice(0, 4096))
+        .setColor(info.captionInfo.available ? 0x22c55e : 0xf59e0b)
+        .setFooter({ text: 'Use /youtube_ready or !yt <youtube-url>' })
+        .setTimestamp();
+}
+
 function buildAonTranslateStatusEmbed(guildState) {
     const routes = createAonRouteMap(guildState.routes);
     const routeLine = Object.entries(routes).map(([k, v]) => `- ${k}: ${v ? `<#${v}>` : 'Not set'}`).join('\n');
@@ -1094,6 +1275,14 @@ const commands = [
         .setName('aon_translate_status')
         .setDescription('Show AON translation routes and status')
         .toJSON(),
+    new SlashCommandBuilder()
+        .setName('youtube_ready')
+        .setDescription('Prepare YouTube link with EN title and subtitle preset')
+        .addStringOption(o => o
+            .setName('video')
+            .setDescription('YouTube URL or 11-char video ID')
+            .setRequired(true))
+        .toJSON(),
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -1406,6 +1595,15 @@ client.on('interactionCreate', async (interaction) => {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             const g = ensureAonTranslateGuildState(interaction.guildId);
             await interaction.reply({ embeds: [buildAonTranslateStatusEmbed(g)], ephemeral: true });
+        } else if (interaction.commandName === 'youtube_ready') {
+            const videoInput = interaction.options.getString('video', true);
+            await interaction.deferReply({ ephemeral: true });
+            try {
+                const ready = await fetchYouTubeVideoReadyInfo(videoInput);
+                await interaction.editReply({ embeds: [buildYouTubeReadyEmbed(ready)] });
+            } catch (err) {
+                await interaction.editReply({ content: `❌ YouTube 처리 실패: ${err.message || 'Unknown error'}` });
+            }
         } else if (interaction.commandName === 'panel') {
             await interaction.deferReply({ ephemeral: true });
             if (!interaction.guild) {
@@ -1838,6 +2036,29 @@ client.on('messageCreate', async (message) => {
     await handleAonBotNewsTranslation(message).catch(() => {});
     if (message.author?.bot) return;
     const content = message.content?.trim() || '';
+
+    // ── !yt [youtube-url]
+    const ytMatch = content.match(/^!(?:yt|youtube)\s+(.+)$/i);
+    if (ytMatch) {
+        const videoInput = ytMatch[1].trim();
+        let progressMsg = null;
+        try {
+            progressMsg = await message.reply({
+                content: '🎬 유튜브 링크 분석 중... (title 번역 + 영어 자막 확인)',
+                allowedMentions: { repliedUser: false }
+            });
+        } catch (_) {}
+        try {
+            const ready = await fetchYouTubeVideoReadyInfo(videoInput);
+            if (progressMsg) await progressMsg.edit({ content: '', embeds: [buildYouTubeReadyEmbed(ready)] }).catch(() => {});
+            else await message.channel.send({ embeds: [buildYouTubeReadyEmbed(ready)] }).catch(() => {});
+        } catch (err) {
+            const errorText = `❌ YouTube 링크 처리 실패: ${err.message || 'Unknown error'}\nUsage: \`!yt <youtube-url>\``;
+            if (progressMsg) await progressMsg.edit({ content: errorText, embeds: [] }).catch(() => {});
+            else await message.reply({ content: errorText, allowedMentions: { repliedUser: false } }).catch(() => {});
+        }
+        return;
+    }
 
     // ── !confirm 금액 / 내용 (회원 입금 확인, 스크린샷 필수)
     if (content.startsWith('!confirm ')) {
