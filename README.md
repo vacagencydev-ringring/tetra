@@ -119,6 +119,14 @@ Quick setup:
 5. Run `refreshMemberListOrganized()` whenever you want to rebuild merged member rows.
 6. Optional: run `installDailySetupTrigger()` for daily auto-check.
 
+Web App mode (mobile-friendly URL execution):
+
+- Deploy as Web App after adding `doGet/doPost` (included in script now).
+- Example calls:
+  - `.../exec?action=status`
+  - `.../exec?action=setup&sheetId=YOUR_SHEET_ID`
+  - `.../exec?action=refresh_member&sheetId=YOUR_SHEET_ID`
+
 ## Notes
 
 - Runtime state is persisted to `bot_state.json`.

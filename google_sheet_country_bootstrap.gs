@@ -48,11 +48,22 @@ const SHEET_TEMPLATES = [
 ];
 
 /**
+ * Optional default spreadsheet ID (for Web App mode).
+ * You can also set Script Properties -> SHEET_ID instead.
+ */
+const DEFAULT_SPREADSHEET_ID = '';
+
+/**
  * Create all required country sheets if missing.
  */
 function setupCountrySheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!ss) throw new Error('No active spreadsheet found.');
+  return setupCountrySheetsForSpreadsheet_(ss);
+}
+
+function setupCountrySheetsForSpreadsheet_(ss) {
+  if (!ss) throw new Error('No spreadsheet found.');
 
   const created = [];
   const existing = [];
@@ -87,6 +98,7 @@ function setupCountrySheets() {
 
   Logger.log(summary);
   ss.toast(`Country sheet setup done. Created ${created.length} sheet(s), merged ${mergedRows} member row(s).`, 'TETRA Setup', 7);
+  return { created: created.length, existing: existing.length, mergedRows };
 }
 
 /**
@@ -132,7 +144,10 @@ function onOpen() {
 function refreshMemberListOrganized() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!ss) throw new Error('No active spreadsheet found.');
+  return refreshMemberListOrganizedForSpreadsheet_(ss);
+}
 
+function refreshMemberListOrganizedForSpreadsheet_(ss) {
   ensureSheetWithHeader_(
     ss,
     ORGANIZED_MEMBER_SHEET_NAME,
@@ -141,6 +156,7 @@ function refreshMemberListOrganized() {
   );
   const mergedRows = rebuildMemberListOrganized_(ss);
   ss.toast(`회원목록정리 refreshed. ${mergedRows} row(s).`, 'TETRA Setup', 7);
+  return { mergedRows };
 }
 
 function ensureSheetWithHeader_(ss, sheetName, headers, minColumns) {
@@ -227,4 +243,93 @@ function rebuildMemberListOrganized_(ss) {
   }
 
   return deduped.length;
+}
+
+/**
+ * Web App endpoint:
+ * - ?action=status
+ * - ?action=setup&sheetId=YOUR_SHEET_ID
+ * - ?action=refresh_member&sheetId=YOUR_SHEET_ID
+ * - ?action=install_trigger
+ * - ?action=remove_trigger
+ */
+function doGet(e) {
+  return handleWebRequest_(e);
+}
+
+function doPost(e) {
+  return handleWebRequest_(e);
+}
+
+function handleWebRequest_(e) {
+  try {
+    const action = String((e && e.parameter && e.parameter.action) || 'status')
+      .trim()
+      .toLowerCase();
+
+    if (action === 'status') {
+      return jsonResponse_({
+        ok: true,
+        message: 'TETRA Apps Script endpoint is running.',
+        actions: ['status', 'setup', 'refresh_member', 'install_trigger', 'remove_trigger'],
+        countryCodes: COUNTRY_CODES,
+      });
+    }
+
+    if (action === 'install_trigger') {
+      installDailySetupTrigger();
+      return jsonResponse_({ ok: true, action, message: 'Daily trigger installed.' });
+    }
+
+    if (action === 'remove_trigger') {
+      removeDailySetupTrigger();
+      return jsonResponse_({ ok: true, action, message: 'Daily trigger removed.' });
+    }
+
+    const ss = resolveSpreadsheet_(e);
+    if (action === 'setup') {
+      const result = setupCountrySheetsForSpreadsheet_(ss);
+      return jsonResponse_({ ok: true, action, result });
+    }
+
+    if (action === 'refresh_member') {
+      const result = refreshMemberListOrganizedForSpreadsheet_(ss);
+      return jsonResponse_({ ok: true, action, result });
+    }
+
+    return jsonResponse_({
+      ok: false,
+      error: `Unknown action: ${action}`,
+      allowed: ['status', 'setup', 'refresh_member', 'install_trigger', 'remove_trigger'],
+    });
+  } catch (err) {
+    return jsonResponse_({
+      ok: false,
+      error: String(err && err.message ? err.message : err),
+    });
+  }
+}
+
+function resolveSpreadsheet_(e) {
+  const active = SpreadsheetApp.getActiveSpreadsheet();
+  if (active) return active;
+
+  const fromParam = String((e && e.parameter && e.parameter.sheetId) || '').trim();
+  if (fromParam) return SpreadsheetApp.openById(fromParam);
+
+  const fromProp =
+    String(
+      PropertiesService.getScriptProperties().getProperty('SHEET_ID') ||
+        DEFAULT_SPREADSHEET_ID ||
+        ''
+    ).trim();
+  if (fromProp) return SpreadsheetApp.openById(fromProp);
+
+  throw new Error('No spreadsheet context. Add ?sheetId=... or set Script Property SHEET_ID.');
+}
+
+function jsonResponse_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj, null, 2)).setMimeType(
+    ContentService.MimeType.JSON
+  );
 }
