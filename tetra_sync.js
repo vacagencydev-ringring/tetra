@@ -561,7 +561,7 @@ async function clearSheetRows(range) {
 function buildJoinCountrySelectRow() {
     const menu = new StringSelectMenuBuilder()
         .setCustomId('select_join_country')
-        .setPlaceholder('Select your country / 나라를 선택하세요')
+        .setPlaceholder('Select your country')
         .addOptions(
             REGION_CONFIGS.map(region => ({
                 label: `${region.label} (${region.code})`,
@@ -577,8 +577,8 @@ function buildJoinVerifyPanelPayload() {
     const embed = new EmbedBuilder()
         .setTitle('✅ Join Verification')
         .setDescription([
-            '신규 인원은 아래 버튼을 눌러 나라 코드를 선택해 주세요.',
-            'Pick your country code, then submit your basic info.',
+            'New members: click the button below to choose your country code.',
+            'Then submit your basic info.',
             '',
             `Supported: ${SUPPORTED_REGION_CODES}`,
         ].join('\n'))
@@ -586,7 +586,7 @@ function buildJoinVerifyPanelPayload() {
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('btn_join_verify_open')
-            .setLabel('가입확인 시작 / Start Join Verify')
+            .setLabel('Start Join Verification')
             .setStyle(ButtonStyle.Success)
     );
     return { embeds: [embed], components: [row] };
@@ -624,7 +624,7 @@ function createJoinVerifyModal(region) {
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('nickname')
-                    .setLabel('In-game name / Nickname')
+                    .setLabel('In-game Name')
                     .setPlaceholder('Optional')
                     .setStyle(TextInputStyle.Short)
                     .setRequired(false)
@@ -1377,7 +1377,7 @@ client.on('interactionCreate', async (interaction) => {
         } else if (interaction.commandName === 'join_verify') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             await interaction.reply({
-                content: '🌍 가입확인 나라를 선택해 주세요. / Select your country for join verification.',
+                content: '🌍 Please select your country for join verification.',
                 components: [buildJoinCountrySelectRow()],
                 ephemeral: true
             });
@@ -1725,7 +1725,7 @@ client.on('interactionCreate', async (interaction) => {
             const id = interaction.customId;
             if (id === 'btn_join_verify_open') {
                 await interaction.reply({
-                    content: '🌍 가입확인 나라를 선택해 주세요. / Select your country for join verification.',
+                    content: '🌍 Please select your country for join verification.',
                     components: [buildJoinCountrySelectRow()],
                     ephemeral: true
                 });
@@ -1834,14 +1834,14 @@ client.on('interactionCreate', async (interaction) => {
             const roleNote = (interaction.fields.getTextInputValue('role_note') || '').trim();
             const saved = await appendMemberListRecord(interaction, regionCfg, nickname, roleNote);
             if (!saved.ok) {
-                await interaction.editReply({ content: `❌ 가입확인 저장 실패 (${regionCfg.code}). Create **Member_List_${regionCfg.code}** sheet in Google Sheets.` });
+                await interaction.editReply({ content: `❌ Join verification save failed (${regionCfg.code}). Create **Member_List_${regionCfg.code}** sheet in Google Sheets.` });
                 return;
             }
             const merged = await rebuildMemberOrganizedSheet();
             const mergedMsg = merged.ok
-                ? `\n📚 회원목록정리 갱신: ${merged.count} row(s)`
-                : `\n⚠️ 회원목록정리 갱신 실패: ${merged.error}`;
-            await interaction.editReply({ content: `✅ 가입확인 완료 (${regionCfg.code})\n- User: ${worker}${mergedMsg}` });
+                ? `\n📚 Organized member sheet refreshed: ${merged.count} row(s)`
+                : `\n⚠️ Organized member sheet refresh failed: ${merged.error}`;
+            await interaction.editReply({ content: `✅ Join verification completed (${regionCfg.code})\n- User: ${worker}${mergedMsg}` });
         } else {
             await interaction.editReply({ content: '❌ Unsupported modal type.' });
         }
