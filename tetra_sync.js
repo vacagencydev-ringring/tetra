@@ -10,7 +10,9 @@ app.listen(PORT, () => console.log(`[TETRA] Keep-alive server on port ${PORT}`))
 
 const {
     Client,
+    ChannelType,
     GatewayIntentBits,
+    PermissionFlagsBits,
     SlashCommandBuilder,
     ModalBuilder,
     TextInputBuilder,
@@ -40,6 +42,8 @@ const CONFIG = {
     TOKEN: process.env.DISCORD_TOKEN,
     CREDENTIALS_PATH: path.join(__dirname, 'credentials.json.json'),
     PANEL_STATE_PATH: path.join(__dirname, 'panel_state.json'),
+    AON_TRANSLATE_STATE_PATH: path.join(__dirname, 'aon_translate_state.json'),
+    AON_SOURCE_BOT_ID: process.env.AON_SOURCE_BOT_ID || '1436590099235340410',
     PANEL_IMAGES: {
         salary: path.join(__dirname, 'panels', 'salary.png')
     }
@@ -49,6 +53,120 @@ function loadPanelState() { try { return JSON.parse(fs.readFileSync(CONFIG.PANEL
 function savePanelState(s) { fs.writeFileSync(CONFIG.PANEL_STATE_PATH, JSON.stringify(s, null, 2)); }
 
 const panelUpdateLocks = new Set();
+
+function createAonRouteMap(seed = null) {
+    const map = { notice: null, update: null, event: null };
+    if (!seed || typeof seed !== 'object') return map;
+    for (const k of Object.keys(map)) {
+        map[k] = typeof seed[k] === 'string' && seed[k].length ? seed[k] : null;
+    }
+    return map;
+}
+
+function loadAonTranslateState() {
+    try {
+        const raw = fs.readFileSync(CONFIG.AON_TRANSLATE_STATE_PATH, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return { guilds: {} };
+        parsed.guilds = parsed.guilds || {};
+        return parsed;
+    } catch {
+        return { guilds: {} };
+    }
+}
+const aonTranslateState = loadAonTranslateState();
+function saveAonTranslateState() { fs.writeFileSync(CONFIG.AON_TRANSLATE_STATE_PATH, JSON.stringify(aonTranslateState, null, 2)); }
+
+function ensureAonTranslateGuildState(guildId) {
+    if (!aonTranslateState.guilds[guildId]) {
+        aonTranslateState.guilds[guildId] = {
+            enabled: false,
+            sourceBotId: CONFIG.AON_SOURCE_BOT_ID,
+            routes: createAonRouteMap(),
+            translatedMessageIds: []
+        };
+    }
+    const g = aonTranslateState.guilds[guildId];
+    g.enabled = Boolean(g.enabled);
+    g.sourceBotId = typeof g.sourceBotId === 'string' && g.sourceBotId.length ? g.sourceBotId : CONFIG.AON_SOURCE_BOT_ID;
+    g.routes = createAonRouteMap(g.routes);
+    g.translatedMessageIds = Array.isArray(g.translatedMessageIds) ? g.translatedMessageIds.slice(-1000) : [];
+    return g;
+}
+
+function hasManageGuild(interaction) {
+    return Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild));
+}
+
+async function safeEphemeral(interaction, content) {
+    if (interaction.replied || interaction.deferred) return interaction.followUp({ content, ephemeral: true }).catch(() => {});
+    return interaction.reply({ content, ephemeral: true }).catch(() => {});
+}
+
+function splitForTranslation(text, max = 450) {
+    const input = String(text || '').trim();
+    if (!input) return [];
+    const lines = input.split('\n');
+    const chunks = [];
+    let buf = '';
+    for (const line of lines) {
+        const candidate = buf ? `${buf}\n${line}` : line;
+        if (candidate.length <= max) {
+            buf = candidate;
+        } else {
+            if (buf) chunks.push(buf);
+            if (line.length <= max) {
+                buf = line;
+            } else {
+                // hard wrap long single line
+                for (let i = 0; i < line.length; i += max) chunks.push(line.slice(i, i + max));
+                buf = '';
+            }
+        }
+    }
+    if (buf) chunks.push(buf);
+    return chunks;
+}
+
+async function translateKoToEn(text) {
+    const input = String(text || '').trim();
+    if (!input) return input;
+    if (!/[가-힣]/.test(input)) return input;
+    try {
+        const { data } = await axios.get('https://api.mymemory.translated.net/get', {
+            params: { q: input.slice(0, 450), langpair: 'ko|en' },
+            timeout: 7000
+        });
+        const translated = data?.responseData?.translatedText;
+        return translated && translated.trim() ? translated.trim() : input;
+    } catch {
+        return input;
+    }
+}
+
+async function translateKoToEnLong(text) {
+    const chunks = splitForTranslation(text, 450);
+    if (!chunks.length) return '';
+    const translated = [];
+    for (const chunk of chunks) translated.push(await translateKoToEn(chunk));
+    return translated.join('\n');
+}
+
+function buildAonTranslateStatusEmbed(guildState) {
+    const routes = createAonRouteMap(guildState.routes);
+    const routeLine = Object.entries(routes).map(([k, v]) => `- ${k}: ${v ? `<#${v}>` : 'Not set'}`).join('\n');
+    return new EmbedBuilder()
+        .setTitle('AON -> EN Auto Translation')
+        .setDescription([
+            `Enabled: ${guildState.enabled ? 'Yes' : 'No'}`,
+            `Source bot ID: \`${guildState.sourceBotId}\``,
+            `Translated cache: ${guildState.translatedMessageIds.length} message(s)`,
+            '',
+            'Routes',
+            routeLine
+        ].join('\n'))
+        .setColor(0x4F46E5);
+}
 
 const client = new Client({
     intents: [
@@ -131,6 +249,40 @@ const commands = [
                 { name: 'Daily Report', value: 'report' },
                 { name: 'Salary Confirm', value: 'salary' }
             ))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('aon_translate_set')
+        .setDescription('Set channel route for AON Korean->English translation')
+        .addStringOption(o => o
+            .setName('category')
+            .setDescription('Source category to monitor')
+            .setRequired(true)
+            .addChoices(
+                { name: 'NEWS', value: 'notice' },
+                { name: 'Update_Note', value: 'update' },
+                { name: 'EVENT', value: 'event' }
+            ))
+        .addChannelOption(o => o
+            .setName('channel')
+            .setDescription('Channel where AON bot posts this category')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+        .addBooleanOption(o => o
+            .setName('enabled')
+            .setDescription('Enable/disable translation globally for this guild')
+            .setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('aon_translate_source')
+        .setDescription('Set source bot id to translate from (default AON bot)')
+        .addStringOption(o => o
+            .setName('bot_id')
+            .setDescription('Discord bot user ID')
+            .setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('aon_translate_status')
+        .setDescription('Show AON translation routes and status')
         .toJSON(),
 ];
 
@@ -216,6 +368,32 @@ client.on('interactionCreate', async (interaction) => {
                 content: res.ok ? `✅ Salary confirmation submitted (${worker}) → ${regionCfg.code}` : `❌ Failed to save (${regionCfg.code}). Create **Salary_Log_${regionCfg.code}** sheet in Google Sheets.`,
                 ephemeral: true
             });
+        } else if (interaction.commandName === 'aon_translate_set') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const g = ensureAonTranslateGuildState(interaction.guildId);
+            const category = interaction.options.getString('category', true);
+            const channel = interaction.options.getChannel('channel', true);
+            const enabled = interaction.options.getBoolean('enabled');
+            g.routes[category] = channel.id;
+            if (enabled !== null && enabled !== undefined) g.enabled = enabled;
+            else g.enabled = true;
+            saveAonTranslateState();
+            await interaction.reply({ embeds: [buildAonTranslateStatusEmbed(g)], ephemeral: true });
+        } else if (interaction.commandName === 'aon_translate_source') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const botId = String(interaction.options.getString('bot_id', true)).trim();
+            if (!/^\d{17,20}$/.test(botId)) { await safeEphemeral(interaction, 'Invalid bot_id format.'); return; }
+            const g = ensureAonTranslateGuildState(interaction.guildId);
+            g.sourceBotId = botId;
+            g.enabled = true;
+            saveAonTranslateState();
+            await interaction.reply({ embeds: [buildAonTranslateStatusEmbed(g)], ephemeral: true });
+        } else if (interaction.commandName === 'aon_translate_status') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            const g = ensureAonTranslateGuildState(interaction.guildId);
+            await interaction.reply({ embeds: [buildAonTranslateStatusEmbed(g)], ephemeral: true });
         } else if (interaction.commandName === 'panel') {
             await interaction.deferReply({ ephemeral: true });
             if (!interaction.guild) {
@@ -512,7 +690,58 @@ function buildLinkFallbackEmbed(charName, addUrlHint = false) {
         .setTimestamp();
 }
 
+async function handleAonBotNewsTranslation(message) {
+    if (!message.guild || !message.author?.bot) return;
+    const guildCfg = ensureAonTranslateGuildState(message.guild.id);
+    if (!guildCfg.enabled) return;
+    if (message.author.id !== guildCfg.sourceBotId) return;
+    const matched = Object.entries(guildCfg.routes || {}).find(([, channelId]) => channelId && channelId === message.channelId);
+    if (!matched) return;
+    if (guildCfg.translatedMessageIds.includes(message.id)) return;
+
+    const category = matched[0];
+    const sourceEmbed = message.embeds?.[0];
+    const sourceTitle = sourceEmbed?.title || `AION2 ${String(category).toUpperCase()}`;
+    const sourceDescription = sourceEmbed?.description || message.content || '';
+    const sourceFields = Array.isArray(sourceEmbed?.fields) ? sourceEmbed.fields.slice(0, 5) : [];
+
+    const translatedTitle = await translateKoToEnLong(sourceTitle);
+    let translatedDescription = await translateKoToEnLong(sourceDescription);
+    if (!translatedDescription) translatedDescription = 'No translatable text found.';
+
+    const translatedFields = [];
+    for (const f of sourceFields) {
+        const name = await translateKoToEnLong(f.name || '');
+        const value = await translateKoToEnLong(f.value || '');
+        translatedFields.push({
+            name: (name || f.name || 'Field').slice(0, 256),
+            value: (value || f.value || '-').slice(0, 1024),
+            inline: Boolean(f.inline)
+        });
+    }
+
+    const out = new EmbedBuilder()
+        .setTitle(`🇬🇧 EN | ${(translatedTitle || sourceTitle || '').slice(0, 256)}`)
+        .setDescription([`[Open original post](${message.url})`, '', translatedDescription].join('\n').slice(0, 4096))
+        .setColor(sourceEmbed?.color || 0x4F46E5)
+        .setFooter({ text: `Auto-translated from AION bot (${String(category).toUpperCase()})` })
+        .setTimestamp();
+
+    if (sourceEmbed?.url) out.setURL(sourceEmbed.url);
+    if (sourceEmbed?.image?.url) out.setImage(sourceEmbed.image.url);
+    if (sourceEmbed?.thumbnail?.url) out.setThumbnail(sourceEmbed.thumbnail.url);
+    if (translatedFields.length) out.addFields(translatedFields);
+
+    const sent = await message.channel.send({ embeds: [out] }).catch(() => null);
+    if (!sent) return;
+
+    guildCfg.translatedMessageIds.push(message.id);
+    guildCfg.translatedMessageIds = guildCfg.translatedMessageIds.slice(-1000);
+    saveAonTranslateState();
+}
+
 client.on('messageCreate', async (message) => {
+    await handleAonBotNewsTranslation(message).catch(() => {});
     if (message.author?.bot) return;
     const content = message.content?.trim() || '';
 

@@ -32,6 +32,10 @@ https://koreanbots.dev/bots/1436590099235340410
    - `/notice_status` to inspect current settings
    - Category auto-routing supported (per-category channel split)
    - Feed crawler with source/category filtering
+   - AON bot message translation:
+     - `/aon_translate_set`
+     - `/aon_translate_source`
+     - `/aon_translate_status`
 
 4. **Party Recruit System**
    - `/profile_set` for player profile registration
