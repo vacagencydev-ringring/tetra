@@ -1583,6 +1583,7 @@ client.on('interactionCreate', async (interaction) => {
             await interaction.reply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES}.`, ephemeral: true });
             return;
         }
+        await interaction.deferReply({ ephemeral: true });
         const timestamp = makeLocalTimestamp(regionCfg.timeZone);
         if (modalType === 'kinah') {
             const login = interaction.fields.getTextInputValue('login');
@@ -1590,7 +1591,7 @@ client.on('interactionCreate', async (interaction) => {
             const profit = interaction.fields.getTextInputValue('profit');
             const data = [timestamp, worker, 'Kinah', login, logout, profit, ''];
             const res = await appendToSheet(regionCfg.sheetRange, data);
-            await interaction.reply({ content: res.ok ? `✅ Kinah report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`, ephemeral: true });
+            await interaction.editReply({ content: res.ok ? `✅ Kinah report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.` });
         } else if (modalType === 'levelup') {
             const login = interaction.fields.getTextInputValue('login');
             const logout = interaction.fields.getTextInputValue('logout');
@@ -1599,31 +1600,35 @@ client.on('interactionCreate', async (interaction) => {
             const progress = `${level} / ${cp}`;
             const data = [timestamp, worker, 'LevelUp', login, logout, progress, ''];
             const res = await appendToSheet(regionCfg.sheetRange, data);
-            await interaction.reply({ content: res.ok ? `✅ Level-Up report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`, ephemeral: true });
+            await interaction.editReply({ content: res.ok ? `✅ Level-Up report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.` });
         } else if (modalType === 'join_verify') {
             const nickname = (interaction.fields.getTextInputValue('nickname') || '').trim();
             const roleNote = (interaction.fields.getTextInputValue('role_note') || '').trim();
             const saved = await appendMemberListRecord(interaction, regionCfg, nickname, roleNote);
             if (!saved.ok) {
-                await interaction.reply({
-                    content: `❌ 가입확인 저장 실패 (${regionCfg.code}). Create **Member_List_${regionCfg.code}** sheet in Google Sheets.`,
-                    ephemeral: true
-                });
+                await interaction.editReply({ content: `❌ 가입확인 저장 실패 (${regionCfg.code}). Create **Member_List_${regionCfg.code}** sheet in Google Sheets.` });
                 return;
             }
             const merged = await rebuildMemberOrganizedSheet();
             const mergedMsg = merged.ok
                 ? `\n📚 회원목록정리 갱신: ${merged.count} row(s)`
                 : `\n⚠️ 회원목록정리 갱신 실패: ${merged.error}`;
-            await interaction.reply({
-                content: `✅ 가입확인 완료 (${regionCfg.code})\n- User: ${worker}${mergedMsg}`,
-                ephemeral: true
-            });
+            await interaction.editReply({ content: `✅ 가입확인 완료 (${regionCfg.code})\n- User: ${worker}${mergedMsg}` });
+        } else {
+            await interaction.editReply({ content: '❌ Unsupported modal type.' });
         }
     }
 
     } catch (err) {
         console.error('Interaction error:', err);
+        try {
+            if (!interaction?.isRepliable?.()) return;
+            if (interaction.deferred) {
+                await interaction.editReply({ content: '❌ 처리 중 오류가 발생했어요. 다시 시도해 주세요.' }).catch(() => {});
+            } else if (!interaction.replied) {
+                await interaction.reply({ content: '❌ 처리 중 오류가 발생했어요. 다시 시도해 주세요.', ephemeral: true }).catch(() => {});
+            }
+        } catch (_) {}
     }
 });
 
