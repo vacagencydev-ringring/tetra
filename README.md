@@ -88,6 +88,22 @@ npm install
 npm start
 ```
 
+## Google Sheets Auto-Create (for added country sheets)
+
+Use `google_sheet_country_bootstrap.gs` in Google Apps Script to automatically create:
+
+- `Daily_Log_PH`, `Daily_Log_ID`, `Daily_Log_IN`, `Daily_Log_NP`, `Daily_Log_CH`, `Daily_Log_TW`
+- `Salary_Log_PH`, `Salary_Log_ID`, `Salary_Log_IN`, `Salary_Log_NP`, `Salary_Log_CH`, `Salary_Log_TW`
+- `Member_List_PH`, `Member_List_ID`, `Member_List_IN`, `Member_List_NP`, `Member_List_CH`, `Member_List_TW`
+
+Quick setup:
+
+1. Open your Google Spreadsheet.
+2. Go to **Extensions -> Apps Script**.
+3. Paste `google_sheet_country_bootstrap.gs` code.
+4. Run `setupCountrySheets()` once (authorize when prompted).
+5. Optional: run `installDailySetupTrigger()` for daily auto-check.
+
 ## Notes
 
 - Runtime state is persisted to `bot_state.json`.
