@@ -6165,6 +6165,24 @@ async function getLinkTargetChannel(guildId) {
     return null;
 }
 
+function extractTableRowsFromInvenContent($, content) {
+    const rows = [];
+    const trs = content.find('table tr').toArray();
+    for (const tr of trs) {
+        const tds = $(tr).find('td').toArray();
+        if (tds.length < 2) continue;
+        const cells = tds.map(td => $(td).text().replace(/\s+/g, ' ').trim()).filter(Boolean);
+        const num = cells[0]?.replace(/\D/g, '');
+        if (num && /^\d{1,3}$/.test(num)) {
+            const name = cells[1] || cells[2] || '';
+            const source = cells[cells.length - 1] || cells[2] || '';
+            if (name) rows.push({ n: num, name, source });
+        }
+    }
+    if (rows.length < 2) return null;
+    return rows.slice(0, 40).map(r => `**${r.n}.** ${r.name} — ${r.source}`).join('\n');
+}
+
 async function fetchInvenArticle(url) {
     const res = await axios.get(url, {
         timeout: 15000,
@@ -6178,12 +6196,20 @@ async function fetchInvenArticle(url) {
     const titleEl = $('.articleTitle').first();
     const title = (titleEl.text() || $('title').text() || 'Inven Article').replace(/\s+/g, ' ').trim();
     const content = $('#powerbbsContent').first();
-    const rawText = (content.text() || '')
-        .replace(/\u00a0/g, ' ')
-        .replace(/\r/g, '\n')
-        .replace(/\n{3,}/g, '\n\n')
-        .replace(/[ \t]+/g, ' ')
-        .trim();
+    let summary = extractTableRowsFromInvenContent($, content);
+    if (!summary) {
+        const rawText = (content.text() || '')
+            .replace(/\u00a0/g, ' ')
+            .replace(/\r/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .replace(/[ \t]+/g, ' ')
+            .trim();
+        const SUMMARY_MAX = 900;
+        summary = rawText.slice(0, SUMMARY_MAX).trim();
+        const last = summary.lastIndexOf('\n');
+        if (last > SUMMARY_MAX * 0.5) summary = summary.slice(0, last).trim();
+        else if (summary.length >= SUMMARY_MAX) summary = summary.slice(0, 750).trim() + '…';
+    }
     const imgs = [
         ...new Set(
             content.find('img')
@@ -6193,14 +6219,10 @@ async function fetchInvenArticle(url) {
                 .filter(s => s.startsWith('http') && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(s))
         )
     ].slice(0, 5);
-    const SUMMARY_MAX = 900;
-    let summary = rawText.slice(0, SUMMARY_MAX).trim();
-    const last = summary.lastIndexOf('\n');
-    if (last > SUMMARY_MAX * 0.5) summary = summary.slice(0, last).trim();
-    else if (summary.length >= SUMMARY_MAX) summary = summary.slice(0, 750).trim() + '…';
     const titleEn = hasHangul(title) ? (await translateKoToEn(title) || title) : title;
     let summaryEn = summary ? (await translateKoToEnLong(summary) || summary) : '';
-    summaryEn = formatLinkSummaryForReadability(summaryEn || summary);
+    const fromTable = summary && summary.includes('**') && (summary.match(/\n/g) || []).length >= 3;
+    if (!fromTable) summaryEn = formatLinkSummaryForReadability(summaryEn || summary);
     return { url, title, titleEn, summary: summaryEn, images: imgs };
 }
 
