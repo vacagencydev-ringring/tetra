@@ -6101,11 +6101,14 @@ const INVEN_URL_PATTERN = /https?:\/\/(?:www\.)?inven\.co\.kr\/board\/aion2\/\d+
 
 function formatLinkSummaryForReadability(text) {
     if (!text || typeof text !== 'string') return text;
-    return text
-        .replace(/(\d{1,2})[.)]\s+/g, '\n**$1.** ')
-        .replace(/\n{2,}/g, '\n\n')
+    let out = text
+        .replace(/(\d{1,2})[.)]\s+/g, '\n**$1.** ')           // "1. " "2) " → 줄바꿈 + 볼드
+        .replace(/(\.)\s*(\d{1,2})\s+([A-Z])/g, '$1\n\n**$2.** $3')  // ". 1 Text" → 문단 나눔
+        .replace(/^(\d{1,2})\s+([A-Z])/m, '**$1.** $2')       // 문장 시작 "1 Text"
+        .replace(/\n{3,}/g, '\n\n')
         .replace(/^[\s\n]+|[\s\n]+$/g, '')
         .trim();
+    return out;
 }
 
 const TACTICS_CATEGORY_SEARCH_KEYS = {
