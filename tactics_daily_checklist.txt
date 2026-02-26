@@ -10,122 +10,81 @@ Image:
 ---
 
 ## Goal
-- Build a routine you can repeat every week without burnout.
-- Reduce missed rewards caused by last-day panic.
-- Convert random play into consistent progression.
+
+Build a repeatable weekly routine that avoids burnout and last-day panic. Consistent progression beats irregular high-effort sessions.
 
 ---
 
-## Routine design principles
+## Daily order
 
-Daily logic:
-- prioritize tasks that lose value if skipped.
-
-Weekly logic:
-- spread high-load tasks across multiple days.
-
-Resource logic:
-- track consumables and weekly-limited resources numerically.
-
-Consistency beats intensity.
+1. Check Journal and mission board for high-value tasks.
+2. Review energy and ticket leakage risk.
+3. Do short mobile-friendly blocks first.
+4. Move party-dependent tasks into prime-time.
 
 ---
 
-## Recommended daily order
+## Weekly structure
 
-1) Check journal/mission board for high-value tasks.
-2) Review energy and ticket leakage risk.
-3) Complete short mobile-friendly blocks first.
-4) Move party-dependent tasks into prime-time windows.
+**Early week:** Lock core weekly rewards (missions, Abyss, Shugo Festa if active).
 
-This sequence reduces decision fatigue and protects progress.
+**Midweek:** Party dungeons, high-risk content.
 
----
+**Weekend:** Burn tickets, finish delayed missions, resource consumption.
 
-## Recommended weekly structure
-
-Early week:
-- lock core weekly rewards.
-
-Midweek:
-- run party-heavy or high-risk content.
-
-Weekend:
-- clean up remaining tickets, missions, and resource consumption.
-
-Avoid putting everything near weekly reset.
+Don’t pile everything near reset.
 
 ---
 
-## Odd Energy control
+## Odd Energy
 
-Core idea:
-- Odd Energy should be budgeted weekly, not spent impulsively.
-
-Management:
-- estimate weekly inflow
-- define target consumption windows
-- avoid one-day over-spend
-
-Random gains are bonus, not planning baseline.
+Budget Odd Energy weekly. Estimate inflow, define target consumption windows, avoid one-day overspend. Random gains are bonus, not baseline.
 
 ---
 
-## Time allocation by session length
+## Session length
 
-20-30 min:
-- mission checks + short guaranteed rewards
+**20–30 min:** Mission checks, short guaranteed rewards.
 
-45-60 min:
-- daily core loop + one progression side task
+**45–60 min:** Daily core loop + one progression side task.
 
-90+ min:
-- include party content or backlog cleanup
+**90+ min:** Include party content or backlog cleanup.
 
-Pick the block that matches real life schedule.
+---
+
+## Odd Energy and tickets
+
+- Track consumables and weekly-limited resources.
+- Odd Energy should be reserved for high-value content.
+- Use Instant Completion Ticket for Daily Dungeon only after you’ve cleared.
 
 ---
 
 ## Anti-chaos checklist
 
-- [ ] daily must-do tasks are completed first
-- [ ] party content is scheduled in active hours
-- [ ] weekly-limited tasks are distributed across days
-- [ ] odd/ticket consumption is monitored
-- [ ] sunday pre-reset audit is performed
+- [ ] Daily must-do tasks completed first
+- [ ] Party content scheduled in active hours
+- [ ] Weekly-limited tasks spread across days
+- [ ] Odd Energy and ticket consumption monitored
+- [ ] Sunday pre-reset audit (unresolved rewards, next-week priority)
 
 ---
 
-## Weekly board template
+## Simple template
 
-For each day:
-- 3 daily fixed tasks
-- 2 weekly accumulation tasks
-- resource spend record
+**Per day:** 3 daily fixed tasks + 2 weekly accumulation tasks + resource log.
 
-Sunday review:
-- unresolved weekly rewards
-- next week priority list
-
-Simple templates outperform complex plans you never follow.
+**Sunday review:** Unresolved weekly rewards, next-week priority list.
 
 ---
 
-## Common failures and fixes
+## Common failures
 
-Failure: doing easy tasks only.
-Fix: lock at least one high-impact task each session.
-
-Failure: ignoring resource logs.
-Fix: update a minimal numeric tracker daily.
-
-Failure: postponing hard content to reset day.
-Fix: move one hard block to midweek.
-
-Failure: no routine adaptation.
-Fix: review and adjust weekly after reset.
+- Doing easy tasks only → lock at least one high-impact task per session.
+- Ignoring resource logs → update a minimal tracker daily.
+- Pushing hard content to reset day → move one hard block to midweek.
+- Never adjusting → review and tweak after each reset.
 
 ---
 
-## Practical conclusion
-The best daily/weekly checklist is the one you can execute repeatedly. A stable rhythm with tracked resources and scheduled difficulty gives better long-term growth than irregular high-effort sessions.
+*Original: Inven AION2 Tips & Know-how*

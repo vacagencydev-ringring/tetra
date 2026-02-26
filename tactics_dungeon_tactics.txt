@@ -10,120 +10,91 @@ Images:
 
 ---
 
-## Scope
-- Focuses on practical handling of new transcendence and tier 4-6 pattern pressure.
-- Written for parties that want consistent clears, not one-time lucky clears.
-- Main objective: reduce wipes through role clarity and mechanic discipline.
+## Rule one: mechanics before logs
+
+Most wipes start with one ignored mechanic. A short damage cut is faster than a full reset. Controlled phase progression beats random burst attempts.
 
 ---
 
-## First principle: clear mechanics before chasing logs
+## Pre-run setup
 
-- Most wipe chains begin with one ignored mechanic.
-- A short damage cut is usually faster than a full reset.
-- Controlled phase progression beats random burst attempts.
+**Before entering:**
+- Confirm role (tank/heal/DPS)
+- Check defensive skill timeline
+- Verify required CP and entry conditions
+- Agree on revive and reset policy
 
----
+**Early attempts:**
+- Map telegraph signals
+- Call movements clearly
+- Prioritize survival over damage greed
 
-## New transcendence dungeon pre-run setup
-
-Before entering:
-- confirm role assignment
-- verify defensive skill timeline
-- check required combat power and condition gates
-- define revive and reset policy
-
-During early attempts:
-- map telegraph signals
-- call movement clearly
-- prioritize team survival over damage greed
-
-After each wipe:
-- identify exact failure trigger
-- change one variable at a time
+**After each wipe:** Identify the exact failure trigger. Change one variable at a time.
 
 ---
 
-## Tier 4-6 systemic changes to respect
+## Tier 4–6 differences
 
-1) Additional transcendence traits increase complexity.
-2) Kill requirements per area can be stricter.
-3) Patterns are upgraded versions plus new cooperative mechanics.
+At higher transcendence tiers:
+- Extra traits add complexity
+- Kill requirements per area are stricter
+- Patterns are upgraded versions + new cooperative mechanics
 
-Practical result:
-- old low-tier habits can fail hard at higher tiers.
-
----
-
-## Deus Research Base notes
-
-- Soul knot mechanics can punish movement mistakes with slow + sustained damage.
-- Final boss chain patterns require accurate pattern distinction.
-- Some dialogue-triggered moments invert expected positioning behavior.
-
-Team rule:
-- use dialogue-linked call keywords to avoid chain confusion.
+Old low-tier habits cause wipes. Expect new patterns, not just more HP.
 
 ---
 
-## Fragmented Arcanis notes
+## Deus Research Base
 
-- Additional traps and floor pressure can stack avoidable damage quickly.
-- Mid and final boss include cooperation-heavy mechanics.
-- Failure often causes both survival loss and major DPS downtime.
+- **Soul Knots (Stage 4–6):** Adds spawn near players. Stay apart or take heavy slow + DoT.
+- **Chain patterns:** "사슬에 묶여라!" chains everyone to Atiel—stay close or take DoT. Different from "내게서 벗어날 수 없다!" (two-player chain).
+- **Stagger:** ~20–30% HP. Deplete stagger in time or wipe. Save stagger skills.
+- **Terrain destruction:** Boss center knocks back. Edges collapse. Stay center to avoid fall death.
 
-Team rule:
-- pre-assign mechanic roles: lure, release, call, backup.
+Use clear callouts for dialogue-linked mechanics.
 
 ---
 
-## Communication protocol
+## Shattered Arcanis
 
-Keep calls short and repeatable:
+- **False Siliaitor:** Guided saws target 2 players. Cross lines (X) so saws collide.
+- **Void Talisra:** Color orbs—assign 2 white, 2 black. Eat only your color. Break white spear (hit count, not damage). Jump rope: jump blue, then red (red = stun).
+- **Stage 4–6:** "굴절의 창"—one player crystallized. Adjust so 3 spears hit crystal. Dodge before they fire.
+- **Stage 7–10:** Fire pillars; dodge through gaps. Can overlap with jump rope.
+
+Pre-assign roles: lure, release, call, backup.
+
+---
+
+## Call vocabulary
+
+Keep calls short:
 - "Hold burst"
 - "Move out"
 - "Stack in"
 - "Break now"
 - "Cleanse ready"
 
-Avoid long explanations in active pattern windows.
+No long explanations during active patterns.
 
 ---
 
 ## Recovery discipline
 
-- Not every pull is recoverable efficiently.
-- If major cooldown sync is broken, reset early.
-- If pattern caller is uncertain, pause damage and re-stabilize.
-
-This improves total clear speed over a full session.
+Not every pull is recoverable. If major cooldown sync is broken, reset early. If the pattern caller is unsure, pause damage and re-stabilize.
 
 ---
 
-## Weekly progression model
+## Progression model
 
-Week 1:
-- pattern recognition and call vocabulary standardization
+**Week 1:** Pattern recognition, call vocabulary.
 
-Week 2:
-- movement cleanup and defensive timing refinement
+**Week 2:** Movement cleanup, defensive timing.
 
-Week 3:
-- burst optimization only in verified safe windows
+**Week 3:** Burst optimization only in verified safe windows.
 
-Skipping this sequence usually creates unstable runs.
+Skipping this order usually causes unstable runs.
 
 ---
 
-## Team checklist
-
-- [ ] Pattern caller and backup caller are assigned.
-- [ ] Burst hold windows are known by all members.
-- [ ] Mechanic responsibilities are pre-assigned.
-- [ ] Reset rules are agreed before the run.
-- [ ] Post-wipe one-line review is done every attempt.
-
----
-
-## Practical conclusion
-High-tier dungeon success is mostly operational execution. Parties that standardize calls, roles, and reset decisions clear faster and more reliably than parties that only rely on raw combat power.
+*Original: Inven AION2 Tips & Know-how*

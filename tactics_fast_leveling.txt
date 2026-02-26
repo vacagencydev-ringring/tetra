@@ -8,110 +8,56 @@ Image:
 
 ---
 
-## What this guide solves
-- New players often lose time by doing side content in the wrong order.
-- This guide gives a route that keeps EXP flow, awakening progress, and permanent growth synchronized.
-- Goal: level fast without creating long-term progression debt.
+## Core strategy
+
+**Main quest + regional quest together.** Don't tunnel-vision main quest only. Regional quests in Elysea/Demon World often unlock awakening gates and give key rewards. Pick up both when you enter a new area.
+
+**Specialization slots:** The moment you hit a level that unlocks a new skill or specialization slot, open your skill page and assign it. Left-click + right-click combo is your bread-and-butter early damage.
 
 ---
 
-## Core route philosophy
+## Quest flow by stage
 
-1) Main quest and regional quest should move together.
-- Main quest alone eventually stalls at awakening progress gates.
-- Regional quests provide key side rewards while you are already in the same area.
+**1–30:** Follow main storyline. Grab regional quests in Verteron (Elyos) or Altgard (Asmodian) as you pass through. Use tutorial rewards and starter gear.
 
-2) Sealed dungeons and outposts should be paced, not spammed blindly.
-- Some rewards scale better when your progression is higher.
-- Use travel-efficient timing instead of forcing full clear early.
+**30–50:** Main quest will send you to new zones. Clear regional quests in each zone before moving on. Your first sealed dungeon (e.g. Daeva Biological Research Base) opens around here—do it when the quest points you there.
 
-3) Skill level and specialization slots are part of leveling speed.
-- At each unlock breakpoint, assign specializations immediately.
-- Early damage consistency usually comes from left-click + right-click core pairing.
+**50+:** Awakening progress becomes important. Check Journal missions; some gate next story steps. Odd Energy is limited—spend it on high-value instant completions rather than burning it on weak reward phases.
 
 ---
 
-## Permanent growth systems to never ignore
+## Systems to keep moving
 
-## Field relic collection
-- Collect while moving, not as a separate marathon session.
-- Relic progress fuels systems that provide persistent character value.
-
-## PvE amulet progression
-- Treat amulet as a long-term stat foundation.
-- Upgrade cadence matters more than random burst spending.
-
-## Noble belt progression
-- Belt progression is a persistent power track.
-- Route should be integrated into weekly movement, not isolated.
+- **Field relics:** Grab them while you move. Don't do a separate relic grind session.
+- **Noble belt / PvE amulet:** Upgrade when you have materials. These are long-term stat foundations.
+- **Pet:** Level it as you level. Feed soul crystals when you have them.
 
 ---
 
-## Odd Energy timing
-- Odd Energy is a strategic resource, not "spend everything now" fuel.
-- Overusing it during weak reward phases lowers your total weekly value.
-- Save major usage for stronger farm windows once your character is ready.
+## Odd Energy
+
+Odd Energy recharges slowly. Use it for:
+- Instant Completion Ticket: Daily Dungeon (when you've already cleared)
+- High-reward content you've unlocked but don't have time to repeat
+
+Avoid dumping it early on low-tier rewards.
 
 ---
 
-## 3-stage leveling framework
+## Session tips
 
-## Stage 1: Early progression
-- Push main quest objectives.
-- Clear overlapping regional quests.
-- Stabilize first specialization setup.
-
-## Stage 2: Mid progression
-- Continue synchronized quest route.
-- Add selective side systems that have clear permanent return.
-- Maintain controlled Odd Energy usage.
-
-## Stage 3: Pre-endgame transition
-- Clean up delayed progression systems.
-- Tune core skills for dungeon consistency.
-- Prepare your first weekly repeatable routine.
+- **Short session (20–30 min):** Main + nearest regional quests only.
+- **Medium (45–60 min):** Add one dungeon run or one permanent-growth task (relics, amulet).
+- **Long (90+ min):** Add party content or weekly mission cleanup.
 
 ---
 
-## Common mistakes and fixes
+## Common errors
 
-Mistake: Main quest tunnel vision.
-Fix: Always check if nearby regional quests unblock your next gate.
-
-Mistake: Over-investing temporary gear.
-Fix: Spend by replacement horizon (short hold vs long hold).
-
-Mistake: Forgetting specialization unlocks.
-Fix: Every breakpoint level -> open skill page before next pull.
-
-Mistake: Burning Odd Energy too early.
-Fix: reserve major consumption for better reward tiers.
+- **Main quest only:** You'll hit awakening gates with no way to pass. Always check regional quests in the area.
+- **Sitting on specialization unlocks:** Every breakpoint level → open skill page before the next pull.
+- **Burning Odd Energy on weak phases:** Save major use for better reward tiers.
 
 ---
 
-## Session templates
-
-30-minute session:
-- Main + nearest regional quests only.
-
-60-minute session:
-- Main + regional + one permanent growth checkpoint.
-
-90-minute session:
-- Main + regional + one controlled farm block + reset prep.
-
-Choose by schedule, but keep consistency.
-
----
-
-## Quick checklist
-- [ ] Main and regional quests are running in parallel.
-- [ ] Newly unlocked specialization slots are assigned.
-- [ ] Permanent growth systems are progressing weekly.
-- [ ] Odd Energy is reserved for high-value windows.
-- [ ] Gear spending is aligned with replacement timing.
-
----
-
-## Practical conclusion
-Fast leveling is not only speed; it is sequence quality. If you synchronize quest flow, specialization timing, and permanent growth systems, you level quickly and enter endgame without cleanup bottlenecks.
+*Original: Inven AION2 webzine*

@@ -10,100 +10,68 @@ Image:
 
 ---
 
-## Why this matters
-- Most players lose kinah not because of low playtime, but poor scheduling.
-- Multi-character farming can be strong, but only with controlled resource planning.
-- This guide converts broad "farm more" advice into an actual weekly framework.
+## Multi-character farming
+
+Players running 6 characters with a strict routine report **~100M+ kinah per week** in field + dungeon farming. This depends on class, gear, queue luck, and market timing—not guaranteed.
+
+**Key idea:** Kinah loss usually comes from poor scheduling, not lack of playtime.
 
 ---
 
-## 6-character weekly farming concept
+## Energy budget
 
-Reported field example in the linked discussion:
-- Approximate weekly kinah output in the 100M+ range under heavy routine execution.
-- Higher output possible when all side drops are liquidated efficiently.
+Each character has limited energy (Odd Energy + shop/crafting sources). Plan runs like this:
 
-Important context:
-- This is not universal guaranteed income.
-- Real output varies by class efficiency, gear level, queue luck, and market timing.
+1. Calculate per-character weekly energy.
+2. Convert energy → run count (based on cost per run).
+3. Multiply by roster size.
+4. Add buffer for failed runs and inefficiency.
 
----
-
-## Energy-based run planning
-
-Core formula mindset:
-- Per-character weekly energy = passive recharge + shop support + crafting support.
-- Convert total energy into practical run count by your content cost per run.
-- Multiply by active roster size.
-- Apply efficiency decay and fail-time buffer.
-
-Never skip this planning step:
-- If you skip the math, your week collapses near reset.
+If you skip the math, your week collapses near reset.
 
 ---
 
-## Time-slot optimization for working players
+## Time-slot tips
 
-Practical split:
-- Mobile-friendly blocks: short tasks, checks, purchases, mission setup.
-- Prime PC blocks: party-heavy content and high-value clears.
-- Low-traffic blocks: solo content and cleanup tasks.
+**Mobile-friendly:** Short tasks, mission setup, exchange checks, quick purchases.
 
-Weekly shape:
-- Midweek: push core high-yield content while party supply is healthy.
-- Weekend: consume ticket-type backlog and finish delayed tasks.
+**PC prime-time:** Party dungeons (Deus Research Base, Shattered Arcanis, Ludra), Abyss runs, Shugo Festa.
 
----
+**Low-traffic hours:** Solo content, daily missions, material farming.
 
-## Character role splitting
+**Midweek:** Push high-yield party content while queues are active.
 
-Do not run all alts identically.
-
-Suggested role model:
-- Energy burners (high-value consumption)
-- Routine handlers (daily mission completion)
-- Utility alts (specific resource loops)
-- Optional AP/abyss support alts
-
-Role splitting improves throughput and prevents bottlenecks.
+**Weekend:** Burn tickets, finish delayed tasks.
 
 ---
 
-## Liquidation strategy
+## Alt roles
 
-- Resource value is not fixed over time.
-- Selling everything immediately is not always optimal.
-- Keep a simple sell policy:
-- Immediate sell for high-volume low-volatility items.
-- Timed sell for market-sensitive drops.
+Don't run every alt the same way.
 
----
-
-## Common mistakes
-
-Mistake: Attempting full clear routine every day.
-Fix: Assign content by weekday purpose.
-
-Mistake: Ignoring reset windows.
-Fix: Maintain visible weekly checklist with deadlines.
-
-Mistake: Over-investing alt characters.
-Fix: Keep alt spending below main-character progression threshold.
-
-Mistake: No fallback plan for bad queue hours.
-Fix: Prepare solo-compatible backup tasks per session.
+- **Energy burners:** Characters that eat energy on high-value dungeons.
+- **Routine handlers:** Daily mission completion, exchange maintenance.
+- **Utility alts:** Specific resource loops (e.g. gathering, material conversion).
+- **AP/Abyss alts:** Optional PvP-focused farming.
 
 ---
 
-## Operational checklist
+## Selling drops
 
-- [ ] Weekly energy budget calculated per character.
-- [ ] Prime-time and off-time tasks are separated.
-- [ ] Alt roles are defined and stable.
-- [ ] Reset deadlines are tracked.
-- [ ] Sell policy exists for major drop categories.
+- **Sell immediately:** High-volume, low-volatility items.
+- **Time your sell:** Market-sensitive drops (e.g. rare materials after patch).
+
+Track exchange trends instead of dumping everything on day one.
 
 ---
 
-## Practical conclusion
-Kinah farming at scale is a scheduling problem first, combat problem second. If you control energy math, session timing, and alt roles, your weekly output rises while burnout drops.
+## Mistakes to avoid
+
+- Doing a full clear routine every day with no role split → burnout, lower yield.
+- Ignoring reset windows → missed weekly rewards.
+- Over-investing in alts → main character falls behind.
+- No solo backup when queues are dead → wasted sessions.
+
+---
+
+*Original: Inven AION2 Tips & Know-how*

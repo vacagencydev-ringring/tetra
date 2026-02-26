@@ -1526,7 +1526,7 @@ function buildGuideEmbedsKo() {
         .addFields(
             {
                 name: '📌 패널 게시 (모든 타입)',
-                value: '**`/panel type:<종류>`** — 아래 패널을 채널에 게시 (Admin)\n• `report` 일일 리포트 | `salary` 급여 | `join_verify` 가입 인증 | `payment` 입금 | `youtube` 정보 유튜브\n• `guide_ko` 전체 가이드(한글) | `guide_en` 전체 가이드(영어)\n• `guidebook_plaync` 공식 가이드북 | `tactics` 던전/펫 가이드',
+                value: '**`/panel type:<종류>`** — 아래 패널을 채널에 게시 (Admin)\n• `report` 일일 리포트 | `salary` 급여 | `join_verify` 가입 인증 | `payment` 입금 | `youtube` 정보 유튜브 | `link` 링크 요약·번역\n• `guide_ko` 전체 가이드(한글) | `guide_en` 전체 가이드(영어)\n• `guidebook_plaync` 공식 가이드북 | `tactics` 던전/펫 가이드',
                 inline: false
             },
             {
@@ -1546,7 +1546,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '✅ 3. 가입 인증',
-                value: '**`/join_verify`** — 국가 선택 → Role 입력 (캐릭터 검증 없음)\n**`/myinfo_register character_name:<이름>`** — 스크린샷 업로드 → 스태프 Approve 시 회원목록정리에 **검증된** 캐릭터명 반영\n**`/join_verify_panel`** — 가입 인증 버튼 패널 게시 (Admin)\n**`/verify_channel_set category:<카테고리>`** — 인증 채널 생성 위치 (Admin)',
+                value: '**`/join_verify`** — 국가 선택 → Role 입력 (캐릭터 검증 없음)\n**`/myinfo_register character_name:<이름>`** — 스크린샷 업로드 → 스태프 Approve 시 회원목록정리에 **검증된** 캐릭터명 반영\n**`/panel type:join_verify`** — 가입 인증 패널 게시 (Admin)\n**`/verify_channel_set category:<카테고리>`** — 인증 채널 생성 위치 (Admin)',
                 inline: false
             },
             {
@@ -1558,11 +1558,16 @@ function buildGuideEmbedsKo() {
                 name: '🎬 5. 정보 유튜브',
                 value: '**`/panel type:youtube`** — Add Video로 URL 추가\n**`/youtube_ready video:<URL> post_card:true/false`** — 링크 생성 (KO→EN 제목, EN 자막)',
                 inline: false
+            },
+            {
+                name: '📰 6. 링크 요약·번역',
+                value: '**`!link <url>`** — 기사 링크 요약·영문 번역·썸네일\n**`/panel type:link`** — Add Link 버튼 패널 (Admin)\n지원: inven.co.kr/board/aion2/*, inven.co.kr/webzine/news/*',
+                inline: false
             }
         )
         .setTimestamp();
     const e2 = new EmbedBuilder()
-        .setTitle('⚔️ 6. 필드 보스 & MVP (Admin)')
+        .setTitle('⚔️ 7. 필드 보스 & MVP (Admin)')
         .setColor(0xef4444)
         .addFields(
             {
@@ -1583,7 +1588,7 @@ function buildGuideEmbedsKo() {
         )
         .setTimestamp();
     const e3 = new EmbedBuilder()
-        .setTitle('📊 7. 키나 시세')
+        .setTitle('📊 8. 키나 시세')
         .setColor(0x22c55e)
         .addFields(
             {
@@ -1599,7 +1604,7 @@ function buildGuideEmbedsKo() {
         )
         .setTimestamp();
     const e4 = new EmbedBuilder()
-        .setTitle('🔍 8. AION2 검색 (한/영 → 결과 영어)')
+        .setTitle('🔍 9. AION2 검색 (한/영 → 결과 영어)')
         .setColor(0x3b82f6)
         .addFields(
             {
@@ -1615,7 +1620,7 @@ function buildGuideEmbedsKo() {
         )
         .setTimestamp();
     const e5 = new EmbedBuilder()
-        .setTitle('📖 9. TACTICS & 공식 가이드북')
+        .setTitle('📖 10. TACTICS & 공식 가이드북')
         .setColor(0x8b5cf6)
         .addFields(
             {
@@ -1652,7 +1657,7 @@ function buildGuideEmbedsEn() {
         .addFields(
             {
                 name: '📌 Panel Types',
-                value: '**`/panel type:<type>`** — Post a panel to this channel (Admin)\n• `report` Daily report | `salary` Salary | `join_verify` Join | `payment` Payment | `youtube` Info YouTube\n• `guide_ko` Full guide (KR) | `guide_en` Full guide (EN)\n• `guidebook_plaync` Official Guidebook | `tactics` Dungeon & Pet guides',
+                value: '**`/panel type:<type>`** — Post a panel to this channel (Admin)\n• `report` Daily report | `salary` Salary | `join_verify` Join | `payment` Payment | `youtube` Info YouTube | `link` Link summarize & translate\n• `guide_ko` Full guide (KR) | `guide_en` Full guide (EN)\n• `guidebook_plaync` Official Guidebook | `tactics` Dungeon & Pet guides',
                 inline: false
             },
             {
@@ -1672,7 +1677,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: '✅ 3. Join Verification',
-                value: '**`/join_verify`** — Country selection → Role (no character verification)\n**`/myinfo_register character_name:<name>`** — Upload screenshot → staff Approve → **verified** character name added to member list\n**`/join_verify_panel`** — Post join verification button panel (Admin)\n**`/verify_channel_set category:<cat>`** — Where verification channels are created (Admin)',
+                value: '**`/join_verify`** — Country selection → Role (no character verification)\n**`/myinfo_register character_name:<name>`** — Upload screenshot → staff Approve → **verified** character name added to member list\n**`/panel type:join_verify`** — Post join verification panel (Admin)\n**`/verify_channel_set category:<cat>`** — Where verification channels are created (Admin)',
                 inline: false
             },
             {
@@ -1684,11 +1689,16 @@ function buildGuideEmbedsEn() {
                 name: '🎬 5. Info YouTube',
                 value: '**`/panel type:youtube`** — Add Video to add URLs\n**`/youtube_ready video:<URL> post_card:true/false`** — Generate link (KO→EN title, EN subtitle)',
                 inline: false
+            },
+            {
+                name: '📰 6. Link (Summarize & Translate)',
+                value: '**`!link <url>`** — Summarize, translate to EN, attach thumbnail\n**`/panel type:link`** — Add Link button panel (Admin)\nSupported: inven.co.kr/board/aion2/*, inven.co.kr/webzine/news/*',
+                inline: false
             }
         )
         .setTimestamp();
     const e2 = new EmbedBuilder()
-        .setTitle('⚔️ 6. Field Boss & MVP (Admin)')
+        .setTitle('⚔️ 7. Field Boss & MVP (Admin)')
         .setColor(0xef4444)
         .addFields(
             {
@@ -1709,7 +1719,7 @@ function buildGuideEmbedsEn() {
         )
         .setTimestamp();
     const e3 = new EmbedBuilder()
-        .setTitle('📊 7. Kinah Rate')
+        .setTitle('📊 8. Kinah Rate')
         .setColor(0x22c55e)
         .addFields(
             {
@@ -1725,7 +1735,7 @@ function buildGuideEmbedsEn() {
         )
         .setTimestamp();
     const e4 = new EmbedBuilder()
-        .setTitle('🔍 8. AION2 Search (EN/KR → EN results)')
+        .setTitle('🔍 9. AION2 Search (EN/KR → EN results)')
         .setColor(0x3b82f6)
         .addFields(
             {
@@ -1741,7 +1751,7 @@ function buildGuideEmbedsEn() {
         )
         .setTimestamp();
     const e5 = new EmbedBuilder()
-        .setTitle('📖 9. TACTICS & Official Guidebook')
+        .setTitle('📖 10. TACTICS & Official Guidebook')
         .setColor(0x8b5cf6)
         .addFields(
             {
@@ -1839,8 +1849,8 @@ function buildGuideEmbedsUser() {
                 inline: false
             },
             {
-                name: 'YouTube & Translation',
-                value: '**`/youtube_ready video:<URL>`** — Generate EN subtitle link for Korean info videos\n**`/aon_translate_status`** — View translation routes',
+                name: 'Link & YouTube',
+                value: '**`!link <url>`** — Summarize & translate article (inven.co.kr)\n**`/youtube_ready video:<URL>`** — EN subtitle link for Korean videos\n**`/aon_translate_status`** — View translation routes',
                 inline: false
             }
         )
@@ -1888,15 +1898,15 @@ function buildFaqAdminEmbed(lang = 'en') {
             .setDescription('서버 관리자용 자주 묻는 질문.')
             .setColor(0xf59e0b)
             .addFields(
-                { name: 'Q: 패널은 어떻게 게시하나요?', value: '**`/panel type:<종류>`** — report, salary, join_verify, payment, youtube, guide_ko, guide_en, **guidebook_plaync**, **tactics**. 채널에서 실행하면 해당 패널 게시. 종류별 1개.', inline: false },
+                { name: 'Q: 패널은 어떻게 게시하나요?', value: '**`/panel type:<종류>`** — report, salary, join_verify, payment, youtube, **link**, guide_ko, guide_en, **guidebook_plaync**, **tactics**. 채널에서 실행하면 해당 패널 게시. 종류별 1개.', inline: false },
                 { name: 'Q: TACTICS와 가이드북 차이?', value: '**TACTICS** — 인벤 던전/펫 가이드. **가이드북** — PlayNC 공식 (클래스·스킬).\n둘 다 기본은 나만보기.\n**관리자 공개:** `/tactics public:true`, `/guidebook public:true` 또는 패널 Post to Channel.\n**가이드북:** `/guidebook_fetch` 갱신, 실패/빈 데이터 시 로컬 fallback 자동 사용.', inline: false },
                 { name: 'Q: 신규 멤버 안내 순서는?', value: '**Announcements 확인** → **`/join_verify`** 가입 진행 → **`/help`**로 명령어 확인.\n환영 문구 채널/공지 채널은 **`/welcome_set announcements_channel:<채널> welcome_channel:<채널>`**로 설정.', inline: false },
-                { name: 'Q: 전체 가이드 vs 멤버 가이드?', value: '**전체 가이드** (`/panel type:guide_ko`, `guide_en`) — 전체 명령어, Admin이 채널에 게시\n**멤버 가이드** (`/guide`) — 멤버용 명령어, 나만보기 (ephemeral)', inline: false },
+                { name: 'Q: 전체 가이드 vs 멤버 가이드?', value: '**전체 가이드** (`/panel type:guide_ko`, `guide_en`) — Admin 전체 명령어, 채널에 게시\n**멤버 가이드** (`/guide`) — 멤버용 명령어, 나만보기', inline: false },
                 { name: 'Q: 필드 보스 타이머 설정 순서?', value: '1. **`/preset mode:combined`** 또는 **`/boss_fetch`** (URL에서 로드)\n2. 처치 시: **`/cut boss_name:<이름>`**로 기록\n3. **`/boss_alert_mode mode:dm`** — DM 알림 (선택)\n4. **`/boss_event_multiplier multiplier:0.8`** — 이벤트 리스폰 배율 (선택)', inline: false },
                 { name: 'Q: MVP 스케줄 설정?', value: '**`/mvp_set day:<요일> time:HH:mm`** — 요일별 MVP 시간 (Admin)\n**`/mvp`** — 현재 스케줄 조회 (Admin)', inline: false },
                 { name: 'Q: 키나 시세 모니터링 설정?', value: '**`/kinah_watch_preset`** — ItemBay/ItemMania 프리셋. channel, poll_minutes, mention_role 설정. **`/kinah_watch_status`**로 확인, **`/kinah_watch_stop`**으로 중지.', inline: false },
                 { name: 'Q: AON 한→영 번역?', value: '**`/aon_translate_set`** — category(notice/update/event), channel 설정. **`/aon_translate_source`** — AON 봇 ID. **`/aon_translate_status`**로 라우트 확인.', inline: false },
-                { name: 'Q: 캐릭터 검증(myinfo_register) 설정?', value: '**`/join_verify`** — 검증 없음 (Role만). **`/myinfo_register`**로만 캐릭터명 추가 (스크린샷 필수).\n1. Admin: **`/verify_channel_set category:<카테고리>`**\n2. 사용자: **`/myinfo_register character_name:<이름>`** → 스크린샷 업로드\n3. 스태프: Approve → 지역 선택 → 회원목록 G열에 캐릭터 추가', inline: false },
+                { name: 'Q: 캐릭터 검증 설정?', value: '**`/join_verify`** — Role만. **`/myinfo_register`**로 캐릭터명 추가 (스크린샷 필수)\n1. Admin: **`/verify_channel_set category:<카테고리>`**\n2. 사용자: **`/myinfo_register character_name:<이름>`** → 스크린샷 업로드\n3. 스태프: Approve → 지역 선택 → 회원목록 G열 반영', inline: false },
                 { name: 'Q: 입금 통화 선택?', value: '**Submit Payment** → 통화 선택 (KRW, USD, PHP, INR, NPR, CNY, TWD) → 금액·사유 입력. Payment Log 시트: A:G (날짜, 유형, 태그, 금액, **통화**, 사유, 상태)', inline: false },
                 { name: 'Q: 검색·가이드 결과는 누가 보나요?', value: '**`/character`** **`/item`** **`/collection`** **`/build`** — 나만 (ephemeral)\n**`!char <이름>`** — 결과 DM 전송\n**`/guide`** **`/tactics`** **`/guidebook`** — 기본 나만 (ephemeral)\n**관리자 공개:** `/tactics public:true`, `/guidebook public:true`', inline: false },
                 { name: 'Q: 권한 오류?', value: '봇에 **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels**(인증 채널용) 권한이 있는지 확인하세요.', inline: false }
@@ -1909,15 +1919,15 @@ function buildFaqAdminEmbed(lang = 'en') {
         .setDescription('Frequently asked questions for server admins.')
         .setColor(0xf59e0b)
         .addFields(
-            { name: 'Q: How do I post panels?', value: '**`/panel type:<type>`** — report, salary, join_verify, payment, youtube, guide_ko, guide_en, **guidebook_plaync**, **tactics**. Run in a channel to post. One panel per type.', inline: false },
+            { name: 'Q: How do I post panels?', value: '**`/panel type:<type>`** — report, salary, join_verify, payment, youtube, **link**, guide_ko, guide_en, **guidebook_plaync**, **tactics**. Run in a channel to post. One panel per type.', inline: false },
             { name: 'Q: TACTICS vs Guidebook?', value: '**TACTICS** — Inven dungeon/pet guides. **Guidebook** — PlayNC official (class, skill).\nBoth are ephemeral by default.\n**Admin public share:** `/tactics public:true`, `/guidebook public:true`, or panel Post to Channel.\n**Guidebook:** run **`/guidebook_fetch`**; if scrape fails/empty, local fallback loads automatically.', inline: false },
             { name: 'Q: What is the onboarding order for new members?', value: '**Announcements** → **`/join_verify`** → **`/help`**.\nSet channels with **`/welcome_set announcements_channel:<channel> welcome_channel:<channel>`**.', inline: false },
-            { name: 'Q: Full guide vs member guide?', value: '**Full guide** (`/panel type:guide_ko`, `guide_en`) — All commands, Admin posts to channel\n**Member guide** (`/guide`) — Member commands, visible only to you (ephemeral)', inline: false },
+            { name: 'Q: Full guide vs member guide?', value: '**Full guide** (`/panel type:guide_ko`, `guide_en`) — Admin commands, post to channel\n**Member guide** (`/guide`) — Member commands, visible only to you', inline: false },
             { name: 'Q: Field boss timer setup order?', value: '1. **`/preset mode:combined`** or **`/boss_fetch`** (load from URL)\n2. On kill: **`/cut boss_name:<name>`** to record\n3. **`/boss_alert_mode mode:dm`** — DM alerts (optional)\n4. **`/boss_event_multiplier multiplier:0.8`** — Event respawn rate (optional)', inline: false },
             { name: 'Q: How to set MVP schedule?', value: '**`/mvp_set day:<day> time:HH:mm`** — Set MVP time per day (Admin)\n**`/mvp`** — View current schedule (Admin)', inline: false },
             { name: 'Q: Kinah rate monitoring setup?', value: '**`/kinah_watch_preset`** — ItemBay/ItemMania preset for quick setup. Set channel, poll_minutes, mention_role. **`/kinah_watch_status`** to check, **`/kinah_watch_stop`** to stop.', inline: false },
             { name: 'Q: AON Korean→English translation?', value: '**`/aon_translate_set`** — Set category(notice/update/event), channel. **`/aon_translate_source`** — AON bot ID. **`/aon_translate_status`** to view routes.', inline: false },
-            { name: 'Q: Character verification (myinfo_register) setup?', value: '**`/join_verify`** — No verification (Role only). Character names added via **`/myinfo_register`** only (screenshot required).\n1. Admin: **`/verify_channel_set category:<category>`**\n2. User: **`/myinfo_register character_name:<name>`** → Upload screenshot\n3. Staff: Approve → Select region → Character added to member list column G', inline: false },
+            { name: 'Q: Character verification setup?', value: '**`/join_verify`** — Role only. **`/myinfo_register`** adds character (screenshot required)\n1. Admin: **`/verify_channel_set category:<category>`**\n2. User: **`/myinfo_register character_name:<name>`** → Upload screenshot\n3. Staff: Approve → Select region → Column G', inline: false },
             { name: 'Q: How to select payment currency?', value: '**Submit Payment** → Select currency (KRW, USD, PHP, INR, NPR, CNY, TWD) → Enter amount & reason. Payment Log sheet: A:G (Date, Type, Tag, Amount, **Currency**, Reason, Status)', inline: false },
             { name: 'Q: Who sees search results & guides?', value: '**`/character`** **`/item`** **`/collection`** **`/build`** — Only you (ephemeral)\n**`!char <name>`** — Results sent via DM\n**`/guide`** **`/tactics`** **`/guidebook`** — Default only you (ephemeral)\n**Admin public:** `/tactics public:true`, `/guidebook public:true`', inline: false },
             { name: 'Q: Permission errors?', value: 'Ensure the bot has **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels** (for verification channels).', inline: false }
@@ -2578,10 +2588,6 @@ const commands = [
         .setDescription('View member guide (shown only to you, ephemeral)')
         .toJSON(),
     new SlashCommandBuilder()
-        .setName('homework')
-        .setDescription('Shows the Aion 2 Daily/Weekly Task Guide')
-        .toJSON(),
-    new SlashCommandBuilder()
         .setName('tactics')
         .setDescription('View curated TACTICS guides')
         .addBooleanOption(o => o
@@ -2640,6 +2646,7 @@ const commands = [
                 { name: 'Field Boss & MVP', value: 'boss' },
                 { name: 'AION2 Search (Item/Character/Build/Collection)', value: 'search' },
                 { name: 'Info YouTube (Translated Links)', value: 'youtube' },
+                { name: '📰 Link (Summarize & Translate)', value: 'link' },
                 { name: '📖 Usage Guide (Korean)', value: 'guide_ko' },
                 { name: '📖 Usage Guide (English)', value: 'guide_en' },
                 { name: '📖 PlayNC Guidebook (Official)', value: 'guidebook_plaync' },
@@ -2680,11 +2687,6 @@ const commands = [
             .setDescription('Channel where welcome message is posted')
             .setRequired(true)
             .addChannelTypes(ChannelType.GuildText))
-        .addChannelOption(o => o
-            .setName('fallback_channel')
-            .setDescription('Deprecated (kept for compatibility): use welcome_channel')
-            .setRequired(false)
-            .addChannelTypes(ChannelType.GuildText))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('welcome_send')
@@ -2693,10 +2695,6 @@ const commands = [
             .setName('user')
             .setDescription('User to send welcome message')
             .setRequired(true))
-        .toJSON(),
-    new SlashCommandBuilder()
-        .setName('join_verify_panel')
-        .setDescription('Post join verification panel button to this channel (Admin)')
         .toJSON(),
     new SlashCommandBuilder()
         .setName('member_list_organize')
@@ -3022,6 +3020,22 @@ function createYoutubeAddModal() {
         );
 }
 
+function createLinkAddModal() {
+    return new ModalBuilder()
+        .setCustomId('modal_link_add')
+        .setTitle('Add Link')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('link_url')
+                    .setLabel('Article URL')
+                    .setPlaceholder('https://inven.co.kr/board/aion2/695/12345')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            )
+        );
+}
+
 async function registerGuildSlashCommands(rest, guild) {
     if (!client.user) return false;
     try {
@@ -3145,7 +3159,7 @@ client.on('interactionCreate', async (interaction) => {
     }
     if (interaction.isChatInputCommand()) {
         const cmd = interaction.commandName;
-        if (['panel', 'character', 'boss_fetch', 'kinah_watch_preset', 'kinah_watch_set', 'salary_confirm', 'myinfo_register', 'member_list_organize', 'join_verify_panel', 'collection', 'build', 'kinah_watch_now', 'guidebook_fetch', 'tactics', 'guidebook'].includes(cmd)) {
+        if (['panel', 'character', 'boss_fetch', 'kinah_watch_preset', 'kinah_watch_set', 'salary_confirm', 'myinfo_register', 'member_list_organize', 'collection', 'build', 'kinah_watch_now', 'guidebook_fetch', 'tactics', 'guidebook'].includes(cmd)) {
             const guidebookPublic = cmd === 'guidebook' && interaction.options?.getBoolean('public') && hasManageGuild(interaction);
             const tacticsPublic = cmd === 'tactics' && interaction.options?.getBoolean('public') && hasManageGuild(interaction);
             await interaction.deferReply({ flags: (guidebookPublic || tacticsPublic) ? 0 : EPHEMERAL_FLAGS }).catch(() => {});
@@ -3164,8 +3178,9 @@ client.on('interactionCreate', async (interaction) => {
                     '**Kinah:** `/kinah_watch_now` `/kinah_watch_status`\n\n' +
                     '**Search (ephemeral):** `/character` `/item` `/collection` `/build`\n' +
                     '**DM Search:** `!char <name>`\n\n' +
-                    '**Guides (default ephemeral):** `/guide` `/tactics` `/guidebook`\n' +
-                    '**Admin Public Share:** `/tactics public:true` `/guidebook public:true`\n\n' +
+                    '**Guides (ephemeral):** `/guide` `/tactics` `/guidebook`\n' +
+                    '**Admin Public:** `/tactics public:true` `/guidebook public:true`\n\n' +
+                    '**Link:** `!link <url>` — Summarize & translate article\n' +
                     '**Other:** `/youtube_ready` `/aon_translate_status`\n' +
                     '**Welcome Setup (Admin):** `/welcome_set announcements_channel:<channel> welcome_channel:<channel>`'
                 )
@@ -3196,37 +3211,6 @@ client.on('interactionCreate', async (interaction) => {
                 content: isPublic ? '**📖 AION2 Official Guidebook** — Select a category.\n_Everyone will see the selected guide._' : '**📖 AION2 Official Guidebook** — Select a category.\n_Visible only to you_',
                 components: [row]
             });
-        } else if (interaction.commandName === 'homework') {
-            const embed = new EmbedBuilder()
-                .setColor(0x00E5FF)
-                .setTitle('📚 Aion 2 Daily & Weekly Checklist')
-                .setDescription('Attention Pilots! Keep track of your grinding schedule.')
-                .setThumbnail('https://static.inven.co.kr/column/2025/11/23/news/i1169393249.jpg')
-                .addFields(
-                    {
-                        name: '🔥 Daily Tasks',
-                        value: '• **Mission Quests** (5×/day) — Wanted Quests have Unique gear chance\n• **Emergency Supply Request** — Turn in gear for Abyss Points\n• **Black Cloud Traders** (hourly refresh) — Pets, skins via Kinah',
-                        inline: false
-                    },
-                    {
-                        name: '📦 Entrance Ticket Content (daily charge)',
-                        value: '• **Expedition** (Exploration → Conquest, 3×/day)\n• **Transcendence** (CP 1,400+)\n• **Nightmare** (5 tickets/day at 5:00)\n• **Shugo Festa** (:15, :45 each hour)\n• **Dimension Invasion**',
-                        inline: false
-                    },
-                    {
-                        name: '📅 Weekly Tasks (Wed 5:00 AM reset)',
-                        value: '• **Daily Dungeon** (7×/week) — Enhancement stones\n• **Awakening / Subjugation** (3×/week each)\n• **Odd Energy Crafting** (7×/week, 280 total)\n• **Abyss** (7h base, 14h with Membership)\n• **Battlefield** (up to 10 wins)\n• **Order Shop** (12 Verteron/Altgard, 25 Abyss)',
-                        inline: false
-                    },
-                    {
-                        name: '⚠️ Sunday Midnight Reset',
-                        value: '• **Zephyr Breeze Shop** (Membership) — Revival Stone, Odd Energy, Abyss Rift Stone, Bio Research Base ticket, Soul Crystals — reset **Sunday midnight**, not Wednesday!',
-                        inline: false
-                    }
-                )
-                .setFooter({ text: 'Source: Inven AION2 Tips | TETRA AION2' })
-                .setTimestamp();
-            await interaction.reply({ embeds: [embed] });
         } else if (interaction.commandName === 'faq_admin') {
             if (!hasManageGuild(interaction)) {
                 await safeEphemeral(interaction, '❌ Manage Server permission required.');
@@ -3370,15 +3354,14 @@ client.on('interactionCreate', async (interaction) => {
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
             const announceCh = interaction.options.getChannel('announcements_channel', true);
             const welcomeCh = interaction.options.getChannel('welcome_channel');
-            const fallbackCh = interaction.options.getChannel('fallback_channel');
             const state = loadPanelState();
             const welcomeConfig = state.welcomeConfig && typeof state.welcomeConfig === 'object' ? state.welcomeConfig : {};
             welcomeConfig[interaction.guildId] = {
                 announcementsChannelId: announceCh.id,
-                welcomeChannelId: (welcomeCh?.id || fallbackCh?.id || null)
+                welcomeChannelId: welcomeCh?.id || null
             };
             savePanelState({ ...state, welcomeConfig }, true);
-            const targetWelcomeId = welcomeCh?.id || fallbackCh?.id || null;
+            const targetWelcomeId = welcomeCh?.id || null;
             const msg = targetWelcomeId
                 ? `✅ Welcome messages will be posted in <#${targetWelcomeId}>.\n📢 Announcement guidance channel: <#${announceCh.id}>.`
                 : `⚠️ No welcome channel set. Please run \`/welcome_set\` again with \`welcome_channel\`.\n📢 Announcement guidance channel: <#${announceCh.id}>.`;
@@ -3413,18 +3396,6 @@ client.on('interactionCreate', async (interaction) => {
                 await safeEphemeral(interaction, `✅ Welcome sent to <#${welcomeChannel.id}> for ${targetUser}.`);
             } else {
                 await safeEphemeral(interaction, '❌ Welcome channel is not configured or inaccessible. Run `/welcome_set` with `welcome_channel`.');
-            }
-        } else if (interaction.commandName === 'join_verify_panel') {
-            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
-            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
-            const ch = interaction.channel || await interaction.guild.channels.fetch(interaction.channelId).catch(() => null);
-            if (!ch?.send) { await safeEphemeral(interaction, '❌ Channel not found.'); return; }
-            try {
-                await upsertJoinVerifyPanel(ch);
-                await safeEphemeral(interaction, '✅ Join verification panel posted (1 only).');
-            } catch (err) {
-                console.error('[join_verify_panel]', err);
-                await safeEphemeral(interaction, `❌ Failed: ${err.message || 'Unknown error'}`);
             }
         } else if (interaction.commandName === 'member_list_organize') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
@@ -4224,6 +4195,37 @@ client.on('interactionCreate', async (interaction) => {
                 const state = loadPanelState();
                 savePanelState({ ...state, youtubeMsgId: sent.id, youtubeChannelId: channel.id });
                 await interaction.editReply({ content: '✅ YouTube panel updated (1 only).' });
+            } else if (kind === 'link') {
+                const embed = new EmbedBuilder()
+                    .setTitle('📰 Link — Summarize & Translate')
+                    .setDescription(
+                        '**Summarize and translate article links**\n\n' +
+                        '• Auto-summarize content (KO)\n' +
+                        '• Translate to English (KO→EN)\n' +
+                        '• Attach thumbnail image\n\n' +
+                        '👇 Click **Add Link** and enter a URL.\n\n' +
+                        'Supported: `inven.co.kr/board/aion2/*` or `inven.co.kr/webzine/news/?news=*`'
+                    )
+                    .setColor(0xcc0000)
+                    .setTimestamp();
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('btn_link_add')
+                        .setLabel('Add Link')
+                        .setEmoji('📰')
+                        .setStyle(ButtonStyle.Primary)
+                );
+                const isLinkPanel = m => m.author?.id === client.user?.id && m.embeds[0]?.title?.includes('Link —');
+                let allLinkPanels = (await channel.messages.fetch({ limit: 100 })).filter(isLinkPanel);
+                for (const m of allLinkPanels.values()) await m.delete().catch(() => {});
+                const sent = await channel.send({ embeds: [embed], components: [row] });
+                allLinkPanels = (await channel.messages.fetch({ limit: 100 })).filter(isLinkPanel);
+                for (const m of allLinkPanels.values()) {
+                    if (m.id !== sent.id) await m.delete().catch(() => {});
+                }
+                const state = loadPanelState();
+                savePanelState({ ...state, linkMsgId: sent.id, linkChannelId: channel.id });
+                await interaction.editReply({ content: '✅ Link panel updated (1 only).' });
             } else if (kind === 'guide_ko' || kind === 'guide_en') {
                 if (!hasManageGuild(interaction)) {
                     await interaction.editReply({ content: '❌ Full guides require Manage Server permission. Use `/guide` for member guide.' });
@@ -4242,32 +4244,26 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.editReply({ content: kind === 'guide_ko' ? '✅ Korean guide panel posted.' : '✅ English usage guide panel posted.' });
             } else if (kind === 'guidebook_plaync') {
                 if (!hasManageGuild(interaction)) { await interaction.editReply({ content: '❌ Admin permission required.' }); return; }
-                try {
-                const state = loadGuidebookState();
-                const embeds = buildGuidebookPlayncEmbeds(state);
+                const embed = new EmbedBuilder()
+                    .setTitle('📖 AION2 Official Guidebook')
+                    .setDescription('PlayNC 공식 가이드북 (클래스·스킬·시스템 안내)\n\n아래 버튼을 눌러 **영어** 가이드북으로 이동하세요.')
+                    .setColor(0x5865F2)
+                    .addFields({ name: '🔗 Link', value: `[Open Guidebook (EN)](${GUIDEBOOK_EN_URL})`, inline: false })
+                    .setTimestamp();
                 const row = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
-                        .setCustomId('btn_guidebook_open')
-                        .setLabel('Open Guidebook (ephemeral)')
+                        .setLabel('Open Guidebook (EN)')
                         .setEmoji('📖')
-                        .setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder()
-                        .setCustomId('btn_guidebook_post')
-                        .setLabel('Post to Channel (public)')
-                        .setEmoji('📢')
-                        .setStyle(ButtonStyle.Success)
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(GUIDEBOOK_EN_URL)
                 );
-                const isGbPanel = m => m.author?.id === client.user?.id && (m.embeds?.[0]?.title?.includes('Guidebook') || m.components?.some(c => c.components?.some(b => b.customId === 'btn_guidebook_open' || b.customId === 'btn_guidebook_post')));
+                const isGbPanel = m => m.author?.id === client.user?.id && m.embeds?.[0]?.title?.includes('Guidebook');
                 let allGb = (await channel.messages.fetch({ limit: 50 })).filter(isGbPanel);
                 for (const m of allGb.values()) await m.delete().catch(() => {});
-                const sent = await channel.send({ embeds, components: [row] });
+                const sent = await channel.send({ embeds: [embed], components: [row] });
                 allGb = (await channel.messages.fetch({ limit: 50 })).filter(isGbPanel);
                 for (const m of allGb.values()) { if (m.id !== sent.id) await m.delete().catch(() => {}); }
-                await interaction.editReply({ content: '✅ PlayNC Guidebook panel posted. Buttons: **ephemeral** (you only) / **Post to Channel** (admin, public). Run **`/guidebook_fetch`** to refresh.' });
-                } catch (err) {
-                    console.error('[panel guidebook_plaync]', err);
-                    await interaction.editReply({ content: `❌ Guidebook panel failed: ${err.message || 'Unknown error'}` }).catch(() => {});
-                }
+                await interaction.editReply({ content: '✅ Guidebook panel posted (link to EN guidebook).' });
             } else if (kind === 'tactics') {
                 if (!hasManageGuild(interaction)) { await interaction.editReply({ content: '❌ Admin permission required.' }); return; }
                 const embed = new EmbedBuilder()
@@ -4485,6 +4481,12 @@ client.on('interactionCreate', async (interaction) => {
                     return;
                 }
                 await interaction.showModal(createYoutubeAddModal());
+            } else if (id === 'btn_link_add') {
+                if (!hasManageGuild(interaction)) {
+                    await safeEphemeral(interaction, 'Manage Server permission required to add links.');
+                    return;
+                }
+                await interaction.showModal(createLinkAddModal());
             } else if (id === 'btn_payment_confirm') {
                 await interaction.reply({
                     content: '💎 Select currency for payment confirmation.',
@@ -4873,6 +4875,38 @@ client.on('interactionCreate', async (interaction) => {
             return;
         }
 
+        if (customId === 'modal_link_add') {
+            const urlInput = (interaction.fields.getTextInputValue('link_url') || '').trim().replace(/^<(.+)>$/g, '$1');
+            if (!urlInput) {
+                await interaction.reply({ content: '❌ Please enter a URL.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            if (!INVEN_URL_PATTERN.test(urlInput)) {
+                await interaction.reply({
+                    content: '❌ Invalid URL. Use AION2 board or Webzine links.\nExample: `https://inven.co.kr/board/aion2/695/12345`',
+                    flags: EPHEMERAL_FLAGS
+                });
+                return;
+            }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+            try {
+                const data = await fetchInvenArticle(urlInput);
+                const embed = new EmbedBuilder()
+                    .setTitle(data.titleEn || data.title)
+                    .setURL(data.url)
+                    .setDescription((data.summary || 'No content').slice(0, 4096))
+                    .setColor(0xcc0000)
+                    .setFooter({ text: 'Link' })
+                    .setTimestamp();
+                if (data.images?.[0] && isValidEmbedUrl(data.images[0])) embed.setThumbnail(data.images[0]);
+                await interaction.channel.send({ embeds: [embed] });
+                await interaction.editReply({ content: '✅ Posted summarized & translated article to channel.' });
+            } catch (err) {
+                await interaction.editReply({ content: `❌ Link fetch failed: ${err.message || 'Unknown error'}` });
+            }
+            return;
+        }
+
         const match = String(customId || '').match(/^modal_(kinah|levelup|join_verify)_([a-z]{2})$/i);
         if (!match) {
             await interaction.reply({ content: '❌ Unknown modal request.', flags: EPHEMERAL_FLAGS });
@@ -5085,6 +5119,7 @@ async function scrapePlayncCharacter(pageUrl) {
 }
 
 const GUIDEBOOK_BASE_URL = 'https://aion2.plaync.com/ko-kr/guidebook';
+const GUIDEBOOK_EN_URL = 'https://aion2.plaync.com/en-us/guidebook/list';
 function isValidEmbedUrl(u) {
     if (!u || typeof u !== 'string') return false;
     const trimmed = u.trim();
@@ -5814,6 +5849,46 @@ async function translateQueryForDisplay(query) {
     return hasHangul(query) ? (await translateKoToEn(query) || query) : query;
 }
 
+const INVEN_URL_PATTERN = /https?:\/\/(?:www\.)?inven\.co\.kr\/board\/aion2\/\d+\/\d+|https?:\/\/(?:www\.)?inven\.co\.kr\/webzine\/news\/\?news=\d+/i;
+
+async function fetchInvenArticle(url) {
+    const res = await axios.get(url, {
+        timeout: 15000,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0' },
+        maxRedirects: 3,
+        responseType: 'text',
+        validateStatus: s => s >= 200 && s < 400
+    });
+    const html = res.data;
+    const $ = cheerio.load(html, { decodeEntities: false });
+    const titleEl = $('.articleTitle').first();
+    const title = (titleEl.text() || $('title').text() || 'Inven Article').replace(/\s+/g, ' ').trim();
+    const content = $('#powerbbsContent').first();
+    const rawText = (content.text() || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/\r/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/[ \t]+/g, ' ')
+        .trim();
+    const imgs = [
+        ...new Set(
+            content.find('img')
+                .map((_, el) => $(el).attr('src') || $(el).attr('data-src') || '')
+                .get()
+                .map(s => (s.startsWith('//') ? `https:${s}` : s))
+                .filter(s => s.startsWith('http') && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(s))
+        )
+    ].slice(0, 5);
+    const SUMMARY_MAX = 600;
+    let summary = rawText.slice(0, SUMMARY_MAX).trim();
+    const last = summary.lastIndexOf('\n');
+    if (last > SUMMARY_MAX * 0.5) summary = summary.slice(0, last).trim();
+    else if (summary.length >= SUMMARY_MAX) summary = summary.slice(0, 500).trim() + '…';
+    const titleEn = hasHangul(title) ? (await translateKoToEn(title) || title) : title;
+    const summaryEn = summary ? (await translateKoToEnLong(summary) || summary) : '';
+    return { url, title, titleEn, summary: summaryEn || summary, images: imgs };
+}
+
 async function handleAonBotNewsTranslation(message) {
     if (!message.guild || !message.author?.bot) return;
     const guildCfg = ensureAonTranslateGuildState(message.guild.id);
@@ -5904,6 +5979,51 @@ client.on('messageCreate', async (message) => {
             }
         } catch (err) {
             const errorText = `❌ YouTube processing failed: ${err.message || 'Unknown error'}\nUsage: \`!yt <youtube-url>\``;
+            if (progressMsg) await progressMsg.edit({ content: errorText, embeds: [] }).catch(() => {});
+            else await message.reply({ content: errorText, allowedMentions: { repliedUser: false } }).catch(() => {});
+        }
+        return;
+    }
+
+    // ── !link <url>
+    const linkMatch = content.match(/^!(?:link|ln)\s+(.+)$/i);
+    if (linkMatch) {
+        const urlInput = linkMatch[1].trim().replace(/^<(.+)>$/g, '$1');
+        if (!INVEN_URL_PATTERN.test(urlInput)) {
+            await message.reply({
+                content: '❌ Invalid URL. Use AION2 board or Webzine links.\nExample: `!link https://inven.co.kr/board/aion2/695/12345`',
+                allowedMentions: { repliedUser: false }
+            }).catch(() => {});
+            return;
+        }
+        let progressMsg = null;
+        try {
+            progressMsg = await message.reply({
+                content: '📄 Fetching and translating...',
+                allowedMentions: { repliedUser: false }
+            });
+        } catch (_) {}
+        try {
+            const data = await fetchInvenArticle(urlInput);
+            const embed = new EmbedBuilder()
+                .setTitle(data.titleEn || data.title)
+                .setURL(data.url)
+                .setDescription((data.summary || 'No content').slice(0, 4096))
+                .setColor(0xcc0000)
+                .setFooter({ text: 'Link' })
+                .setTimestamp();
+            if (data.images?.[0] && isValidEmbedUrl(data.images[0])) embed.setThumbnail(data.images[0]);
+            if (progressMsg) {
+                await progressMsg.edit({
+                    content: null,
+                    embeds: [embed],
+                    allowedMentions: { parse: [] }
+                }).catch(() => {});
+            } else {
+                await message.channel.send({ embeds: [embed] }).catch(() => {});
+            }
+        } catch (err) {
+            const errorText = `❌ Link fetch failed: ${err.message || 'Unknown error'}\nUsage: \`!link <url>\``;
             if (progressMsg) await progressMsg.edit({ content: errorText, embeds: [] }).catch(() => {});
             else await message.reply({ content: errorText, allowedMentions: { repliedUser: false } }).catch(() => {});
         }

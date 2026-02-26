@@ -289,8 +289,8 @@ function formatGuideParagraphs(text) {
   return out.split('\n').map(l => l.trim()).filter(Boolean).join('\n\n');
 }
 
-/** 줄글 → 요점 정리: **N)**, • **N.** 유지, 장문 축약 */
-const MAX_POINT_DESC = 80;
+/** 줄글 → 요점 정리: **N)**, • **N.** 유지, 과도한 장문만 축약 */
+const MAX_POINT_DESC = 280;
 function condenseToKeyPoints(text) {
   let t = String(text || '').trim();
   if (!t || t.length < 180) return t;
