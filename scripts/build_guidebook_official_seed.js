@@ -289,6 +289,48 @@ function formatGuideParagraphs(text) {
   return out.split('\n').map(l => l.trim()).filter(Boolean).join('\n\n');
 }
 
+/** 줄글 → 요점 정리: **N)**, • **N.** 유지, 장문 축약 */
+const MAX_POINT_DESC = 80;
+function condenseToKeyPoints(text) {
+  let t = String(text || '').trim();
+  if (!t || t.length < 180) return t;
+  t = t.replace(/\s+(\*\*\d+\)\*\*)/g, '\n\n$1').replace(/\s+(•\s+\*\*\d+\.\*\*)/g, '\n\n$1');
+  const blocks = t.split(/\n\n+/).map(b => b.trim()).filter(Boolean);
+  const out = [];
+  for (const block of blocks) {
+    if (!block || block.length < 2) continue;
+    const mSection = block.match(/^(\*\*\d+\)\*\*\s*)([\s\S]+)$/);
+    const mBullet = block.match(/^(•\s+\*\*\d+\.\*\*\s*)([\s\S]+)$/);
+    if (mSection) {
+      const [, head, rest] = mSection;
+      const r = rest.replace(/\s+/g, ' ');
+      const short = r.length > MAX_POINT_DESC ? r.slice(0, MAX_POINT_DESC).replace(/\s+\S+$/, '') + '…' : r;
+      if (short) out.push(head + short.trim());
+      continue;
+    }
+    if (mBullet) {
+      const [, head, rest] = mBullet;
+      const r = rest.replace(/\s+/g, ' ');
+      const short = r.length > MAX_POINT_DESC ? r.slice(0, MAX_POINT_DESC).replace(/\s+\S+$/, '') + '…' : r;
+      if (short) out.push(head + short.trim());
+      continue;
+    }
+    if (block === '---' || /^\*\*표\*\*/.test(block)) { out.push(block); continue; }
+    if (/^\*\*[\w\s:\(\)]+\*\*/.test(block)) {
+      const r = block.replace(/\s+/g, ' ');
+      const short = r.length > MAX_POINT_DESC ? r.slice(0, MAX_POINT_DESC).replace(/\s+\S+$/, '') + '…' : r;
+      out.push(short); continue;
+    }
+    if (block.length > 100) {
+      const first = block.match(/^[^.!?\u3002]+[.!?\u3002]/)?.[0] || block.slice(0, 65);
+      if (first && first.trim().length > 25) out.push(first.trim());
+    } else if (block.length > 15) {
+      out.push(block);
+    }
+  }
+  return out.join('\n\n');
+}
+
 function normalizeText(s) {
   return String(s || '').replace(/\s+/g, ' ').trim();
 }
@@ -699,7 +741,8 @@ function postprocessExistingSeed() {
       if (typeof g.content === 'string') {
         let ko = stripFooterFromGuide(g.content);
         for (const [from, to] of CONTENT_KO_FIXES) ko = ko.split(from).join(to);
-        g.content = formatGuideParagraphs(ko);
+        ko = formatGuideParagraphs(ko);
+        g.content = condenseToKeyPoints(ko);
         count++;
       }
       if (typeof g.contentEn === 'string') {
@@ -707,7 +750,7 @@ function postprocessExistingSeed() {
         en = fixContentEn(en);
         en = formatGuideParagraphs(en);
         for (const [rx, repl] of POST_FORMAT_EN_FIXES) en = en.replace(rx, repl);
-        g.contentEn = en;
+        g.contentEn = condenseToKeyPoints(en);
         count++;
       }
       if (typeof g.descEn === 'string') {
