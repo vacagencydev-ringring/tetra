@@ -1127,8 +1127,21 @@ async function translateKoToEnLong(text) {
     const translated = [];
     for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
-        const t = await translateKoToEn(chunk);
-        translated.push((t && String(t).trim()) ? t : chunk);
+        let t = await translateKoToEn(chunk);
+        if (!t || !String(t).trim() || hasHangul(t)) {
+            t = await translateKoToEnViaGoogle(chunk) || await translateKoToEnViaMyMemory(chunk);
+        }
+        if (!t || !String(t).trim() || hasHangul(t)) {
+            const smaller = splitForTranslation(chunk, 200);
+            const parts = [];
+            for (const s of smaller) {
+                const p = await translateKoToEnViaGoogle(s) || await translateKoToEnViaMyMemory(s);
+                parts.push((p && !hasHangul(p)) ? p : '');
+            }
+            t = parts.filter(Boolean).join(' ').trim() || '';
+        }
+        const fallback = chunk.replace(/[가-힣]/g, '').replace(/\s{2,}/g, ' ').trim();
+        translated.push((t && !hasHangul(t)) ? t : (fallback || '—'));
         if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 300));
     }
     return translated.join('\n');
