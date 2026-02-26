@@ -5163,7 +5163,7 @@ client.on('interactionCreate', async (interaction) => {
                     const parentId = (loadPanelState().linkTargetParentCategoryIdByGuild || {})[interaction.guildId];
                     targetCh = await resolveTacticsCategoryToChannel(interaction.guildId, category, parentId) || interaction.channel;
                 }
-                await targetCh.send({ embeds: linkEmbeds });
+                await sendLinkEmbedsInBatches(targetCh, linkEmbeds);
                 await interaction.editReply({ content: targetCh.id !== interaction.channel.id ? `✅ Posted to <#${targetCh.id}>` : '✅ Posted summarized & translated article to channel.' });
             } catch (err) {
                 await interaction.editReply({ content: `❌ Link fetch failed: ${err.message || 'Unknown error'}` });
@@ -6144,16 +6144,58 @@ function buildLinkEmbeds(data) {
     return embeds;
 }
 
+async function sendLinkEmbedsInBatches(channel, embeds) {
+    if (!embeds?.length) return;
+    if (embeds.length === 1) {
+        await channel.send({ embeds });
+        return;
+    }
+    for (const e of embeds) {
+        await channel.send({ embeds: [e] });
+    }
+}
+
 function formatLinkSummaryForReadability(text) {
     if (!text || typeof text !== 'string') return text;
-    let out = text
-        .replace(/(\d{1,2})[.)]\s+/g, '\n\n**$1.** ')          // "1. " "2) " → 빈줄+볼드 (섹션 구분)
-        .replace(/(\.)\s*(\d{1,2})\s+([A-Za-z\u00c0-\u024f\u0400-\u04ff])/g, '$1\n\n**$2.** $3')
-        .replace(/^(\d{1,2})\s+([A-Za-z\u00c0-\u024f\u0400-\u04ff])/m, '**$1.** $2')
-        .replace(/\n{4,}/g, '\n\n\n')
-        .replace(/^[\s\n]+|[\s\n]+$/g, '')
-        .trim();
-    return out;
+    let raw = text
+        .replace(/\r/g, '')
+        .replace(/\n\s*[-]\s+/g, '\n• ')
+        .replace(/\n\s*[-]\s*/g, '\n• ')
+        .replace(/([.])\s*[-]\s+/g, '$1\n• ')
+        .replace(/([。])\s*[-]\s+/g, '$1\n• ')
+        .replace(/(\d{1,2})[.)]\s+/g, '\n\n**$1.** ');
+    const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+        const line = lines[i];
+        const mainMatch = line.match(/^\*\*(\d{1,2})\.\*\*\s*(.+)$/) || line.match(/^(\d{1,2})[.)]\s*(.+)$/);
+        if (mainMatch) {
+            const num = mainMatch[1];
+            const rest = mainMatch[2].trim();
+            if (out.length) out.push('');
+            out.push(`**${num}.** ${rest}`);
+            i++;
+            while (i < lines.length) {
+                const sub = lines[i];
+                const subMatch = sub.match(/^[•▪▸※·]\s*(.+)$/) || sub.match(/^[-]\s*(.+)$/);
+                if (subMatch && !/^\d{1,2}[.)]\s/.test(sub)) {
+                    const content = subMatch[1].trim();
+                    if (content.length > 1) out.push(`• ${content}`);
+                    i++;
+                } else if (/^\d{1,2}[.)]\s|\*\*\d{1,2}\.\*\*/.test(sub)) break;
+                else if (sub.length > 20 && !/^[-•▪▸※·]/.test(sub)) break;
+                else { i++; }
+            }
+            continue;
+        }
+        if (line.match(/^[•▪▸※·-]\s*(.+)$/) && out.length) {
+            out.push(`• ${line.replace(/^[•▪▸※·-]\s*/, '').trim()}`);
+        }
+        i++;
+    }
+    if (!out.length) return text.replace(/(\d{1,2})[.)]\s+/g, '\n\n**$1.** ').replace(/\n{3,}/g, '\n\n').trim();
+    return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 const TACTICS_CATEGORY_SEARCH_KEYS = {
@@ -6403,11 +6445,11 @@ client.on('messageCreate', async (message) => {
             const linkEmbeds = buildLinkEmbeds(data);
             const targetCh = await getLinkTargetChannel(message.guildId) || message.channel;
             if (targetCh.id !== message.channel.id) {
-                await targetCh.send({ embeds: linkEmbeds }).catch(() => {});
+                await sendLinkEmbedsInBatches(targetCh, linkEmbeds);
                 if (progressMsg) await progressMsg.edit({ content: `✅ Posted to <#${targetCh.id}>`, embeds: [], allowedMentions: { parse: [] } }).catch(() => {});
             } else {
-                if (progressMsg) await progressMsg.edit({ content: null, embeds: linkEmbeds, allowedMentions: { parse: [] } }).catch(() => {});
-                else await message.channel.send({ embeds: linkEmbeds }).catch(() => {});
+                if (progressMsg) await progressMsg.edit({ content: '✅ Posted summarized & translated article.', embeds: [], allowedMentions: { parse: [] } }).catch(() => {});
+                await sendLinkEmbedsInBatches(message.channel, linkEmbeds);
             }
         } catch (err) {
             const errorText = `❌ Link fetch failed: ${err.message || 'Unknown error'}\nUsage: \`!link <url>\``;
