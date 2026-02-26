@@ -5092,6 +5092,9 @@ function isValidEmbedUrl(u) {
 }
 
 const NC_FOOTER_PATTERNS = [
+    /\bThis\s+document\s+was\s+updated\s+on\s+\d{4}-\d{2}-\d{2}/i,
+    /이\s*문서는\s+\d{4}-\d{2}-\d{2}\s*에\s*업데이트/i,
+    /\bYoutube\s+Company\s+Introduction\b/i,
     /\bSupport\s+NC\s*Privacy\s*Center/i,
     /\bNC\s*Privacy\s*Center\s+NCSOFT/i,
     /\bNCSOFT\s+Service\s+Agreement/i,

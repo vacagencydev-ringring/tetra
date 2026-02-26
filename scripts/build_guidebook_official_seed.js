@@ -137,6 +137,10 @@ const NOISE_LINE_PATTERNS = [
 
 // Footer cutoff: cut content at first legal/company block (improves readability)
 const FOOTER_START_PATTERNS = [
+  // Update notice + trailing labels (remove entire boilerplate block)
+  /\bThis\s+document\s+was\s+updated\s+on\s+\d{4}-\d{2}-\d{2}/i,
+  /이\s*문서는\s+\d{4}-\d{2}-\d{2}\s*에\s*업데이트/i,
+  /\bYoutube\s+Company\s+Introduction\b/i,
   /\bAccount\s+Access\s+Security\s+Service\s+PURPLE\b/i,
   /\bYout\s*ube\s*Company\s*Introduction/i,
   // Korean footer markers (match start of footer block to cut)
