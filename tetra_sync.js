@@ -6208,25 +6208,36 @@ async function getLinkTargetChannel(guildId) {
 
 function extractTableRowsFromInvenContent($, content) {
     const rows = [];
-    const trs = content.find('table tr').toArray();
-    for (const tr of trs) {
-        const tds = $(tr).find('td').toArray();
-        if (tds.length < 2) continue;
-        const cells = tds.map(td => $(td).text().replace(/\s+/g, ' ').trim()).filter(Boolean);
-        const num = cells[0]?.replace(/\D/g, '');
-        if (num && /^\d{1,3}$/.test(num)) {
-            const name = cells[1] || cells[2] || '';
+    const tables = content.find('table').toArray();
+    const headerPattern = /^(no|번호|외형|외형\s*추출|획득처)$/i;
+    for (const table of tables) {
+        const trs = $(table).find('tr').toArray();
+        for (const tr of trs) {
+            const tds = $(tr).find('td').toArray();
+            if (tds.length < 2) continue;
+            const cells = tds.map(td => $(td).text().replace(/\s+/g, ' ').trim()).filter(Boolean);
+            const firstAsNum = cells[0]?.replace(/\D/g, '');
+            const hasNumCol = firstAsNum && /^\d{1,3}$/.test(firstAsNum);
+            const name = hasNumCol ? (cells[1] || cells[2] || '') : (cells[0] || cells[1] || '');
             const source = cells[cells.length - 1] || cells[2] || '';
-            if (name) rows.push({ n: num, name, source });
+            if (headerPattern.test(cells[0]) || headerPattern.test(name)) continue;
+            if (hasNumCol) {
+                if (name) rows.push({ name, source });
+            } else if (cells.length >= 3 && name && /[\uac00-\ud7a3a-zA-Z]/.test(name)) {
+                rows.push({ name, source });
+            }
         }
     }
     if (rows.length < 2) return null;
-    return rows.slice(0, 150).map(r => `**${r.n}.** ${r.name} — ${r.source}`).join('\n');
+    const maxRows = 150;
+    return rows.slice(0, maxRows)
+        .map((r, i) => `**${i + 1}.** ${r.name} — ${r.source}`)
+        .join('\n');
 }
 
 async function fetchInvenArticle(url) {
     const res = await axios.get(url, {
-        timeout: 25000,
+        timeout: 45000,
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0' },
         maxRedirects: 3,
         responseType: 'text',
@@ -6261,7 +6272,9 @@ async function fetchInvenArticle(url) {
         )
     ].slice(0, 5);
     const titleEn = hasHangul(title) ? (await translateKoToEn(title) || title) : title;
-    let summaryEn = summary ? (await translateKoToEnLong(summary) || summary) : '';
+    let summaryEn = summary
+        ? (await withTimeout(translateKoToEnLong(summary), 60000, 'summary translation').catch(() => summary) || summary)
+        : '';
     const fromTable = summary && summary.includes('**') && (summary.match(/\n/g) || []).length >= 3;
     if (!fromTable) summaryEn = formatLinkSummaryForReadability(summaryEn || summary);
     return { url, title, titleEn, summary: summaryEn, images: imgs };
