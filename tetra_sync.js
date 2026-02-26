@@ -1860,6 +1860,11 @@ function buildGuideEmbedsUser() {
         .setColor(0x8b5cf6)
         .addFields(
             {
+                name: 'Daily/Weekly Checklist',
+                value: '**`/homework`** — Daily & Weekly task summary (Mission Quests, Entrance Tickets, Abyss, etc.)',
+                inline: false
+            },
+            {
                 name: 'Dungeon & Pet Guides',
                 value: '**`/tactics`** — Inven AION2 dungeon & pet guides (ephemeral, only you)\n_Or click **Open Tactics Guide** on the panel if posted._\n(Admin can post publicly with `/tactics public:true`.)',
                 inline: false
@@ -2588,6 +2593,10 @@ const commands = [
         .setDescription('View member guide (shown only to you, ephemeral)')
         .toJSON(),
     new SlashCommandBuilder()
+        .setName('homework')
+        .setDescription('Shows the Aion 2 Daily/Weekly Task Guide')
+        .toJSON(),
+    new SlashCommandBuilder()
         .setName('tactics')
         .setDescription('View curated TACTICS guides')
         .addBooleanOption(o => o
@@ -3178,7 +3187,7 @@ client.on('interactionCreate', async (interaction) => {
                     '**Kinah:** `/kinah_watch_now` `/kinah_watch_status`\n\n' +
                     '**Search (ephemeral):** `/character` `/item` `/collection` `/build`\n' +
                     '**DM Search:** `!char <name>`\n\n' +
-                    '**Guides (ephemeral):** `/guide` `/tactics` `/guidebook`\n' +
+                    '**Guides (ephemeral):** `/guide` `/homework` `/tactics` `/guidebook`\n' +
                     '**Admin Public:** `/tactics public:true` `/guidebook public:true`\n\n' +
                     '**Link:** `!link <url>` — Summarize & translate article\n' +
                     '**Other:** `/youtube_ready` `/aon_translate_status`\n' +
@@ -3211,6 +3220,37 @@ client.on('interactionCreate', async (interaction) => {
                 content: isPublic ? '**📖 AION2 Official Guidebook** — Select a category.\n_Everyone will see the selected guide._' : '**📖 AION2 Official Guidebook** — Select a category.\n_Visible only to you_',
                 components: [row]
             });
+        } else if (interaction.commandName === 'homework') {
+            const embed = new EmbedBuilder()
+                .setColor(0x00E5FF)
+                .setTitle('📚 Aion 2 Daily & Weekly Checklist')
+                .setDescription('Attention Pilots! Keep track of your grinding schedule.')
+                .setThumbnail('https://static.inven.co.kr/column/2025/11/23/news/i1169393249.jpg')
+                .addFields(
+                    {
+                        name: '🔥 Daily Tasks',
+                        value: '• **Mission Quests** (5×/day) — Wanted Quests have Unique gear chance\n• **Emergency Supply Request** — Turn in gear for Abyss Points\n• **Black Cloud Traders** (hourly refresh) — Pets, skins via Kinah',
+                        inline: false
+                    },
+                    {
+                        name: '📦 Entrance Ticket Content (daily charge)',
+                        value: '• **Expedition** (Exploration → Conquest, 3×/day)\n• **Transcendence** (CP 1,400+)\n• **Nightmare** (5 tickets/day at 5:00)\n• **Shugo Festa** (:15, :45 each hour)\n• **Dimension Invasion**',
+                        inline: false
+                    },
+                    {
+                        name: '📅 Weekly Tasks (Wed 5:00 AM reset)',
+                        value: '• **Daily Dungeon** (7×/week) — Enhancement stones\n• **Awakening / Subjugation** (3×/week each)\n• **Odd Energy Crafting** (7×/week, 280 total)\n• **Abyss** (7h base, 14h with Membership)\n• **Battlefield** (up to 10 wins)\n• **Order Shop** (12 Verteron/Altgard, 25 Abyss)',
+                        inline: false
+                    },
+                    {
+                        name: '⚠️ Sunday Midnight Reset',
+                        value: '• **Zephyr Breeze Shop** (Membership) — Revival Stone, Odd Energy, Abyss Rift Stone, Bio Research Base ticket, Soul Crystals — reset **Sunday midnight**, not Wednesday!',
+                        inline: false
+                    }
+                )
+                .setFooter({ text: 'Source: Inven AION2 Tips | TETRA AION2' })
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed] });
         } else if (interaction.commandName === 'faq_admin') {
             if (!hasManageGuild(interaction)) {
                 await safeEphemeral(interaction, '❌ Manage Server permission required.');
