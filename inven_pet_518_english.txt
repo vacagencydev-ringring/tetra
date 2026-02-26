@@ -1,0 +1,85 @@
+# AION2 - Pet Understanding Work (펫작) Guide — Simple Summary
+
+*Author: Minno | Original: https://www.inven.co.kr/board/aion2/6444/518*
+
+---
+
+## What is Pet Understanding Work?
+
+Pets are obtained by defeating field monsters and collecting souls to create mounts. Though it seems like a simple mount feature, the real value of pets lies elsewhere: they provide **internal stat growth** that boosts character performance regardless of item level — the **final end-game stage**. That’s **Pet Understanding**.
+
+Pet understanding work means repeatedly hunting monsters that drop souls to gain various stats. Collect 10 souls to register that monster as a pet; at 50, 150, 300, 500, etc., you get more stats. Crit, Power, Accuracy, Dexterity, etc. all directly affect real combat damage.
+
+Raising pet level or using **Analysis** increases **Species Understanding** (종족 이해도), which unlocks stronger, universal stats like Crit, HP, PVE Attack. At item level 2,100~2,400+, these internal stats become meaningful.
+
+### Pet System Summary
+- 10 kills: Register field monster as a **pet**
+- 10/50/150/300/500 kills: Pet understanding + main stats increase
+- Species understanding unlocks PVE Attack, Crit, etc.
+- **Soul Crystals** (영혼 결정): Drop from pets with max understanding (5★)
+- Simple rule: Hunt **1,010** per pet
+
+*The Pet system — various monsters as mounts*
+https://static.inven.co.kr/column/2025/11/28/news/i1959600846.png
+
+*Also a farming content for internal spec*
+https://static.inven.co.kr/column/2025/11/28/news/i1321848289.png
+
+---
+
+## Species Understanding — Major Stat Gains
+
+Understanding is accumulated **by species**, not per pet. For example, farming **Cogni** species (e.g. Krall) raises both that pet’s understanding and **Cogni species understanding**.
+
+Analysis gives random bonus stats, but you can **reroll** them. Soul Crystals come from achievements or hunting max-level pets; the drop matches the species (e.g. Cogni Soul Crystal from max Cogni pets).
+
+Upper-tier stats unlock at species understanding **4, 7, 9**. Until then, don’t over-use Soul Crystals. Early useful stats: **Spirit**, **HP**, **Boss Attack**.
+
+### Species Understanding Summary
+- Pet understanding sums by species
+- Upper stats appear at stages 4, 7, 9
+- Soul Crystals from max-understanding pets
+- Early priority: Spirit, HP, Boss Attack
+
+*Options can be rerolled via Analysis*
+https://static.inven.co.kr/column/2025/11/28/news/i1467672714.png
+
+*This level is enough until stage 5*
+https://static.inven.co.kr/column/2025/11/28/news/i1184572700.png
+
+*Higher species level unlocks better stats — re-analyze*
+https://static.inven.co.kr/column/2025/11/28/news/i1503462358.png
+
+---
+
+## Start With Cogni Pets to Level 3! Pet Work Guide
+
+Pet work is the **final internal stage**. If you still have easier growth (gear, level), prioritize that first. When doing pet work, combine with **Abyss Supply Request** or **Mission Quests** for efficiency. Areas that drop Spirit Stones, leather, etc. are ideal.
+
+**Method:** Select a pet → go to its spawn → hunt **1,010** of that monster. Repeat for all 206 pets. After maxing a pet, do Analysis and move on. For species level 10, you’ll need extra hunts for more Soul Crystals.
+
+**Recommended:** **Cogni** — first option is HP, second is Crit. Do easier field pets first; some appear in Conquest dungeons, Transcendence, or bosses.
+
+Full mastery needs 200,000+ kills — a **long-term project**.
+
+### Which Pet to Hunt?
+| Species | Main Stats |
+|---------|------------|
+| **Cogni** | HP / Crit / Power / Knowledge / Cogni damage |
+| **Fera** | Mount speed / Accuracy / Dexterity / Knowledge / Fera damage |
+| **Natura** | Spirit / Crit resist / Accuracy / Will / Natura damage |
+| **Variant** | Mount gallop cost / Evasion / Stamina / Will / Variant damage |
+| **Special** | (None) |
+
+*Check spawn location on map*
+https://static.inven.co.kr/column/2025/11/28/news/i1679101273.png
+
+*Run with Abyss Supply Request*
+https://static.inven.co.kr/column/2025/11/28/news/i1936176265.png
+
+*1,010 per pet = internal stats grow*
+https://static.inven.co.kr/column/2025/11/28/news/i1788786116.png
+
+---
+
+*Source: AION2 Inven Tips & Know-how Board*

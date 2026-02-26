@@ -1,0 +1,90 @@
+# AION2 - Pet Soul Acquisition Guide (Pet Work DB) — 1.16 Update
+
+*Author: Rokah | Original: https://www.inven.co.kr/board/aion2/6444/689*
+
+---
+
+Pet soul acquisition locations by species. Includes Elyos field, Asmodian field, Abyss, and some dungeons. Approximate locations (e.g. "Elyos 1 o'clock island") are provided for easier farming in enemy faction areas.
+
+**Quick Links:**
+- [Cogni](#cogni)
+- [Fera](#fera)
+- [Natura](#natura)
+- [Variant](#varian)
+
+---
+
+## Cogni Pet Souls
+
+**Stats by level:** HP → Crit → Power → Knowledge → Cogni damage
+
+Examples (Elyos = E, Asmodian = A):
+- Krall Enhanced Combatant: E 9 o’clock — Verteron Fortress Ruins
+- Kurali Worker: E 9 o’clock — Verteron Fortress Ruins / Destroyed Abyss Gate
+- Modified Rupellini: E 2 o’clock — Kuraka Hills; E 7 o’clock island — Eternal Island
+- Dracan Scout: E 1 o’clock — Drana Processing Zone; A 1 o’clock — Drannachtus
+- Drakuni Herbalist: E 1 o’clock — Drana Processing Zone; A 1 o’clock island — Spirit Island
+- Mandoo Fighter: E 1 o’clock island — Ruby Island; A 5 o’clock — Blackclaw Village
+- Nutt: E 9 o’clock — Destroyed Abyss Gate; [Draupnir] Nutt Cleaner
+- Dracon Watcher: E 1 o’clock — Drana Processing Zone; A 1 o’clock — Drannachtus
+- Corrupt Rupellini: E 3 o’clock — Artamia Highlands East; A 2 o’clock — Battle Hill
+- Mumu Worker: A 1 o’clock — Drannachtus; A 2 o’clock — Battle Hill
+- Barg Berserker: A 1 o’clock — Drannachtus; A 5 o’clock — Blackclaw Village
+
+*Full DB: 40+ Cogni pets. See original for complete list.*
+
+---
+
+## Fera Pet Souls
+
+**Stats by level:** Mount ground speed → Accuracy → Dexterity → Knowledge → Fera damage
+
+Examples:
+- Calnif: E 9 o’clock — Verteron Fortress Ruins; E 9 o’clock — Destroyed Abyss Gate
+- Drithon: E 10 o’clock — Elun River; E 8 o’clock — Tolvas Forest East
+- Lepisma: E 10 o’clock — Elun River; A 4 o’clock — Gridavade Hills West
+- Rupellini (Fera): E 3 o’clock — Artamia Highlands East; E 3 o’clock — Contaminated Sanctuary
+- Muta: E 10 o’clock — Kantas Valley West; E 8 o’clock — Tolvas Forest East
+- Calnif (tamed): E 8 o’clock — Pilgrim Pass; A 3 o’clock — Urtumheim
+
+*Full DB: 65+ Fera pets.*
+
+---
+
+## Natura Pet Souls
+
+**Stats by level:** Spirit → Crit resist → Accuracy → Will → Natura damage
+
+Examples:
+- Gravi: E 8 o’clock — Tolvas Forest North; E 5 o’clock — Illusion God’s Garden
+- Nepenthes: E 8 o’clock — Tolvas Forest North; A 9 o’clock — Sanctuary Watch
+- Stone Spirit: E 2 o’clock — Kuraka Hills; A 2 o’clock — Purification Forest
+- Drana Spore: E 1 o’clock island — Ruby Island
+- Agrint: E 10 o’clock — Elun River; E 5 o’clock — Illusion God’s Garden
+- Forest Spirit: E 10 o’clock — Elun River; A 2 o’clock — Purification Forest
+
+*Full DB: 48+ Natura pets.*
+
+---
+
+## Variant Pet Souls
+
+**Stats by level:** Mount gallop cost reduction → Evasion → Stamina → Will → Variant damage
+
+Examples:
+- Gedit: E 3 o’clock — Contaminated Sanctuary
+- Drana Variant: E 7 o’clock island — Eternal Island; A 7 o’clock island — Immortal Island
+- Slime: A 2 o’clock — Purification Forest
+- Oculagen: E 1 o’clock — Drana Cultivation Zone; A 5 o’clock — Impetushium Plaza
+- Calkelm: E 10 o’clock — Kantas Valley West; A 2 o’clock — Purification Forest
+
+*Full DB: 46+ Variant pets.*
+
+---
+
+**📌 Full detailed table with all 200+ pet locations:**
+https://www.inven.co.kr/board/aion2/6444/689
+
+---
+
+*Source: AION2 Inven Tips & Know-how Board*
