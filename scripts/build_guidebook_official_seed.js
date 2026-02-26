@@ -23,6 +23,10 @@ function normalizeText(s) {
   return String(s || '').replace(/\s+/g, ' ').trim();
 }
 
+function hasHangul(text) {
+  return /[\u3131-\u318E\uAC00-\uD7A3]/.test(String(text || ''));
+}
+
 function stripHtml(html) {
   return normalizeText(
     String(html || '')
@@ -73,20 +77,86 @@ async function fetchJson(url) {
   return data;
 }
 
-function toGuideEntry(item) {
+async function translateKoToEnViaMyMemory(text) {
+  const input = String(text || '').trim();
+  if (!input) return null;
+  try {
+    const { data } = await axios.get('https://api.mymemory.translated.net/get', {
+      params: { q: input.slice(0, 450), langpair: 'ko|en' },
+      timeout: 12000,
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    const translated = normalizeText(data?.responseData?.translatedText || '');
+    if (!translated) return null;
+    return translated;
+  } catch {
+    return null;
+  }
+}
+
+async function translateKoToEnViaGoogle(text) {
+  const input = String(text || '').trim();
+  if (!input) return null;
+  try {
+    const { data } = await axios.get('https://translate.googleapis.com/translate_a/single', {
+      params: { client: 'gtx', sl: 'ko', tl: 'en', dt: 't', q: input.slice(0, 2000) },
+      timeout: 12000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+    });
+    if (!Array.isArray(data) || !Array.isArray(data[0])) return null;
+    const translated = normalizeText(data[0].map(part => (Array.isArray(part) ? String(part[0] || '') : '')).join(' '));
+    return translated || null;
+  } catch {
+    return null;
+  }
+}
+
+async function translateKoToEn(text) {
+  const input = String(text || '').trim();
+  if (!input) return '';
+  if (!hasHangul(input)) return input;
+  const tryOne = await translateKoToEnViaMyMemory(input);
+  if (tryOne && !hasHangul(tryOne)) return tryOne;
+  const tryTwo = await translateKoToEnViaGoogle(input);
+  if (tryTwo && !hasHangul(tryTwo)) return tryTwo;
+  return input;
+}
+
+async function translateKoToEnLong(text, maxOutput = 3500) {
+  const input = String(text || '').trim();
+  if (!input) return '';
+  if (!hasHangul(input)) return input.slice(0, maxOutput);
+  const chunks = [];
+  for (let i = 0; i < input.length; i += 450) chunks.push(input.slice(i, i + 450));
+  const out = [];
+  for (const chunk of chunks) {
+    const translated = await translateKoToEn(chunk);
+    out.push(translated || chunk);
+  }
+  return normalizeText(out.join(' ')).slice(0, maxOutput);
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function toGuideEntry(item) {
   const title = normalizeText(item?.name || 'Guide');
   const summary = normalizeText(item?.summary || '');
   const bodyText = stripHtml(item?.content || '');
   const desc = (summary || bodyText || 'Official guide entry').slice(0, 260);
   const content = (bodyText || summary || '').slice(0, 9000);
+  const titleEn = await translateKoToEn(title);
+  const descEn = await translateKoToEn(desc);
+  const contentEn = await translateKoToEnLong(content, 3500);
   return {
     title,
-    titleEn: title,
+    titleEn,
     url: pickGuidebookUrl(item),
     desc,
-    descEn: desc,
+    descEn,
     content,
-    contentEn: content,
+    contentEn,
     images: extractImages(item)
   };
 }
@@ -110,7 +180,11 @@ async function main() {
         const idKey = String(g?.id || '') || `${g?.name || ''}|${g?.categoryId || ''}`;
         if (!dedup.has(idKey)) dedup.set(idKey, g);
       }
-      const guides = Array.from(dedup.values()).map(toGuideEntry);
+      const guides = [];
+      for (const g of Array.from(dedup.values())) {
+        guides.push(await toGuideEntry(g));
+        await sleep(120);
+      }
       const meta = byId.get(key);
       result.categories.push({
         id: meta.id,

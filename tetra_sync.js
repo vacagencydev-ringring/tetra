@@ -876,11 +876,11 @@ const TACTICS_DATA = {
         items: [
             { value: '58', label: 'Gladiator', file: 'inven_58_english.txt' },
             { value: '6625', label: 'Templar', file: 'inven_6625_english.txt' },
-            { value: '3856', label: 'Assassin PVE Guide', file: 'inven_3856_english.txt' },
-            { value: '4009', label: 'Ranger PVE Setup Guide', file: 'inven_4009_english.txt' },
-            { value: '116', label: 'Chanter PVE Comprehensive Guide', file: 'inven_116_english.txt' },
-            { value: '657', label: 'Cleric Guide', file: 'inven_657_english.txt' },
-            { value: '66', label: 'Sorcerer PVE Guide', file: 'inven_66_english.txt' },
+            { value: '3856', label: 'Assassin', file: 'inven_3856_english.txt' },
+            { value: '4009', label: 'Ranger', file: 'inven_4009_english.txt' },
+            { value: '116', label: 'Chanter', file: 'inven_116_english.txt' },
+            { value: '657', label: 'Cleric', file: 'inven_657_english.txt' },
+            { value: '66', label: 'Sorcerer', file: 'inven_66_english.txt' },
             { value: '2760', label: 'Spiritmaster (PVE)', file: 'inven_2760_english.txt' },
             { value: '965', label: 'Spiritmaster (PVP)', file: 'inven_965_english.txt' }
         ]
@@ -3101,10 +3101,10 @@ client.on('guildMemberAdd', async (member) => {
             .setTitle('👋 Welcome!')
             .setDescription(
                 `Welcome to **${guild.name}**!\n\n` +
-                `1) ✅ **Join Verification** — Complete verification first in this server.\n` +
-                `2) 📌 **Server Guide** — Read the pinned guideline in this welcome channel before participating.\n` +
-                `3) 📢 **Announcements** — Check <#${cfg.announcementsChannelId}> for important updates.\n\n` +
-                `📖 **Command Guide** — Use \`/guide\` for command usage.`
+                `1) 📢 **Announcements** — Check <#${cfg.announcementsChannelId}> first for server updates.\n` +
+                `2) ✅ **Join Verification** — Run \`/join_verify\` to complete registration.\n` +
+                `3) 📘 **Help** — Run \`/help\` for command overview and onboarding links.\n\n` +
+                `Welcome channel guidance is managed by staff.`
             )
             .setColor(0x5865F2)
             .setTimestamp();
@@ -3184,7 +3184,7 @@ client.on('interactionCreate', async (interaction) => {
             const row = buildGuidebookCategorySelect(state, isPublic);
             if (!row) {
                 await interaction.editReply({
-                    content: '❌ No guidebook data. Admin must run **`/guidebook_fetch`** first (takes 2–5 min).'
+                    content: '❌ No guidebook data is available.\nPlease verify `guidebook_official_seed.json` exists, then run **`/guidebook_fetch`** to refresh local cache if needed.'
                 });
                 return;
             }
@@ -3394,10 +3394,10 @@ client.on('interactionCreate', async (interaction) => {
                 .setTitle('👋 Welcome!')
                 .setDescription(
                     `Welcome to **${guild.name}**!\n\n` +
-                    `1) ✅ **Join Verification** — Complete verification first in this server.\n` +
-                    `2) 📌 **Server Guide** — Read the pinned guideline in this welcome channel before participating.\n` +
-                    `3) 📢 **Announcements** — Check <#${cfg.announcementsChannelId}> for important updates.\n\n` +
-                    `📖 **Command Guide** — Use \`/guide\` for command usage.`
+                    `1) 📢 **Announcements** — Check <#${cfg.announcementsChannelId}> first for server updates.\n` +
+                    `2) ✅ **Join Verification** — Run \`/join_verify\` to complete registration.\n` +
+                    `3) 📘 **Help** — Run \`/help\` for command overview and onboarding links.\n\n` +
+                    `Welcome channel guidance is managed by staff.`
                 )
                 .setColor(0x5865F2)
                 .setTimestamp();
@@ -4268,7 +4268,7 @@ client.on('interactionCreate', async (interaction) => {
                         '**Categories:**\n' +
                         '• **Dungeon Guide** — Stagger Gauge, Kaisinel, Krao Cave, Draupnir, Urugugu, Barklon, Fire Temple, Savage Horn Cave, Dead Dramata, Transcendence, Ludra 1–2, Ludra 3\n' +
                         '• **Pet Guide** — Pet Understanding, Pet Soul DB, Pet Stats\n' +
-                        '• **Class Guide** — Swordmaster, Gladiator, Assassin, Ranger, Chanter, Cleric, Sorcerer, Spiritmaster\n' +
+                        '• **Class Guide** — Gladiator, Templar, Assassin, Ranger, Chanter, Cleric, Sorcerer, Spiritmaster\n' +
                         '• **Fast Leveling** — Early leveling route and progression priorities\n' +
                         '• **Kinah Farming** — Multi-character weekly farming and schedule planning\n' +
                         '• **CP Boost Guide** — Strike options, board growth, medals, gear replacement logic\n' +
@@ -4339,7 +4339,7 @@ client.on('interactionCreate', async (interaction) => {
                 const row = buildGuidebookCategorySelect(state, false);
                 if (!row) {
                     await interaction.reply({
-                        content: '❌ No guidebook data. Admin must run **`/guidebook_fetch`** first (takes 2–5 min).',
+                        content: '❌ No guidebook data is available.\nPlease verify `guidebook_official_seed.json` exists, then run **`/guidebook_fetch`** to refresh local cache if needed.',
                         flags: EPHEMERAL_FLAGS
                     });
                     return;
@@ -4358,7 +4358,7 @@ client.on('interactionCreate', async (interaction) => {
                 const row = buildGuidebookCategorySelect(state, true);
                 if (!row) {
                     await interaction.reply({
-                        content: '❌ No guidebook data. Admin must run **`/guidebook_fetch`** first (takes 2–5 min).',
+                        content: '❌ No guidebook data is available.\nPlease verify `guidebook_official_seed.json` exists, then run **`/guidebook_fetch`** to refresh local cache if needed.',
                         flags: EPHEMERAL_FLAGS
                     });
                     return;
@@ -5537,7 +5537,7 @@ function buildGuidebookPlayncEmbeds(state) {
     if (categories.length === 0) {
         return [new EmbedBuilder()
             .setTitle('📖 AION2 Official Guidebook')
-            .setDescription('No guide data. Admin run **`/guidebook_fetch`** to fetch latest guides.')
+            .setDescription('No guide data is available.\nCheck `guidebook_official_seed.json`, then run **`/guidebook_fetch`** to refresh local cache if needed.')
             .setColor(0x5865F2)
             .addFields({ name: '🔗 Link', value: `[AION2 Guidebook](${GUIDEBOOK_BASE_URL}/list)`, inline: false })
             .setTimestamp()];
