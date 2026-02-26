@@ -1,40 +1,109 @@
-# 호법성 PVE 종합 가이드 (악몽 10단계 추가)
+# Chanter PVE Comprehensive Guide (Nightmare Stage 10 Included)
 
-*출처: https://www.inven.co.kr/board/aion2/6451/116*
+Source:
+- https://www.inven.co.kr/board/aion2/6451/116
 
----
-
-## 1. 액티브 스킬 우선순위
-
-**(1순위)** 격파쇄 20, 암격쇄 21
-**(2순위)** 백열격 21, 돌진격파 15, 타격쇄 17, 회전격 18
-**(1.5순위)** 쾌유의 주문 16, 파동격 17
-**(3순위)** 질풍난무 16, 열파격 12, 진동쇄 12, 충격해제 12
+Images:
+- https://upload3.inven.co.kr/upload/2026/01/24/bbs/i1572732512.jpg?MW=800
+- https://upload3.inven.co.kr/upload/2026/01/24/bbs/i1792070300.jpg?MW=800
+- https://upload3.inven.co.kr/upload/2026/02/20/bbs/i1444007438.jpg?MW=800
 
 ---
 
-## 2. 딜 사이클
-
-1. 질풍의 권능 (시작, 전투속도·파티 쿨감)
-2. 회전격 → 파동격 → **평캔(격파쇄+백열격/암격쇄)** → 열파격 → 타격쇄 → 돌진격파
-3. 조건부: 파동격·열파격 활성 시 사용
-
-**평캔**: 격파쇄 모션 캔슬. 스킬 예약 OFF, 좌클 꾹 누르며 우클 연타.
+## Guide scope
+- Built for endgame Chanter players handling boss content.
+- Includes hybrid role perspective: damage, healing, buffs, debuffs.
+- Extended for higher-tier Nightmare context.
 
 ---
 
-## 3. 포지션
+## Active skill priority structure
 
-- 보스전: 딜+힐+버프+디버프 하이브리드
-- 수호성·치유성 한 명과 함께 플레이 시 안정적
+## Top tier
+- Crushing core attack to high level.
+- Main strike skills with movement/penetration value.
+
+## Secondary tier
+- White-heat strike line.
+- Gap-close and rotational fillers.
+- Rotation stabilizers with cooldown/value tradeoff.
+
+## Utility tier
+- Recovery and defensive support tools.
+- Conditional trigger skills for specific boss moments.
+
+The key is not maxing everything first, but building a rotation backbone that remains stable under pattern pressure.
 
 ---
 
-## 4. 키배치·추가 팁
+## Rotation framework
 
-- 멀어질 때: 타격쇄·암격쇄 → 돌진격파·진동쇄·분쇄격으로 진입
-- 영상: 평캔 설명 (긴 영상=이론, 짧은 영상=방법)
+Typical opener:
+1. Team speed/cooldown support buff.
+2. Spin/impact setup.
+3. Core cancel sequence around left-click main strike.
+4. Conditional burst fillers if trigger conditions are active.
+
+Core execution pattern:
+- Rotation Strike -> Wave Strike -> animation cancel chain -> conditional burst -> re-entry skill.
+- Keep movement-capable skills available for mechanics.
 
 ---
 
-*인벤 호법성 게시판 · 작성자: 무무야자자 (하구)*
+## Animation cancel fundamentals
+
+- Disable queued-skill dependency when practicing manual control.
+- Use core left-click strike as cancel anchor.
+- Weave right-click or short-cast skills at the right frame.
+- Objective: preserve DPS uptime without getting locked in unsafe animations.
+
+---
+
+## Boss fight positioning
+
+- Baseline assumption: stay close to boss for optimal loop.
+- When forced out:
+- Use ranged/long-reach fallback skills.
+- Re-enter with dash, utility displacement, or short-gap skills.
+- Resume normal rotation immediately after re-entry.
+
+---
+
+## Hybrid role in party composition
+
+- Chanter performs best as a high-uptime hybrid.
+- Stable setup usually includes at least one dedicated tank/healer partner.
+- In undergeared parties, shift more into support uptime.
+- In farm parties, shift more into aggressive cooldown routing.
+
+---
+
+## Skill specialization philosophy
+
+- Prioritize effects that increase practical uptime and hit reliability.
+- Movement conversion and cooldown reduction can outperform raw paper damage in real fights.
+- Build for mechanic-heavy consistency first, then greed.
+
+---
+
+## Frequent mistakes
+
+- Overusing long animation skills during unsafe phases.
+- Ignoring support windows while chasing personal parse.
+- Forcing one fixed sequence in every boss.
+- Delaying defensive utility until too late.
+
+---
+
+## Practical weekly tuning checklist
+
+- [ ] Is my cancel timing stable under latency?
+- [ ] Are my movement skills reserved for real mechanics?
+- [ ] Is support buff timing aligned with party burst windows?
+- [ ] Did I adapt specialization for current dungeon tier?
+- [ ] Can I maintain rotation after forced displacement?
+
+---
+
+## Practical conclusion
+Chanter PVE excels when rotation discipline and support timing are both clean. This guide's strength is in maintaining high real uptime while preserving party stability in pattern-heavy endgame encounters.

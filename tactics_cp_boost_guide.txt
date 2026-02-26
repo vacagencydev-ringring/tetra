@@ -1,0 +1,129 @@
+# ⚔️ #cp-boost-guide (Combat Power and Progression)
+
+Sources:
+- https://www.inven.co.kr/board/aion2/6444/1383
+- https://www.inven.co.kr/board/aion2/6444/1397
+- https://www.inven.co.kr/board/aion2/6444/1389
+- https://www.inven.co.kr/board/aion2/6444/1387
+
+Images:
+- https://upload3.inven.co.kr/upload/2026/02/25/bbs/i1406971301.png?MW=800
+- https://upload3.inven.co.kr/upload/2026/02/24/bbs/i1747952254.png?MW=800
+
+---
+
+## Purpose
+- CP growth is often slowed by fragmented upgrades.
+- This guide combines strike options, board growth, medal loops, and equipment replacement logic.
+- Goal: maximize practical power per resource spent.
+
+---
+
+## Strike option stacking framework
+
+Key concept:
+- Strong strike outcomes are built through many medium sources, not one huge source.
+- Missing low-cost sources hurts more than under-investing one expensive source.
+
+Common source families:
+- Pet understanding progression
+- Pantheon systems
+- Collection/title bonuses
+- Arcana-related bonuses
+- Soul imprint on equipment
+- Passive progression branches
+
+Planning rule:
+- Fill missing categories first, then push premium upgrades.
+
+---
+
+## Markutan board value
+
+Board growth contributes to both offense and defense:
+- damage amplification and resistance lines
+- penetration and mitigation interaction
+- hit, crit, defense, block, anti-crit layers
+- fixed and percentage health scaling
+
+Why this is strong:
+- Board progression compresses multiple stat dimensions.
+- It improves combat consistency, not only sheet CP score.
+
+---
+
+## Medal acquisition for equipment tracks
+
+Typical medal routes:
+- season and weekly mission structures
+- abyss reward channels
+- exchange shop loops
+- transformation/material conversion options
+
+Execution priority:
+- Secure stable weekly medal floor first.
+- Add variable medal sources only after baseline is guaranteed.
+
+---
+
+## Crafting vs Ludra replacement decisions
+
+Do not compare only item level.
+
+Required comparison layers:
+- slot and option architecture
+- max potential lines
+- re-upgrade costs after replacement
+- expected use case (PVE boss, PVP survival, mixed content)
+
+A replacement can be a sidegrade if conversion cost is ignored.
+
+---
+
+## Upgrade order model
+
+Step 1:
+- complete missing strike-related low-cost sources.
+
+Step 2:
+- unlock high-impact Markutan board nodes.
+
+Step 3:
+- fix weekly medal routine.
+
+Step 4:
+- evaluate gear replacement with full conversion cost.
+
+Step 5:
+- re-check skill and role requirements after each major gear change.
+
+---
+
+## Common CP growth mistakes
+
+Mistake: Overfocusing one item slot.
+Fix: spread investment to missing system categories first.
+
+Mistake: Ignoring post-replacement rebuild cost.
+Fix: include full recraft/reinforce budget in decisions.
+
+Mistake: Chasing visible CP without performance tests.
+Fix: validate on actual dungeon or PVP scenarios.
+
+Mistake: Inconsistent weekly medal collection.
+Fix: lock medal tasks into fixed weekly schedule.
+
+---
+
+## Performance validation checklist
+
+- [ ] Strike source categories are audited for missing pieces.
+- [ ] Board progression has a defined node priority.
+- [ ] Medal baseline is guaranteed every week.
+- [ ] Gear swaps are evaluated with total resource cost.
+- [ ] CP increase is confirmed with real combat stability.
+
+---
+
+## Practical conclusion
+Reliable CP growth comes from coordinated systems, not isolated upgrades. When strike options, board investment, medal loops, and replacement economics are managed together, both power score and real combat performance rise consistently.

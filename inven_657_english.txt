@@ -1,38 +1,116 @@
-# 치유성 가이드 (26/01/28 기준)
+# Cleric Guide (Reference: 2026-01-28)
 
-*출처: https://www.inven.co.kr/board/aion2/6452/657*
+Source:
+- https://www.inven.co.kr/board/aion2/6452/657
 
----
-
-## 1. 딜 스킬
-
-- **대지의 응보**: 최소 LV12
-- **심판의 번개**: 최소 LV16 ("천벌 1회 추가" 핵심)
-- **단죄**: 최소 LV16 ("이동가능"·"50% 재시전 초기화") → **단죄 20 추천**
-- 대지의 징벌 스티그마 채용으로 단죄 효율↑ → 심판의 번개 20보다 단죄 20 우선
+Images:
+- https://upload3.inven.co.kr/upload/2025/12/03/bbs/i1508506420.jpg?MW=800
+- https://upload3.inven.co.kr/upload/2025/12/03/bbs/i1868072074.png?MW=800
+- https://upload3.inven.co.kr/upload/2025/12/03/bbs/i1463443202.png?MW=800
 
 ---
 
-## 2. 힐 스킬
-
-- **재생의 빛**: LV16 (치명50·피내성 5%)
-- **치유의 빛**: LV16 (재시전 2초↓, 최대체력 2% 회복)
-- **쾌유의 광휘**: LV16 ← **가장 중요** (재시전 2초↓, 최대차지 시 10% 추가 회복)
-- 16레벨 이전: 면죄 스티그마 사용 → 20찍으면서 면죄 제거
+## Guide scope
+- This guide is aimed at Cleric players who want a stable hybrid healing/damage setup.
+- It is especially useful for players still organizing their progression priorities.
+- Focus: practical investment order, healing reliability, and meaningful DPS contribution.
 
 ---
 
-## 3. 스킬 시스템
+## Skill system fundamentals
 
-- 8/12/16/20레벨마다 특화 해금
-- 데바니온·아르카나·장비로 스킬 레벨 추가 (무기·가더·반지에 액티브만)
+- Specialization slots unlock at key level breakpoints.
+- Core active skills should reach meaningful breakpoints early.
+- Additional skill levels come from board nodes, arcana, and gear-based skill options.
 
----
-
-## 4. 데바니온·아르카나
-
-목차 B·C 참고. 추천 조합은 본문 확인.
+Practical implication:
+- Build planning should include both raw level investment and external level boosts.
 
 ---
 
-*인벤 치유성 게시판 · 작성자: L퍼즐*
+## Damage skill direction
+
+## Earth Punishment line
+- Recommended to secure at least medium investment early.
+- Supports baseline DPS consistency.
+
+## Lightning Judgment line
+- Important breakpoint appears at higher level due to additional trigger value.
+- Good for pressure in burst windows.
+
+## Conviction line
+- Very high practical value after key breakpoint.
+- Mobility conversion and reset chance make it strong in real mechanics.
+- In current context, Conviction-heavy routing can outperform older alternatives.
+
+---
+
+## Healing skill direction
+
+## Regeneration Light
+- Keep at functional breakpoint for sustain and defensive stability.
+
+## Healing Light
+- Cooldown reduction and max-HP scaling effects are key.
+- Essential in repeated damage scenarios.
+
+## Recovery Radiance
+- One of the most important healing investments.
+- Charged usage provides major emergency recovery value.
+
+Transition note:
+- Temporary stigma choices are acceptable before your key healing breakpoints are complete.
+- Replace temporary options as core healing levels are secured.
+
+---
+
+## Passive and utility logic
+
+- Cleric performance is not only about raw heals.
+- Defensive passives and utility uptime determine success in high-pressure fights.
+- Build passives to support cast stability and sustain under interruption risk.
+
+---
+
+## Debanion and Arcana planning
+
+- Plan debanion node path around your most-used active skills.
+- Arcana should support your role split:
+- More survival if you are the primary safety anchor.
+- More offensive support if your party already has high sustain.
+
+---
+
+## Role execution in party play
+
+- Cleric should not panic-heal every small hit.
+- Use controlled cadence:
+- Preventive sustain,
+- Burst recovery on real danger windows,
+- DPS contribution during safe intervals.
+
+This cadence is what separates stable clerics from overheal-heavy unstable play.
+
+---
+
+## Common mistakes
+
+- Over-investing in low-impact skills before healing core breakpoints.
+- Ignoring cooldown reduction effects on major heals.
+- Playing fully reactive instead of proactive timing.
+- Neglecting movement/cast safety in pattern-heavy encounters.
+
+---
+
+## Practical checklist
+
+- [ ] Do I have core healing skills at practical breakpoints?
+- [ ] Is my damage setup aligned with my healing responsibility?
+- [ ] Are temporary stigma choices still needed or outdated?
+- [ ] Is my cast timing planned around boss mechanics?
+- [ ] Am I contributing safe DPS in downtime windows?
+
+---
+
+## Practical conclusion
+A strong Cleric build is a balance of healing reliability and controlled offensive contribution. Prioritize key breakpoints, maintain cooldown discipline, and adjust arcana/stigma to your real party role instead of static theory.

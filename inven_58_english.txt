@@ -1,46 +1,96 @@
-# 검성 PVE 추천 NEW스킬트리 (26.01.02 수정)
+# Swordmaster PVE Recommended NEW Skill Tree (Updated 2026-01-02)
 
-*출처: https://www.inven.co.kr/board/aion2/6448/58*
+Source:
+- https://www.inven.co.kr/board/aion2/6448/58
 
----
-
-## 1. 일반스킬 (필수 12레벨↑ / 목표 20레벨)
-
-**분쇄파동** 20레벨
-- 8LV: 피해량 15% 생명력 흡수
-- 12LV: + 치명타 적중 시 재시전 시간 초기화
-- 20LV: + 끌어당기기 (NPC 끌어오기·공격방해 가능, PVE에서 유용)
-
-**예리한 일격** 12레벨↑
-- 특화: 파멸의 맹타 재시전 1초 감소, 7% 생명력 흡수 (★★★★★)
-
-**파멸의 맹타** 16~20레벨
-- 12LV: 스킬속도 20% + 전투 준비 5초 증가
-- 20LV: + 다단 히트 적중 (진입기→버프·딜링기로 전환)
-
-**내려찍기** 16~20레벨
-- 행동불가 면역 대상 7% 확률 활성화, 재시전 삭제, 피흡
-
-**검기난무** 16~20레벨
-- 16LV: 적중 시 모든 스킬 1초 쿨감, 확정 다단히트
-- 20LV: + 피흡
+Images:
+- https://upload3.inven.co.kr/upload/2025/11/22/bbs/i1217166950.png?MW=800
+- https://upload3.inven.co.kr/upload/2025/11/22/bbs/i1751374551.png?MW=800
+- https://upload3.inven.co.kr/upload/2025/11/22/bbs/i1775560292.png?MW=800
 
 ---
 
-## 2. 패시브·스티그마
-
-**패시브**: 공격준비(M), 약점파악(M), 노련한반격(M), 살기파열(M), 생존자세
-
-**스티그마**: 지켈의 축복(그로기 50%↑), 돌격자세, 근성, 집중막기
-
----
-
-## 3. 딜 사이클 요약
-
-- **1인 보스**: 파멸의맹타→지켈축복→분노의파동→흡혈의검→검기난무→예리한일격·분쇄파동 반복
-- **필드 몰이**: 분쇄파동→예리한일격 반복
-- **평캔**: 격파쇄 모션 캔슬, 스킬 예약 OFF + 좌클 꾹 누르며 우클 연타
+## Author intent and scope
+- This is not a single absolute answer build.
+- It is a practical PVE route tested in real dungeon rotations.
+- Core focus: stable sustain, cooldown flow, stagger contribution, and clean cancel timing.
 
 ---
 
-*인벤 검성 게시판 · 작성자: 주이스틱*
+## Core active skills (recommended progression)
+
+## 1) Crushing Wave
+- Priority: very high, target Lv20.
+- Lv8 specialization: +15% damage and life steal.
+- Lv12 specialization: +crit hit cooldown reset.
+- Lv20 specialization: +pull effect.
+- Why pull in PVE: helps gather scattered mobs and reduces dead time between packs.
+
+## 2) Sharp Strike
+- Priority: high, at least Lv12.
+- Key value: reduces Destructive Blow cooldown and improves multihit consistency.
+- Also contributes to sustain through life-steal based setup.
+
+## 3) Destructive Blow
+- Priority: high, Lv16~20.
+- Lv12: +20% skill speed, +combat-ready uptime.
+- Lv20: adds multihit impact and improves burst windows.
+- Practical use: no longer just a gap closer at higher skill mastery; used as buff+damage core.
+
+## 4) Smash Down
+- Priority: medium-high, Lv16~20.
+- Strong value from no-recast style interaction and anti-immune trigger conditions.
+
+## 5) Blade Rampage
+- Priority: high in boss cycles, Lv16~20.
+- Lv16 setup already gives strong all-skill cooldown pressure.
+- Lv20 adds sustain layer for safer prolonged uptime.
+
+## 6) Additional utility picks
+- Ankle Slash (range/chain comfort)
+- Dash Strike (distance + cooldown comfort)
+- Situational picks depending on dungeon mechanics
+
+---
+
+## Passive priority
+1. Combat Preparation (max)
+2. Weak Point Analysis (max)
+3. Veteran Counter (max)
+4. Killing Intent/stack-based extra proc passive
+5. Defensive posture and remaining passives by content need
+
+---
+
+## Stigma recommendations
+- Zikel's Blessing: major stagger contribution in timed stagger checks.
+- Assault Stance: speed and reset value.
+- Grit: emergency survival / mechanic bypass utility.
+- Perfect Guard: high value in pattern-heavy fights.
+
+---
+
+## Rotation examples
+
+## Solo boss opener
+Destructive Blow -> Zikel's Blessing -> Rage Wave -> sustain/damage fillers -> Blade Rampage during stagger -> Sharp Strike + Crushing Wave loop.
+
+## Field mob farming
+Crushing Wave + Sharp Strike loop, finish remaining targets with short-cooldown fillers.
+
+## 4-man dungeon bosses
+- Maintain sustained DPS loop rather than only burst.
+- Use Blade Rampage on stagger windows.
+- Promote movement-friendly skills for uptime during boss mechanics.
+
+---
+
+## Animation cancel (core execution)
+- Disable skill queue when practicing manual cancel timing.
+- Hold left-click core attack and weave right-click/key skills to cancel end frames.
+- Goal: keep GCD flow tight while preserving survivability and resources.
+
+---
+
+## Practical conclusion
+This build is optimized for real PVE stability: frequent cooldown cycling, good sustain, reliable stagger pressure, and controllable DPS through manual canceling.

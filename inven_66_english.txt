@@ -1,43 +1,111 @@
-# 마도성 PVE 공략 (1/15 수정)
+# Sorcerer PVE Guide (Updated through 2026-01-15)
 
-*출처: https://www.inven.co.kr/board/aion2/6453/66*
+Source:
+- https://www.inven.co.kr/board/aion2/6453/66
 
----
-
-## 1. 액티브 스킬 (★ 우선)
-
-**★불꽃화살** 10 → 16레벨 후 불의 표식·불꽃폭발 초기화
-**★얼음사슬** 10 (정신력·피해량↑)
-**★혹한의 바람** 10 (소환 1초↑, 피해내성)
-**★불꽃폭발** 10 (피흡·지연피해) → 집중의기원 쿨감
-**★집중의 기원** 10 (공격력·전투속도)
-
-화염난사 10, 빙결 4, 빙결폭발 8, 지옥의화염 8
+Images:
+- https://upload3.inven.co.kr/upload/2026/01/15/bbs/i1913110982.png?MW=800
+- https://upload3.inven.co.kr/upload/2025/12/18/bbs/i1857059260.png?MW=800
+- https://upload3.inven.co.kr/upload/2025/11/29/bbs/i1708329366.png?MW=800
 
 ---
 
-## 2. 패시브
-
-대지의 로브 8, 냉기소환 10, **★불꽃의 로브** 10, 강화의 은혜 10, **★정기 흡수** 10
-
-포인트 부족 시 불꽃의 로브 제외하고 나머지에서 조절.
-
----
-
-## 3. 16레벨 이후 추가
-
-**★불꽃작살** 10 (지화 쿨감·데미지 10%)
-화염난사 10 (다단히트·쿨감)
-집중의기원 10 (쿨감·전투속도)
+## Guide scope
+- This is a long-running PVE Sorcerer update guide with patch-adjusted recommendations.
+- It includes pre-16 and post-16 routes, plus scaling direction for higher investment.
+- Main focus: reliable rotation flow with strong fire/ice utility interactions.
 
 ---
 
-## 4. 스킬 사이클·키세팅
+## Core active skill package
 
-16레벨 이전/이후 스킬트리·키세팅, 데바니온·스티그마·아르카나·만신전 → 본문 참고.
+High-priority base skills:
+- Flame Arrow line
+- Ice Chain line
+- Frigid Wind line
+- Flame Burst line
+- Focused Invocation line
 
-1.14 업데이트 반영.
+Supporting actives:
+- Flame Barrage
+- Freeze and Freeze Burst interaction
+- Hellfire field pressure tools
+
+Core idea:
+- Build a stable trigger network before chasing luxury max-level routes.
 
 ---
 
-*인벤 마도성 게시판 · 작성자: 깐깐한네임*
+## Lv16 transition strategy
+
+After reaching key pre-16 breakpoints:
+- Transition into optimized post-16 sequence.
+- Strengthen skills that provide cooldown coupling and burst consistency.
+- Keep Focused Invocation integrated into your damage windows.
+
+This transition is where many Sorcerer players gain or lose overall uptime.
+
+---
+
+## Priority logic for upgrades
+
+1. Secure baseline core actives to practical levels.
+2. Upgrade skills that unlock important specialization behavior.
+3. Add passives that support sustained casting and resource control.
+4. Expand into specialized burst tools after rotation consistency is stable.
+
+---
+
+## Passive direction
+
+Recommended passive set emphasizes:
+- Casting stability
+- Resource sustain
+- Elemental damage consistency
+- Practical survivability in movement-heavy bosses
+
+When points are tight:
+- Delay lower-impact passives first.
+- Keep high-impact sustain/cycle passives online.
+
+---
+
+## Rotation philosophy
+
+- Sorcerer PVE is not only burst; it is rhythm management.
+- Keep your core trigger cycle active.
+- Avoid overloading animation-heavy casts during unsafe movement windows.
+- Re-enter damage loop immediately after mechanics.
+
+---
+
+## Practical execution tips
+
+- Track cooldown sync between your major burst and setup buttons.
+- Use field/zone skills where boss uptime is predictable.
+- Preserve mobile-friendly casts for forced movement phases.
+- Rebuild rhythm quickly after interruption.
+
+---
+
+## Common mistakes
+
+- Forcing full burst in every phase regardless of mechanics.
+- Leveling too many side skills before core breakpoints.
+- Ignoring cast safety and losing uptime to avoidable hits.
+- Overvaluing dummy damage over real boss uptime.
+
+---
+
+## Build maintenance checklist
+
+- [ ] Did I complete the pre-16 baseline before greed upgrades?
+- [ ] Are my post-16 specializations aligned with my current dungeon tier?
+- [ ] Is my passive setup helping real cast consistency?
+- [ ] Do I maintain damage rhythm after movement mechanics?
+- [ ] Are my burst windows aligned with actual boss vulnerability?
+
+---
+
+## Practical conclusion
+Sorcerer PVE scaling comes from disciplined cycle management. Patch-aware specialization choices, proper transition timing at Lv16+, and consistent real-fight uptime matter more than isolated burst screenshots.

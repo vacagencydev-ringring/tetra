@@ -1,33 +1,106 @@
-# 궁성 PVE 세팅 가이드 (26-02-11)
+# Ranger PVE Setup Guide (Updated 2026-02-11)
 
-*출처: https://www.inven.co.kr/board/aion2/6450/4009*
+Source:
+- https://www.inven.co.kr/board/aion2/6450/4009
 
----
-
-## 1. 장비
-
-- **경로**: 분크메→기룡 / 인던가더→기룡가더 or 루드라가더
-- **무기·가더**: 암룡 이상 (늘무X), 위력·정확·다단히트·전속·무피증·피증
-- **귀·목**: 건룡 이상, 공격력·치명·명중·집중의눈, 남는 슬롯 결의·혼
-- **반지**: 건룡, 아르카나에 따라 4~5 액티브 + 치명·명중·공격력
-- **방어구**: 특옥·집중의눈, 남는 슬롯 명중·치명·공격력 (패시브 X)
-- **팔찌**: 시간·파괴·지혜 + 죽음 or 자유
-- **방어구**: 암룡 or 인던템 (건룡·흑룡 X)
+Images:
+- https://upload3.inven.co.kr/upload/2026/01/28/bbs/i1818261102.png?MW=800
+- https://upload3.inven.co.kr/upload/2026/01/29/bbs/i1184576140.png?MW=800
 
 ---
 
-## 2. 마석·신석
-
-- **마석**: 전부위 중급/영석, 치명+명중 39 이상 목표
-- **신석**: 이속감소 1개, 나머지 마비 추천
-
----
-
-## 3. 스펙업 우선순위
-
-- 인던템 무기/가더 → 제작무기·가더 우선 투자
-- 이미 제작템이면 옆그레이드 하지 않음
+## Guide scope
+- This guide targets practical progression players, not only top-end whales.
+- It focuses on efficient upgrade order and cost-effective transitions.
+- Core objective: avoid expensive side-grades while maintaining strong PVE output.
 
 ---
 
-*인벤 궁성 게시판 · 작성자: 규리 · 라방 반영*
+## Equipment progression path
+
+Recommended route:
+- Early crafted path -> higher crafted dragon path.
+- Dungeon guarder -> crafted guarder or Ludra guarder transition.
+
+Important principle:
+- If weapon/guarder is still dungeon-tier, stop side spending and push core crafted upgrades first.
+- Core weapon and guarder determine most of your practical damage curve.
+
+---
+
+## Weapon and guarder priorities
+
+Desired option profile:
+- Power
+- Accuracy
+- Multi-hit related efficiency
+- Attack speed / cast-speed relevant value
+- Boss damage related value
+
+General advice:
+- Treat weapon and guarder as your top two investment pillars.
+- Upgrade these before expensive cosmetic or low-impact side systems.
+
+---
+
+## Accessory framework
+
+Earrings/Necklace:
+- Prioritize attack, critical, and accuracy baselines.
+- Fill remaining slots with utility/offense choices by budget.
+
+Rings:
+- Ring setup changes with arcana plan and active-skill slot strategy.
+- Keep your ring plan aligned with your final rotation concept.
+
+Bracelets:
+- Time / Destruction / Wisdom style combinations are commonly used.
+
+---
+
+## Armor and stat slot logic
+
+- Armor should support consistency first, then damage scaling.
+- Use slot decisions that stabilize hit/crit first before greed options.
+- Avoid overinvesting in temporary armor pieces if major upgrade is near.
+
+---
+
+## Socket and stone direction
+
+Gem direction:
+- Aim for stable critical + hit baseline across all pieces.
+- Build consistency before pushing luxury max-roll goals.
+
+Godstone direction:
+- One movement-impact control option is commonly useful.
+- Remaining slots can be tuned to your farm environment and team setup.
+
+---
+
+## Upgrade traps to avoid
+
+- Side-grading too many times between similar tiers.
+- Spending heavily on pieces that will be replaced soon.
+- Ignoring opportunity cost of delayed weapon/guarder completion.
+
+---
+
+## Weekly practical checklist
+
+- [ ] Is my current weapon tier blocking progression speed?
+- [ ] Is guarder investment synchronized with weapon level?
+- [ ] Am I spending on side-grades instead of major upgrades?
+- [ ] Did I validate hit/crit stability in actual dungeons?
+- [ ] Are ring/arcana choices aligned with my real rotation?
+
+---
+
+## Short build philosophy
+- Strong Ranger progression is less about one perfect piece and more about disciplined order.
+- Prioritize core damage foundation, then optimize detail layers.
+
+---
+
+## Practical conclusion
+For Ranger PVE, efficient progression order wins over flashy short-term upgrades. Commit first to weapon/guarder power spikes, maintain stable hit/crit floor, and only then invest in high-cost optimization layers.

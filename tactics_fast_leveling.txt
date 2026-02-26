@@ -1,0 +1,117 @@
+# 🚀 #fast-leveling (Leveling Guide)
+
+Source:
+- https://www.inven.co.kr/webzine/news/?news=311570
+
+Image:
+- https://static.inven.co.kr/column/2025/11/22/news/i1921026416.jpg
+
+---
+
+## What this guide solves
+- New players often lose time by doing side content in the wrong order.
+- This guide gives a route that keeps EXP flow, awakening progress, and permanent growth synchronized.
+- Goal: level fast without creating long-term progression debt.
+
+---
+
+## Core route philosophy
+
+1) Main quest and regional quest should move together.
+- Main quest alone eventually stalls at awakening progress gates.
+- Regional quests provide key side rewards while you are already in the same area.
+
+2) Sealed dungeons and outposts should be paced, not spammed blindly.
+- Some rewards scale better when your progression is higher.
+- Use travel-efficient timing instead of forcing full clear early.
+
+3) Skill level and specialization slots are part of leveling speed.
+- At each unlock breakpoint, assign specializations immediately.
+- Early damage consistency usually comes from left-click + right-click core pairing.
+
+---
+
+## Permanent growth systems to never ignore
+
+## Field relic collection
+- Collect while moving, not as a separate marathon session.
+- Relic progress fuels systems that provide persistent character value.
+
+## PvE amulet progression
+- Treat amulet as a long-term stat foundation.
+- Upgrade cadence matters more than random burst spending.
+
+## Noble belt progression
+- Belt progression is a persistent power track.
+- Route should be integrated into weekly movement, not isolated.
+
+---
+
+## Odd Energy timing
+- Odd Energy is a strategic resource, not "spend everything now" fuel.
+- Overusing it during weak reward phases lowers your total weekly value.
+- Save major usage for stronger farm windows once your character is ready.
+
+---
+
+## 3-stage leveling framework
+
+## Stage 1: Early progression
+- Push main quest objectives.
+- Clear overlapping regional quests.
+- Stabilize first specialization setup.
+
+## Stage 2: Mid progression
+- Continue synchronized quest route.
+- Add selective side systems that have clear permanent return.
+- Maintain controlled Odd Energy usage.
+
+## Stage 3: Pre-endgame transition
+- Clean up delayed progression systems.
+- Tune core skills for dungeon consistency.
+- Prepare your first weekly repeatable routine.
+
+---
+
+## Common mistakes and fixes
+
+Mistake: Main quest tunnel vision.
+Fix: Always check if nearby regional quests unblock your next gate.
+
+Mistake: Over-investing temporary gear.
+Fix: Spend by replacement horizon (short hold vs long hold).
+
+Mistake: Forgetting specialization unlocks.
+Fix: Every breakpoint level -> open skill page before next pull.
+
+Mistake: Burning Odd Energy too early.
+Fix: reserve major consumption for better reward tiers.
+
+---
+
+## Session templates
+
+30-minute session:
+- Main + nearest regional quests only.
+
+60-minute session:
+- Main + regional + one permanent growth checkpoint.
+
+90-minute session:
+- Main + regional + one controlled farm block + reset prep.
+
+Choose by schedule, but keep consistency.
+
+---
+
+## Quick checklist
+- [ ] Main and regional quests are running in parallel.
+- [ ] Newly unlocked specialization slots are assigned.
+- [ ] Permanent growth systems are progressing weekly.
+- [ ] Odd Energy is reserved for high-value windows.
+- [ ] Gear spending is aligned with replacement timing.
+
+---
+
+## Practical conclusion
+Fast leveling is not only speed; it is sequence quality. If you synchronize quest flow, specialization timing, and permanent growth systems, you level quickly and enter endgame without cleanup bottlenecks.

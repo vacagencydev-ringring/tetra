@@ -1,47 +1,118 @@
-# 수호성 스킬 정리(PVE) (26.01.26 수정)
+# Gladiator PVE Skill Guide (Updated 2026-01-26)
 
-*출처: https://www.inven.co.kr/board/aion2/6438/6625*
+Source:
+- https://www.inven.co.kr/board/aion2/6438/6625
 
----
-
-## 1. 핵심 스킬 특화
-
-**맹렬한 일격** 20 (3,4,5)
-- 다단 히트 50%↑, 비호의 일격 쿨 1초↓, 위협의 맹타 연속기
-
-**연속난타** 20
-- (2,3,4): 심판 사용 빈도↑
-- (2or3,4,5): 징벌 쿨감↑
-
-**심판** 20 (3,4,5) ※최우선 투자
-- 추가 피해, 확정 치명타, 재시전 시간 삭제
-
-**징벌**
-- 12↑: 버프용 (징행자 10초, 명중 200·피증 10%)
-- 20 (2,3,5): 딜링용 (지속피해, 막기·회피 무시)
-
-**20레벨 우선순위**: 심판 → 맹렬한 일격(좌클) → 연속난타(우클)
+Image:
+- https://upload3.inven.co.kr/upload/2026/01/22/bbs/i1965854913.png?MW=800
 
 ---
 
-## 2. 패시브·스티그마·아르카나
-
-**패시브**: 격앙★, 철벽방어, 단죄의 가호, 충격 적중, 고통 차단, 체력 강화
-
-**스티그마**: 도발 15~20, 보호의 방패, 주신의 징벌, 전우보호/네자칸/이중갑옷/고결의갑주
-
-**아르카나**: 성배 시엘(시간), 나침반 바이젤(자유), 양피지 마르쿠탄/유스티엘, 종 지켈(파괴), 거울 루미엘(지혜)
+## Guide scope
+- This guide focuses on practical PVE skill priorities.
+- It emphasizes cooldown flow, survivability, and stable uptime.
+- The author notes that this is a recommendation, not a single mandatory build.
 
 ---
 
-## 3. 평캔·스킬 배치
+## Core active skills and specialization sets
 
-- 좌-심-좌-심
-- 스킬예약 OFF, 좌클 꾹 + 우클 연타
-- 심판 활성화 시 심심심심 (전투속도 80%↑에서 유리)
+## 1) Fierce Strike (Lv20 recommended)
+- Recommended specializations: 3, 4, 5.
+- Effects include multihit increase and Beho Strike cooldown reduction.
+- At high investment, combo extension improves sustained output.
 
-**우클 배치**: 징벌, 심판, 연속난타
+## 2) Continuous Flurry (Lv20 recommended)
+- Two common routes:
+- Route A: 2, 3, 4 for stronger Judgment frequency.
+- Route B: 2(or3), 4, 5 for stronger Punishment cooldown flow.
+- Choice depends on party uptime vs burst window preference.
+
+## 3) Judgment (top priority to Lv20)
+- Core specializations: 3, 4, 5.
+- Key values: additional damage, guaranteed critical hit, recast removal.
+- If survivability is weak, temporary life-steal option can be used.
+
+## 4) Punishment split usage
+- Utility mode (Lv12+): used primarily as a buff trigger.
+- Damage mode (Lv20): used as a real DPS skill with anti-block/anti-evade value.
+- This is one of the major identity forks in Gladiator PVE.
+
+## 5) Optional heavy skill: Annihilation
+- Strong damage profile but can feel less smooth for some players.
+- Recommended when your execution and boss pattern knowledge are stable.
+
+## 6) Debuff and mitigation helpers
+- Weakening Blow (armor reduction utility) remains useful.
+- Beho Strike gives defense utility and can provide party-level protection.
 
 ---
 
-*인벤 수호성 게시판 · 작성자: 조각난개념*
+## Lv20 upgrade order (recommended)
+1. Judgment
+2. Fierce Strike (left-click core)
+3. Continuous Flurry (right-click core)
+4. Punishment mode completion
+5. Optional damage utility skills
+
+---
+
+## Passive setup
+- Frenzy (high value)
+- Iron Wall Defense
+- Blessing of Judgment
+- Shock Accuracy
+- Pain Block
+- Vitality reinforcement
+
+This passive package is designed to keep both consistency and tank-side comfort.
+
+---
+
+## Stigma recommendations
+- Taunt (Lv15~20) as a key utility layer.
+- Protection Shield (Lv5~20).
+- Divine Punishment (Lv10~15).
+- Flex slot: Ally Protection / Nezakan / Double Armor / Noble Armor.
+
+Choose the final slot by content role:
+- More mitigation when learning content.
+- More damage support when farm patterns are stable.
+
+---
+
+## Arcana direction (example framework)
+- Cup: vitality/time line.
+- Compass: vitality/freedom line.
+- Scroll: magic or vitality by survival needs.
+- Bell: destruction line.
+- Mirror: wisdom line.
+
+Practical note:
+- Scroll can be swapped based on whether your current bottleneck is HP or mitigation.
+
+---
+
+## Input and cancel execution
+
+Common cancel patterns:
+- Left -> Judgment -> Left -> Judgment.
+- Skill queue OFF with held left-click and repeated right-click weaving.
+- During Judgment-ready windows, faster repetitive input can be effective at high combat speed.
+
+Hotkey concept:
+- Right-click lane often includes Punishment, Judgment, and Continuous Flurry.
+- Keep panic survival and utility buttons in reachable positions.
+
+---
+
+## Party role interpretation
+- Gladiator can operate as a hybrid of frontline pressure and pattern control.
+- Build decisions should match your party composition:
+- More defensive route in low-heal parties.
+- More aggressive cooldown route in optimized farm parties.
+
+---
+
+## Practical conclusion
+The strongest Gladiator PVE setup is not just max level skills, but a clean Judgment-centered loop, correct Punishment mode choice, and stable input execution under real boss patterns.

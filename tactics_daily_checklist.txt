@@ -1,0 +1,131 @@
+# 📅 #daily-checklist (Daily and Weekly Routine)
+
+Sources:
+- https://www.inven.co.kr/board/aion2/6444/1067
+- https://www.inven.co.kr/board/aion2/6444/598
+
+Image:
+- https://static.inven.co.kr/column/2025/12/02/news/i1391437967.jpg
+
+---
+
+## Goal
+- Build a routine you can repeat every week without burnout.
+- Reduce missed rewards caused by last-day panic.
+- Convert random play into consistent progression.
+
+---
+
+## Routine design principles
+
+Daily logic:
+- prioritize tasks that lose value if skipped.
+
+Weekly logic:
+- spread high-load tasks across multiple days.
+
+Resource logic:
+- track consumables and weekly-limited resources numerically.
+
+Consistency beats intensity.
+
+---
+
+## Recommended daily order
+
+1) Check journal/mission board for high-value tasks.
+2) Review energy and ticket leakage risk.
+3) Complete short mobile-friendly blocks first.
+4) Move party-dependent tasks into prime-time windows.
+
+This sequence reduces decision fatigue and protects progress.
+
+---
+
+## Recommended weekly structure
+
+Early week:
+- lock core weekly rewards.
+
+Midweek:
+- run party-heavy or high-risk content.
+
+Weekend:
+- clean up remaining tickets, missions, and resource consumption.
+
+Avoid putting everything near weekly reset.
+
+---
+
+## Odd Energy control
+
+Core idea:
+- Odd Energy should be budgeted weekly, not spent impulsively.
+
+Management:
+- estimate weekly inflow
+- define target consumption windows
+- avoid one-day over-spend
+
+Random gains are bonus, not planning baseline.
+
+---
+
+## Time allocation by session length
+
+20-30 min:
+- mission checks + short guaranteed rewards
+
+45-60 min:
+- daily core loop + one progression side task
+
+90+ min:
+- include party content or backlog cleanup
+
+Pick the block that matches real life schedule.
+
+---
+
+## Anti-chaos checklist
+
+- [ ] daily must-do tasks are completed first
+- [ ] party content is scheduled in active hours
+- [ ] weekly-limited tasks are distributed across days
+- [ ] odd/ticket consumption is monitored
+- [ ] sunday pre-reset audit is performed
+
+---
+
+## Weekly board template
+
+For each day:
+- 3 daily fixed tasks
+- 2 weekly accumulation tasks
+- resource spend record
+
+Sunday review:
+- unresolved weekly rewards
+- next week priority list
+
+Simple templates outperform complex plans you never follow.
+
+---
+
+## Common failures and fixes
+
+Failure: doing easy tasks only.
+Fix: lock at least one high-impact task each session.
+
+Failure: ignoring resource logs.
+Fix: update a minimal numeric tracker daily.
+
+Failure: postponing hard content to reset day.
+Fix: move one hard block to midweek.
+
+Failure: no routine adaptation.
+Fix: review and adjust weekly after reset.
+
+---
+
+## Practical conclusion
+The best daily/weekly checklist is the one you can execute repeatedly. A stable rhythm with tracked resources and scheduled difficulty gives better long-term growth than irregular high-effort sessions.

@@ -1,33 +1,108 @@
-# 살성 PVE 가이드 (2026.01.28 기준)
+# Assassin PVE Guide (2026-01-28 Baseline)
 
-*출처: https://www.inven.co.kr/board/aion2/6449/3856*
+Source:
+- https://www.inven.co.kr/board/aion2/6449/3856
 
----
-
-## 1. 환영분신 쿨감 트리 핵심
-
-- 스티그마 샤드 확보에 따른 스티그마 세팅
-- **우선 20찍을 스킬**: 기습 16 vs 침투 20 투자 가이드
-- 기습 20 시전속도 기본 패치 반영 → 16투자/20투자 선택
-
-**환영분신 트리니엘 비수 쿨타임 계산기** (엑셀 첨부)
+Images:
+- https://upload3.inven.co.kr/upload/2026/01/31/bbs/i1560615893.png?MW=800
+- https://upload3.inven.co.kr/upload/2026/01/31/bbs/i1428449391.png?MW=800
+- https://upload3.inven.co.kr/upload/2026/01/31/bbs/i1951847507.png?MW=800
 
 ---
 
-## 2. 스킬 슬롯·회베 활용
-
-- 회베 활성 시 우선순위 사용
-- 빠른베기·맹호 구분: 레이드 패턴별 평캔으로 암습 쿨 수동 감소
-- 맹호 사용 시 암습 쿨 1초 감소
-- 암습 3초 치피증 버프, 쿨감 시 실전 쿨 10~12초대
+## Guide scope
+- This is a high-efficiency PVE route, focused on upper-end performance.
+- It is written as an update over older baseline Assassin guides.
+- Main theme: Phantom Clone cooldown reduction flow and practical rotation control.
 
 ---
 
-## 3. 주의사항
+## Build identity
 
-- 환영분신 활성 시 매크로가 상황에 따라 불편할 수 있음
-- 기습 16 vs 침투 20 고민 시 본인 플레이스타일에 맞게 선택
+Primary identity:
+- Cooldown-centric loop with Phantom Clone synergy.
+- High value from clean sequencing rather than pure static stat stacking.
+
+What changed from older versions:
+- Skill-speed baseline and patch changes altered investment breakpoints.
+- The guide compares practical outcomes of Lv16 vs Lv20 decisions.
 
 ---
 
-*인벤 살성 게시판 · 작성자: Lainer*
+## Skill investment logic
+
+## Key question: Ambush Lv16 or Infiltration Lv20?
+- Ambush Lv16 can already provide strong practical uptime in many encounters.
+- Infiltration Lv20 can outperform in longer windows and specific pattern sets.
+- Final decision should follow your dungeon role, manual control comfort, and team pace.
+
+## Priority concept
+- Do not upgrade randomly to Lv20.
+- Upgrade in the order that improves your real rotation uptime first.
+- Test each breakpoint inside actual boss patterns, not only training scenarios.
+
+---
+
+## Stigma and shard scaling
+
+- Stigma setup changes with shard availability.
+- Low-shard players should use stability-first routing.
+- High-shard players can push more aggressive cooldown reset routes.
+- The guide includes a practical split by progression stage.
+
+---
+
+## Rotation and slot setup philosophy
+
+Slot design in this guide:
+- Trigger priority when key windows are active.
+- Separate fast slash and tiger-style utility usage for manual control.
+- Purpose: reduce Ambush cooldown manually under pattern pressure.
+
+Important note:
+- Macro-only play can become inefficient when Phantom Clone state is active.
+- Manual adjustment during clone windows usually gives better real DPS.
+
+---
+
+## Cooldown timing interpretation
+
+- Ambush crit-damage amplification window is short but highly valuable.
+- With enough cooldown reduction, real combat cycle can approach very low downtime.
+- Correct weaving matters more than theoretical one-button sequence.
+
+---
+
+## Practical dungeon execution
+
+## In burst windows
+- Pre-align cooldown reducers.
+- Enter with clean opener and avoid overstacking delayed buttons.
+- Keep clone-linked windows for high-impact moments.
+
+## In pattern-heavy fights
+- Preserve movement-safe buttons.
+- Delay low-value animation lock skills if boss movement is imminent.
+- Prioritize uptime and consistency over risky greed casts.
+
+---
+
+## Common mistakes
+- Overcommitting to macro during clone windows.
+- Upgrading all Lv20 targets before testing real fight value.
+- Forcing one static sequence in all bosses.
+- Ignoring party speed when choosing personal investment path.
+
+---
+
+## Recommended workflow
+1. Choose baseline cooldown route.
+2. Validate Ambush/Infiltration breakpoint in real boss runs.
+3. Adjust stigma by shard progression.
+4. Refine slot order for your hand comfort and latency.
+5. Re-test after major patch notes.
+
+---
+
+## Practical conclusion
+Assassin PVE performance is determined by execution quality and cooldown architecture. This guide's value is in building a controllable loop that stays strong across real boss mechanics, not just in ideal dummy conditions.

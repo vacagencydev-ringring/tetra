@@ -1,0 +1,129 @@
+# 👹 #dungeon-tactics (Dungeon Tactics)
+
+Sources:
+- https://www.inven.co.kr/board/aion2/6444/1393
+- https://www.inven.co.kr/board/aion2/6444/638
+
+Images:
+- https://static.inven.co.kr/column/2026/02/25/news/i1505764984.png
+- https://static.inven.co.kr/column/2025/12/04/news/i1209008421.png
+
+---
+
+## Scope
+- Focuses on practical handling of new transcendence and tier 4-6 pattern pressure.
+- Written for parties that want consistent clears, not one-time lucky clears.
+- Main objective: reduce wipes through role clarity and mechanic discipline.
+
+---
+
+## First principle: clear mechanics before chasing logs
+
+- Most wipe chains begin with one ignored mechanic.
+- A short damage cut is usually faster than a full reset.
+- Controlled phase progression beats random burst attempts.
+
+---
+
+## New transcendence dungeon pre-run setup
+
+Before entering:
+- confirm role assignment
+- verify defensive skill timeline
+- check required combat power and condition gates
+- define revive and reset policy
+
+During early attempts:
+- map telegraph signals
+- call movement clearly
+- prioritize team survival over damage greed
+
+After each wipe:
+- identify exact failure trigger
+- change one variable at a time
+
+---
+
+## Tier 4-6 systemic changes to respect
+
+1) Additional transcendence traits increase complexity.
+2) Kill requirements per area can be stricter.
+3) Patterns are upgraded versions plus new cooperative mechanics.
+
+Practical result:
+- old low-tier habits can fail hard at higher tiers.
+
+---
+
+## Deus Research Base notes
+
+- Soul knot mechanics can punish movement mistakes with slow + sustained damage.
+- Final boss chain patterns require accurate pattern distinction.
+- Some dialogue-triggered moments invert expected positioning behavior.
+
+Team rule:
+- use dialogue-linked call keywords to avoid chain confusion.
+
+---
+
+## Fragmented Arcanis notes
+
+- Additional traps and floor pressure can stack avoidable damage quickly.
+- Mid and final boss include cooperation-heavy mechanics.
+- Failure often causes both survival loss and major DPS downtime.
+
+Team rule:
+- pre-assign mechanic roles: lure, release, call, backup.
+
+---
+
+## Communication protocol
+
+Keep calls short and repeatable:
+- "Hold burst"
+- "Move out"
+- "Stack in"
+- "Break now"
+- "Cleanse ready"
+
+Avoid long explanations in active pattern windows.
+
+---
+
+## Recovery discipline
+
+- Not every pull is recoverable efficiently.
+- If major cooldown sync is broken, reset early.
+- If pattern caller is uncertain, pause damage and re-stabilize.
+
+This improves total clear speed over a full session.
+
+---
+
+## Weekly progression model
+
+Week 1:
+- pattern recognition and call vocabulary standardization
+
+Week 2:
+- movement cleanup and defensive timing refinement
+
+Week 3:
+- burst optimization only in verified safe windows
+
+Skipping this sequence usually creates unstable runs.
+
+---
+
+## Team checklist
+
+- [ ] Pattern caller and backup caller are assigned.
+- [ ] Burst hold windows are known by all members.
+- [ ] Mechanic responsibilities are pre-assigned.
+- [ ] Reset rules are agreed before the run.
+- [ ] Post-wipe one-line review is done every attempt.
+
+---
+
+## Practical conclusion
+High-tier dungeon success is mostly operational execution. Parties that standardize calls, roles, and reset decisions clear faster and more reliably than parties that only rely on raw combat power.

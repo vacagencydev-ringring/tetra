@@ -1,0 +1,108 @@
+# 🏛️ #pantheon-guide (Pantheon and Abyss Progression)
+
+Source:
+- https://www.inven.co.kr/webzine/news/?news=311736
+
+Image:
+- https://static.inven.co.kr/column/2025/11/28/news/i1183892904.jpg
+
+---
+
+## Why AP matters for everyone
+- Abyss Points are not only for aggressive PVP players.
+- AP supports major progression systems, including accessories and skill-related advancement paths.
+- Ignoring AP slows long-term account growth even in mostly PVE playstyles.
+
+---
+
+## Weekly AP acquisition architecture
+
+Main acquisition families:
+1) Emergency/weekly supply delivery
+2) Shugo Festa rewards
+3) Journal mission loops
+4) Field order missions
+5) Season weekly missions
+6) Abyss order missions
+7) Abyss corridor windows
+
+Design principle:
+- Mix stable sources with variable sources.
+- Build your plan on stable floors first.
+
+---
+
+## Low-risk AP strategy for non-PVP players
+
+Step 1:
+- Lock in all low-conflict weekly AP routes.
+
+Step 2:
+- Use reroll/selection logic on mission boards to avoid high-friction tasks.
+
+Step 3:
+- Reserve danger-content AP only when entry conditions are favorable.
+
+Step 4:
+- Convert AP into progression in priority order; avoid random spending.
+
+---
+
+## Corridor timing value
+
+- Corridor windows can offer high AP density when available.
+- Treat corridor access as an event-based burst opportunity, not a guaranteed baseline.
+- If corridor is open, prioritize it over lower-yield fallback loops.
+
+---
+
+## Mission board efficiency
+
+- Not all mission cards are equal for AP per minute.
+- A lower-reward but quick and safe mission can outperform risky objectives over a full week.
+- Optimize for completion reliability, not single-run headline value.
+
+---
+
+## Common AP planning errors
+
+Mistake: Overcommitting to risky tasks early in week.
+Fix: finish stable AP floor first.
+
+Mistake: Spending AP without progression priority.
+Fix: predefine AP spend sequence before weekly loop starts.
+
+Mistake: Ignoring refresh/reroll options.
+Fix: actively reroll high-friction missions.
+
+Mistake: Treating corridor as guaranteed.
+Fix: keep corridor AP as bonus variable in planning.
+
+---
+
+## Practical weekly AP board
+
+Monday-Tuesday:
+- Secure low-friction AP routes.
+
+Wednesday-Thursday:
+- Midweek mission optimization and rerolls.
+
+Friday-Sunday:
+- Consume remaining high-value opportunities, including corridor if open.
+
+This spread lowers reset-day panic and missed rewards.
+
+---
+
+## Checklist
+- [ ] Stable AP floor sources are completed every week.
+- [ ] Mission reroll logic is used to reduce time loss.
+- [ ] AP spend order is pre-planned.
+- [ ] Corridor access is tracked and exploited when open.
+- [ ] High-risk AP routes are optional, not mandatory bottlenecks.
+
+---
+
+## Practical conclusion
+Pantheon/Abyss growth is strongest when AP is managed as a weekly system, not random pickups. Build stable AP floors, add variable spikes, and spend AP with strict priority to sustain long-term account acceleration.

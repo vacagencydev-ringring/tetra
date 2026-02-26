@@ -843,7 +843,7 @@ function hasManageGuild(interaction) {
 const EPHEMERAL_FLAGS = MessageFlags.Ephemeral;
 
 // ═══════════════════════════════════════════════════════════
-// [TACTICS] Dungeon & Pet guides (ephemeral, user-only)
+// [TACTICS] Curated guides (ephemeral, user-only)
 // ═══════════════════════════════════════════════════════════
 const TACTICS_DATA = {
     dungeon: {
@@ -882,28 +882,77 @@ const TACTICS_DATA = {
             { value: '2760', label: '정령성 PVE 세팅·딜싸이클', file: 'inven_2760_english.txt' },
             { value: '965', label: '정령성 PVP 입문 가이드', file: 'inven_965_english.txt' }
         ]
+    },
+    fast_leveling: {
+        label: '#fast-leveling (레벨링 가이드)',
+        items: [
+            { value: '311570', label: '초반 핵심 팁 총정리', file: 'tactics_fast_leveling.txt' }
+        ]
+    },
+    kinah_farming: {
+        label: '#kinah-farming (키나/재화 수급)',
+        items: [
+            { value: '1067_kinah', label: '6캐릭 배럭 주간 수익 계산', file: 'tactics_kinah_farming.txt' }
+        ]
+    },
+    cp_boost_guide: {
+        label: '#cp-boost-guide (전투력/스펙업)',
+        items: [
+            { value: 'cp_boost', label: '강타·보드·훈장·장비 비교', file: 'tactics_cp_boost_guide.txt' }
+        ]
+    },
+    pantheon_guide: {
+        label: '#pantheon-guide (만신전/어비스)',
+        items: [
+            { value: '311736', label: '어비스 포인트 획득 총정리', file: 'tactics_pantheon_guide.txt' }
+        ]
+    },
+    dungeon_tactics: {
+        label: '#dungeon-tactics (던전 공략)',
+        items: [
+            { value: 'dungeon_bundle', label: '신규 초월 + 4~6단 핵심 패턴', file: 'tactics_dungeon_tactics.txt' }
+        ]
+    },
+    daily_checklist: {
+        label: '#daily-checklist (일일/주간 루틴)',
+        items: [
+            { value: 'daily_bundle', label: '일일/주간 숙제 + 오드 수급', file: 'tactics_daily_checklist.txt' }
+        ]
+    },
+    pro_tips: {
+        label: '#pro-tips (각종 꿀팁)',
+        items: [
+            { value: 'tips_bundle', label: '장비 활용·연성·균열·모바일 세팅', file: 'tactics_pro_tips.txt' }
+        ]
     }
 };
 
-function buildTacticsCategorySelect() {
+function buildTacticsCategorySelect(isPublic = false) {
     return new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
-            .setCustomId('select_tactics_category')
+            .setCustomId(`select_tactics_category:${isPublic ? '1' : '0'}`)
             .setPlaceholder('Select category…')
             .addOptions(
                 { label: '🏰 Dungeon Guide', value: 'dungeon', description: 'Conquest, Transcendence, Ludra guides' },
                 { label: '🐾 Pet Guide', value: 'pet', description: 'Pet understanding, soul, stats' },
-                { label: '⚔️ 클래스 가이드', value: 'class', description: '검성·수호성·살성·궁성·호법·치유·마도·정령' }
+                { label: '⚔️ 클래스 가이드', value: 'class', description: '검성·수호성·살성·궁성·호법·치유·마도·정령' },
+                { label: '🚀 #fast-leveling', value: 'fast_leveling', description: '초반 레벨링 핵심 팁 총정리' },
+                { label: '💰 #kinah-farming', value: 'kinah_farming', description: '배럭 키나/재화 수급 루틴' },
+                { label: '⚔️ #cp-boost-guide', value: 'cp_boost_guide', description: '강타·보드·훈장·장비 비교' },
+                { label: '🏛️ #pantheon-guide', value: 'pantheon_guide', description: '어비스 포인트 수급 가이드' },
+                { label: '👹 #dungeon-tactics', value: 'dungeon_tactics', description: '신규 초월·4~6단 패턴 정리' },
+                { label: '📅 #daily-checklist', value: 'daily_checklist', description: '일일/주간 숙제 및 오드 관리' },
+                { label: '💡 #pro-tips', value: 'pro_tips', description: '운영 효율·연성·균열·모바일 팁' }
             )
     );
 }
 
-function buildTacticsSubSelect(category) {
+function buildTacticsSubSelect(category, isPublic = false) {
     const cat = TACTICS_DATA[category];
     if (!cat) return null;
     return new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
-            .setCustomId(`select_tactics_sub:${category}`)
+            .setCustomId(`select_tactics_sub:${category}:${isPublic ? '1' : '0'}`)
             .setPlaceholder(`Select ${cat.label}…`)
             .addOptions(cat.items.map(i => ({
                 label: i.label.slice(0, 100),
@@ -926,6 +975,11 @@ function buildTacticsEmbeds(content, title) {
     const embeds = [];
     let text = String(content || '').trim();
     if (!text) return [new EmbedBuilder().setDescription('No content found.').setColor(0x5865F2)];
+    const imageUrls = Array.from(
+        new Set(
+            (text.match(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|webp|gif)(?:\?[^\s)]*)?/gi) || [])
+        )
+    );
 
     const parts = [];
     while (text.length > EMBED_DESC_MAX) {
@@ -942,8 +996,17 @@ function buildTacticsEmbeds(content, title) {
             .setColor(0x5865F2)
             .setDescription(parts[i].slice(0, 4096));
         if (i === 0 && title) emb.setTitle(title);
+        if (i === 0 && imageUrls[0]) emb.setImage(imageUrls[0]);
         if (i > 0) emb.setTitle(`${title || 'TACTICS'} (${i + 1}/${parts.length})`);
         embeds.push(emb);
+    }
+    for (let i = 1; i < imageUrls.length && embeds.length < 10; i++) {
+        embeds.push(
+            new EmbedBuilder()
+                .setColor(0x5865F2)
+                .setTitle(`${title || 'TACTICS'} - Image ${i + 1}`)
+                .setImage(imageUrls[i])
+        );
     }
     return embeds.slice(0, 10);
 }
@@ -1465,6 +1528,11 @@ function buildGuideEmbedsKo() {
                 inline: false
             },
             {
+                name: '📣 시작 순서 (신규 멤버)',
+                value: '**1) Announcements 확인** → 공지 채널 최신 안내 확인\n**2) Join Verification** → `/join_verify` 로 가입 절차 진행\n**3) /help 확인** → `/help` 로 전체 명령어 빠르게 확인',
+                inline: false
+            },
+            {
                 name: '📋 1. 일일 리포트',
                 value: '**`/report_kinah region:<지역>`** — 키나 팀: 접속/종료, 당일 수익\n**`/report_levelup region:<지역>`** — 레벨업 팀: 접속/종료, 레벨·CP 진행',
                 inline: false
@@ -1550,12 +1618,17 @@ function buildGuideEmbedsKo() {
         .addFields(
             {
                 name: '던전/펫 가이드',
-                value: '**`/tactics`** — 던전/펫 가이드 (인벤 번역, 나만보기)\n**패널** `tactics`: 버튼 클릭 → 카테고리·가이드 선택',
+                value: '**`/tactics`** — 던전/펫 가이드 (인벤 번역, 기본 나만보기)\n**`/tactics public:true`** — 관리자만, 채널 전체 공개\n**패널** `tactics`: 버튼 클릭 → 카테고리·가이드 선택',
                 inline: false
             },
             {
                 name: '공식 가이드북',
-                value: '**`/guidebook`** — PlayNC 공식 가이드북 (나만보기)\n**`/guidebook public:true`** — 관리자만, 채널에 전체 공개\n**패널** `guidebook_plaync`: Open(나만) / **Post to Channel**(Admin, 전체)\n**`/guidebook_fetch`** — 가이드북 갱신 (Admin, 2–5분)',
+                value: '**`/guidebook`** — PlayNC 공식 가이드북 (기본 나만보기)\n**`/guidebook public:true`** — 관리자만, 채널에 전체 공개\n**`/guidebook_fetch`** — 가이드북 갱신 (Admin, 2–5분)\n스크랩 실패/빈 데이터 시: **로컬 fallback(하이브리드)** 자동 로드',
+                inline: false
+            },
+            {
+                name: '환영/공지 설정',
+                value: '**`/welcome_set announcements_channel:<채널> welcome_channel:<채널>`** — 환영 채널 + 공지 안내 채널 설정 (Admin)\n**`/welcome_send user:<유저>`** — 수동 환영 메시지 전송',
                 inline: false
             },
             {
@@ -1578,6 +1651,11 @@ function buildGuideEmbedsEn() {
             {
                 name: '📌 Panel Types',
                 value: '**`/panel type:<type>`** — Post a panel to this channel (Admin)\n• `report` Daily report | `salary` Salary | `join_verify` Join | `payment` Payment | `youtube` Info YouTube\n• `guide_ko` Full guide (KR) | `guide_en` Full guide (EN)\n• `guidebook_plaync` Official Guidebook | `tactics` Dungeon & Pet guides',
+                inline: false
+            },
+            {
+                name: '📣 Onboarding Order (New Members)',
+                value: '**1) Announcements** — Check latest notices in your announcement channel\n**2) Join Verification** — Run `/join_verify` to start registration\n**3) /help** — Run `/help` for quick command overview',
                 inline: false
             },
             {
@@ -1666,12 +1744,17 @@ function buildGuideEmbedsEn() {
         .addFields(
             {
                 name: 'Dungeon & Pet Guides',
-                value: '**`/tactics`** — Dungeon & pet guides (Inven translated, ephemeral)\n**Panel** `tactics`: Click button → select category & guide',
+                value: '**`/tactics`** — Dungeon & pet guides (Inven translated, default ephemeral)\n**`/tactics public:true`** — Admin only, post selected guide to channel\n**Panel** `tactics`: Click button → select category & guide',
                 inline: false
             },
             {
                 name: 'Official Guidebook',
-                value: '**`/guidebook`** — PlayNC official guidebook (ephemeral)\n**`/guidebook public:true`** — Admin only, post to channel (everyone sees)\n**Panel** `guidebook_plaync`: Open (ephemeral) / **Post to Channel** (Admin, public)\n**`/guidebook_fetch`** — Refresh guidebook (Admin, 2–5 min)',
+                value: '**`/guidebook`** — PlayNC official guidebook (default ephemeral)\n**`/guidebook public:true`** — Admin only, post to channel (everyone sees)\n**`/guidebook_fetch`** — Refresh guidebook (Admin, 2–5 min)\nIf scrape fails or returns empty: **local fallback (hybrid)** loads automatically',
+                inline: false
+            },
+            {
+                name: 'Welcome & Announcements Setup',
+                value: '**`/welcome_set announcements_channel:<channel> welcome_channel:<channel>`** — Configure onboarding channels (Admin)\n**`/welcome_send user:<user>`** — Send welcome message manually',
                 inline: false
             },
             {
@@ -1691,6 +1774,11 @@ function buildGuideEmbedsUser() {
         .setDescription('Commands you can use without Manage Server permission.\n_※ Shown only to you (ephemeral)_')
         .setColor(0x22c55e)
         .addFields(
+            {
+                name: '📣 Start Here',
+                value: '**1) Announcements** — Read latest server notices\n**2) Join Verification** — Run `/join_verify`\n**3) /help** — Run `/help` for quick command overview',
+                inline: false
+            },
             {
                 name: '📋 Daily Report',
                 value: '**`/report_kinah region:<region>`** — Kinah team: Login, Logout, today\'s profit\n**`/report_levelup region:<region>`** — Level-Up team: Login, Logout, Level & CP progress\n_Or use the Daily Report panel buttons (Kinah / Level-Up) if posted by staff._',
@@ -1761,12 +1849,12 @@ function buildGuideEmbedsUser() {
         .addFields(
             {
                 name: 'Dungeon & Pet Guides',
-                value: '**`/tactics`** — Inven AION2 dungeon & pet guides (ephemeral, only you)\n_Or click **Open Tactics Guide** on the panel if posted_',
+                value: '**`/tactics`** — Inven AION2 dungeon & pet guides (ephemeral, only you)\n_Or click **Open Tactics Guide** on the panel if posted._\n(Admin can post publicly with `/tactics public:true`.)',
                 inline: false
             },
             {
                 name: 'Official Guidebook',
-                value: '**`/guidebook`** — PlayNC official guidebook (ephemeral)\n_Or click **Open Guidebook** on the panel. Admin can use **Post to Channel** to share publicly._',
+                value: '**`/guidebook`** — PlayNC official guidebook (ephemeral)\n_Or click **Open Guidebook** on the panel. Admin can use **Post to Channel** or `/guidebook public:true` to share publicly._',
                 inline: false
             }
         )
@@ -1799,7 +1887,8 @@ function buildFaqAdminEmbed(lang = 'en') {
             .setColor(0xf59e0b)
             .addFields(
                 { name: 'Q: 패널은 어떻게 게시하나요?', value: '**`/panel type:<종류>`** — report, salary, join_verify, payment, youtube, guide_ko, guide_en, **guidebook_plaync**, **tactics**. 채널에서 실행하면 해당 패널 게시. 종류별 1개.', inline: false },
-                { name: 'Q: TACTICS와 가이드북 차이?', value: '**TACTICS** — 인벤 던전/펫 가이드 (번역). **가이드북** — PlayNC 공식 (클래스·스킬). 둘 다 기본은 나만보기.\n**관리자:** `/guidebook public:true` 또는 패널 **Post to Channel**로 전체 공개. **`/guidebook_fetch`**로 갱신.', inline: false },
+                { name: 'Q: TACTICS와 가이드북 차이?', value: '**TACTICS** — 인벤 던전/펫 가이드. **가이드북** — PlayNC 공식 (클래스·스킬).\n둘 다 기본은 나만보기.\n**관리자 공개:** `/tactics public:true`, `/guidebook public:true` 또는 패널 Post to Channel.\n**가이드북:** `/guidebook_fetch` 갱신, 실패/빈 데이터 시 로컬 fallback 자동 사용.', inline: false },
+                { name: 'Q: 신규 멤버 안내 순서는?', value: '**Announcements 확인** → **`/join_verify`** 가입 진행 → **`/help`**로 명령어 확인.\n환영 문구 채널/공지 채널은 **`/welcome_set announcements_channel:<채널> welcome_channel:<채널>`**로 설정.', inline: false },
                 { name: 'Q: 전체 가이드 vs 멤버 가이드?', value: '**전체 가이드** (`/panel type:guide_ko`, `guide_en`) — 전체 명령어, Admin이 채널에 게시\n**멤버 가이드** (`/guide`) — 멤버용 명령어, 나만보기 (ephemeral)', inline: false },
                 { name: 'Q: 필드 보스 타이머 설정 순서?', value: '1. **`/preset mode:combined`** 또는 **`/boss_fetch`** (URL에서 로드)\n2. 처치 시: **`/cut boss_name:<이름>`**로 기록\n3. **`/boss_alert_mode mode:dm`** — DM 알림 (선택)\n4. **`/boss_event_multiplier multiplier:0.8`** — 이벤트 리스폰 배율 (선택)', inline: false },
                 { name: 'Q: MVP 스케줄 설정?', value: '**`/mvp_set day:<요일> time:HH:mm`** — 요일별 MVP 시간 (Admin)\n**`/mvp`** — 현재 스케줄 조회 (Admin)', inline: false },
@@ -1807,7 +1896,7 @@ function buildFaqAdminEmbed(lang = 'en') {
                 { name: 'Q: AON 한→영 번역?', value: '**`/aon_translate_set`** — category(notice/update/event), channel 설정. **`/aon_translate_source`** — AON 봇 ID. **`/aon_translate_status`**로 라우트 확인.', inline: false },
                 { name: 'Q: 캐릭터 검증(myinfo_register) 설정?', value: '**`/join_verify`** — 검증 없음 (Role만). **`/myinfo_register`**로만 캐릭터명 추가 (스크린샷 필수).\n1. Admin: **`/verify_channel_set category:<카테고리>`**\n2. 사용자: **`/myinfo_register character_name:<이름>`** → 스크린샷 업로드\n3. 스태프: Approve → 지역 선택 → 회원목록 G열에 캐릭터 추가', inline: false },
                 { name: 'Q: 입금 통화 선택?', value: '**Submit Payment** → 통화 선택 (KRW, USD, PHP, INR, NPR, CNY, TWD) → 금액·사유 입력. Payment Log 시트: A:G (날짜, 유형, 태그, 금액, **통화**, 사유, 상태)', inline: false },
-                { name: 'Q: 검색·가이드 결과는 누가 보나요?', value: '**`/character`** **`/item`** **`/collection`** **`/build`** — 나만 (ephemeral)\n**`!char <이름>`** — 결과 DM 전송\n**`/guide`** **`/tactics`** **`/guidebook`** — 나만 (ephemeral)\n**관리자:** `/guidebook public:true` — 채널 전체 공개', inline: false },
+                { name: 'Q: 검색·가이드 결과는 누가 보나요?', value: '**`/character`** **`/item`** **`/collection`** **`/build`** — 나만 (ephemeral)\n**`!char <이름>`** — 결과 DM 전송\n**`/guide`** **`/tactics`** **`/guidebook`** — 기본 나만 (ephemeral)\n**관리자 공개:** `/tactics public:true`, `/guidebook public:true`', inline: false },
                 { name: 'Q: 권한 오류?', value: '봇에 **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels**(인증 채널용) 권한이 있는지 확인하세요.', inline: false }
             )
             .setFooter({ text: 'TETRA Sync | 관리자 FAQ' })
@@ -1819,7 +1908,8 @@ function buildFaqAdminEmbed(lang = 'en') {
         .setColor(0xf59e0b)
         .addFields(
             { name: 'Q: How do I post panels?', value: '**`/panel type:<type>`** — report, salary, join_verify, payment, youtube, guide_ko, guide_en, **guidebook_plaync**, **tactics**. Run in a channel to post. One panel per type.', inline: false },
-            { name: 'Q: TACTICS vs Guidebook?', value: '**TACTICS** — Inven dungeon/pet guides (translated). **Guidebook** — PlayNC official (class, skill). Both ephemeral by default.\n**Admin:** `/guidebook public:true` or panel **Post to Channel** to share publicly. Run **`/guidebook_fetch`** to refresh guidebook.', inline: false },
+            { name: 'Q: TACTICS vs Guidebook?', value: '**TACTICS** — Inven dungeon/pet guides. **Guidebook** — PlayNC official (class, skill).\nBoth are ephemeral by default.\n**Admin public share:** `/tactics public:true`, `/guidebook public:true`, or panel Post to Channel.\n**Guidebook:** run **`/guidebook_fetch`**; if scrape fails/empty, local fallback loads automatically.', inline: false },
+            { name: 'Q: What is the onboarding order for new members?', value: '**Announcements** → **`/join_verify`** → **`/help`**.\nSet channels with **`/welcome_set announcements_channel:<channel> welcome_channel:<channel>`**.', inline: false },
             { name: 'Q: Full guide vs member guide?', value: '**Full guide** (`/panel type:guide_ko`, `guide_en`) — All commands, Admin posts to channel\n**Member guide** (`/guide`) — Member commands, visible only to you (ephemeral)', inline: false },
             { name: 'Q: Field boss timer setup order?', value: '1. **`/preset mode:combined`** or **`/boss_fetch`** (load from URL)\n2. On kill: **`/cut boss_name:<name>`** to record\n3. **`/boss_alert_mode mode:dm`** — DM alerts (optional)\n4. **`/boss_event_multiplier multiplier:0.8`** — Event respawn rate (optional)', inline: false },
             { name: 'Q: How to set MVP schedule?', value: '**`/mvp_set day:<day> time:HH:mm`** — Set MVP time per day (Admin)\n**`/mvp`** — View current schedule (Admin)', inline: false },
@@ -1827,7 +1917,7 @@ function buildFaqAdminEmbed(lang = 'en') {
             { name: 'Q: AON Korean→English translation?', value: '**`/aon_translate_set`** — Set category(notice/update/event), channel. **`/aon_translate_source`** — AON bot ID. **`/aon_translate_status`** to view routes.', inline: false },
             { name: 'Q: Character verification (myinfo_register) setup?', value: '**`/join_verify`** — No verification (Role only). Character names added via **`/myinfo_register`** only (screenshot required).\n1. Admin: **`/verify_channel_set category:<category>`**\n2. User: **`/myinfo_register character_name:<name>`** → Upload screenshot\n3. Staff: Approve → Select region → Character added to member list column G', inline: false },
             { name: 'Q: How to select payment currency?', value: '**Submit Payment** → Select currency (KRW, USD, PHP, INR, NPR, CNY, TWD) → Enter amount & reason. Payment Log sheet: A:G (Date, Type, Tag, Amount, **Currency**, Reason, Status)', inline: false },
-            { name: 'Q: Who sees search results & guides?', value: '**`/character`** **`/item`** **`/collection`** **`/build`** — Only you (ephemeral)\n**`!char <name>`** — Results sent via DM\n**`/guide`** **`/tactics`** **`/guidebook`** — Only you (ephemeral)\n**Admin:** `/guidebook public:true` — channel sees', inline: false },
+            { name: 'Q: Who sees search results & guides?', value: '**`/character`** **`/item`** **`/collection`** **`/build`** — Only you (ephemeral)\n**`!char <name>`** — Results sent via DM\n**`/guide`** **`/tactics`** **`/guidebook`** — Default only you (ephemeral)\n**Admin public:** `/tactics public:true`, `/guidebook public:true`', inline: false },
             { name: 'Q: Permission errors?', value: 'Ensure the bot has **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels** (for verification channels).', inline: false }
         )
         .setFooter({ text: 'TETRA Sync | Admin FAQ' })
@@ -2487,7 +2577,11 @@ const commands = [
         .toJSON(),
     new SlashCommandBuilder()
         .setName('tactics')
-        .setDescription('View Dungeon & Pet guides (shown only to you, ephemeral)')
+        .setDescription('View curated TACTICS guides')
+        .addBooleanOption(o => o
+            .setName('public')
+            .setDescription('Post to channel (everyone sees) — Admin only')
+            .setRequired(false))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('guidebook')
@@ -2569,15 +2663,20 @@ const commands = [
         .toJSON(),
     new SlashCommandBuilder()
         .setName('welcome_set')
-        .setDescription('Set welcome & announcements for new member greeting (Admin)')
+        .setDescription('Set welcome channel and announcements channel (Admin)')
         .addChannelOption(o => o
             .setName('announcements_channel')
             .setDescription('Announcements channel to link (𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀)')
             .setRequired(true)
             .addChannelTypes(ChannelType.GuildText))
         .addChannelOption(o => o
+            .setName('welcome_channel')
+            .setDescription('Channel where welcome message is posted')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText))
+        .addChannelOption(o => o
             .setName('fallback_channel')
-            .setDescription('Optional: channel when DM fails (user has DMs disabled)')
+            .setDescription('Deprecated (kept for compatibility): use welcome_channel')
             .setRequired(false)
             .addChannelTypes(ChannelType.GuildText))
         .toJSON(),
@@ -3000,19 +3099,22 @@ client.on('guildMemberAdd', async (member) => {
             .setTitle('👋 Welcome!')
             .setDescription(
                 `Welcome to **${guild.name}**!\n\n` +
-                `📢 **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** — Please check <#${cfg.announcementsChannelId}> for server announcements.\n\n` +
-                `📖 **Command Guide** — Use \`/guide\` to view available commands and how to use them.\n\n` +
-                `⚠️ You must complete **member registration** before you can start activities.`
+                `1) ✅ **Join Verification** — Complete verification first in this server.\n` +
+                `2) 📌 **Server Guide** — Read the pinned guideline in this welcome channel before participating.\n` +
+                `3) 📢 **Announcements** — Check <#${cfg.announcementsChannelId}> for important updates.\n\n` +
+                `📖 **Command Guide** — Use \`/guide\` for command usage.`
             )
             .setColor(0x5865F2)
             .setTimestamp();
-        try {
-            await member.send({ embeds: [embed] });
-        } catch (dmErr) {
-            const ch = cfg.welcomeChannelId ? guild.channels.cache.get(cfg.welcomeChannelId) : null;
-            if (ch) {
-                await ch.send({ content: `${member}`, embeds: [embed] });
-            }
+        const welcomeChannelId = cfg.welcomeChannelId || null;
+        const ch = welcomeChannelId
+            ? guild.channels.cache.get(welcomeChannelId) || await guild.channels.fetch(welcomeChannelId).catch(() => null)
+            : null;
+        if (ch && ch.isTextBased()) {
+            await ch.send({ content: `${member}`, embeds: [embed] });
+        } else {
+            // Backward-compatible fallback: if no welcome channel is configured, DM as legacy behavior.
+            await member.send({ embeds: [embed] }).catch(() => {});
         }
     } catch (err) {
         console.error('[guildMemberAdd]', err);
@@ -3039,24 +3141,27 @@ client.on('interactionCreate', async (interaction) => {
         const cmd = interaction.commandName;
         if (['panel', 'character', 'boss_fetch', 'kinah_watch_preset', 'kinah_watch_set', 'salary_confirm', 'myinfo_register', 'member_list_organize', 'join_verify_panel', 'collection', 'build', 'kinah_watch_now', 'guidebook_fetch', 'tactics', 'guidebook'].includes(cmd)) {
             const guidebookPublic = cmd === 'guidebook' && interaction.options?.getBoolean('public') && hasManageGuild(interaction);
-            await interaction.deferReply({ flags: guidebookPublic ? 0 : EPHEMERAL_FLAGS }).catch(() => {});
+            const tacticsPublic = cmd === 'tactics' && interaction.options?.getBoolean('public') && hasManageGuild(interaction);
+            await interaction.deferReply({ flags: (guidebookPublic || tacticsPublic) ? 0 : EPHEMERAL_FLAGS }).catch(() => {});
         }
         if (cmd === 'help') {
             const embed = new EmbedBuilder()
                 .setTitle('📘 TETRA Sync — Quick Help')
                 .setDescription(
-                    'A must-have support bot for AION2 communities.\n\n' +
-                    '**Report:** `/report_kinah` `/report_levelup` — Use panel buttons if staff posted them\n' +
-                    '**Salary:** `/salary_confirm` — Or panel region buttons\n' +
-                    '**Join:** `/join_verify` — Country → Role (no char verification)\n' +
-                    '**Verify:** `/myinfo_register character_name:<name>` — Screenshot → staff Approve → verified char to member list\n\n' +
-                    '**Boss:** `/preset` `/boss` `/cut` `/boss_fetch` `/boss_alert_mode`\n**MVP:** `/mvp` `/mvp_set` (Admin)\n\n' +
+                    'Quick command overview for TETRA Sync.\n\n' +
+                    '**Start Here:** Announcements → `/join_verify` → `/help`\n\n' +
+                    '**Reports:** `/report_kinah` `/report_levelup` (or panel buttons)\n' +
+                    '**Salary:** `/salary_confirm` (or panel region buttons)\n' +
+                    '**Join:** `/join_verify` — Country → Role\n' +
+                    '**Character Verification:** `/myinfo_register character_name:<name>` → screenshot → staff approval\n\n' +
+                    '**Boss:** `/preset` `/boss` `/cut` `/boss_fetch` `/boss_alert_mode`\n**MVP (Admin):** `/mvp` `/mvp_set`\n\n' +
                     '**Kinah:** `/kinah_watch_now` `/kinah_watch_status`\n\n' +
-                    '**Search:** `/character` `/item` `/collection` `/build` — results only you see\n' +
-                    '**Search:** `!char <name>` — results via DM\n\n' +
-                    '**Guides:** `/guide` `/tactics` `/guidebook` — ephemeral (only you)\n' +
-                    '**Admin:** `/guidebook public:true` — post guidebook to channel (everyone sees)\n\n' +
-                    '**Other:** `/youtube_ready` `/aon_translate_status`'
+                    '**Search (ephemeral):** `/character` `/item` `/collection` `/build`\n' +
+                    '**DM Search:** `!char <name>`\n\n' +
+                    '**Guides (default ephemeral):** `/guide` `/tactics` `/guidebook`\n' +
+                    '**Admin Public Share:** `/tactics public:true` `/guidebook public:true`\n\n' +
+                    '**Other:** `/youtube_ready` `/aon_translate_status`\n' +
+                    '**Welcome Setup (Admin):** `/welcome_set announcements_channel:<channel> welcome_channel:<channel>`'
                 )
                 .setColor(0x5865F2)
                 .setTimestamp();
@@ -3065,11 +3170,11 @@ client.on('interactionCreate', async (interaction) => {
             const embeds = buildGuideEmbedsUser();
             await interaction.reply({ embeds, flags: EPHEMERAL_FLAGS });
         } else if (interaction.commandName === 'tactics') {
-            const row = buildTacticsCategorySelect();
-            await interaction.reply({
-                content: '**TACTICS** — Select a category.\n_Visible only to you_',
+            const isPublic = interaction.options.getBoolean('public') && hasManageGuild(interaction);
+            const row = buildTacticsCategorySelect(isPublic);
+            await interaction.editReply({
+                content: isPublic ? '**TACTICS** — Select a category.\n_Everyone will see the selected guide._' : '**TACTICS** — Select a category.\n_Visible only to you_',
                 components: [row],
-                flags: EPHEMERAL_FLAGS
             });
         } else if (interaction.commandName === 'guidebook') {
             const isPublic = interaction.options.getBoolean('public') && hasManageGuild(interaction);
@@ -3258,17 +3363,19 @@ client.on('interactionCreate', async (interaction) => {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
             const announceCh = interaction.options.getChannel('announcements_channel', true);
+            const welcomeCh = interaction.options.getChannel('welcome_channel');
             const fallbackCh = interaction.options.getChannel('fallback_channel');
             const state = loadPanelState();
             const welcomeConfig = state.welcomeConfig && typeof state.welcomeConfig === 'object' ? state.welcomeConfig : {};
             welcomeConfig[interaction.guildId] = {
                 announcementsChannelId: announceCh.id,
-                welcomeChannelId: fallbackCh?.id || null
+                welcomeChannelId: (welcomeCh?.id || fallbackCh?.id || null)
             };
             savePanelState({ ...state, welcomeConfig }, true);
-            const msg = fallbackCh
-                ? `✅ Welcome **DM first**, fallback to <#${fallbackCh.id}> if DM disabled. Links to **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** <#${announceCh.id}>.`
-                : `✅ Welcome via **DM**. Links to **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** <#${announceCh.id}>. (No fallback channel — users with DMs disabled won't receive it.)`;
+            const targetWelcomeId = welcomeCh?.id || fallbackCh?.id || null;
+            const msg = targetWelcomeId
+                ? `✅ Welcome messages will be posted in <#${targetWelcomeId}>.\n📢 Announcement guidance channel: <#${announceCh.id}>.`
+                : `⚠️ No welcome channel set. Please run \`/welcome_set\` again with \`welcome_channel\`.\n📢 Announcement guidance channel: <#${announceCh.id}>.`;
             await safeEphemeral(interaction, msg);
         } else if (interaction.commandName === 'welcome_send') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
@@ -3285,23 +3392,21 @@ client.on('interactionCreate', async (interaction) => {
                 .setTitle('👋 Welcome!')
                 .setDescription(
                     `Welcome to **${guild.name}**!\n\n` +
-                    `📢 **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** — Please check <#${cfg.announcementsChannelId}> for server announcements.\n\n` +
-                    `📖 **Command Guide** — Use \`/guide\` to view available commands and how to use them.\n\n` +
-                    `⚠️ You must complete **member registration** before you can start activities.`
+                    `1) ✅ **Join Verification** — Complete verification first in this server.\n` +
+                    `2) 📌 **Server Guide** — Read the pinned guideline in this welcome channel before participating.\n` +
+                    `3) 📢 **Announcements** — Check <#${cfg.announcementsChannelId}> for important updates.\n\n` +
+                    `📖 **Command Guide** — Use \`/guide\` for command usage.`
                 )
                 .setColor(0x5865F2)
                 .setTimestamp();
-            try {
-                await targetUser.send({ embeds: [embed] });
-                await safeEphemeral(interaction, `✅ Welcome message sent to ${targetUser}.`);
-            } catch (dmErr) {
-                const fallbackCh = cfg.welcomeChannelId ? guild.channels.cache.get(cfg.welcomeChannelId) : null;
-                if (fallbackCh) {
-                    await fallbackCh.send({ content: `${targetUser}`, embeds: [embed] });
-                    await safeEphemeral(interaction, `✅ Welcome sent to <#${fallbackCh.id}> (DM disabled for ${targetUser}).`);
-                } else {
-                    await safeEphemeral(interaction, `❌ Could not send to ${targetUser} (DM disabled, no fallback channel). Run \`/welcome_set\` with fallback_channel.`);
-                }
+            const welcomeChannel = cfg.welcomeChannelId
+                ? guild.channels.cache.get(cfg.welcomeChannelId) || await guild.channels.fetch(cfg.welcomeChannelId).catch(() => null)
+                : null;
+            if (welcomeChannel && welcomeChannel.isTextBased()) {
+                await welcomeChannel.send({ content: `${targetUser}`, embeds: [embed] });
+                await safeEphemeral(interaction, `✅ Welcome sent to <#${welcomeChannel.id}> for ${targetUser}.`);
+            } else {
+                await safeEphemeral(interaction, '❌ Welcome channel is not configured or inaccessible. Run `/welcome_set` with `welcome_channel`.');
             }
         } else if (interaction.commandName === 'join_verify_panel') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
@@ -3328,13 +3433,32 @@ client.on('interactionCreate', async (interaction) => {
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
             await interaction.editReply({ content: '⏳ Fetching PlayNC guidebook… (2–5 min, scraping + translation)' });
             try {
-                const state = await scrapePlayncGuidebookAll();
-                saveGuidebookState(state);
-                const total = (state.categories || []).reduce((n, c) => n + (c.guides?.length || 0), 0);
-                await interaction.editReply({ content: `✅ Guidebook fetched. ${state.categories?.length || 0} categories, ${total} guides.\n**\`/panel type:guidebook_plaync\`** to post.` });
+                let state = await scrapePlayncGuidebookAll();
+                let total = (state.categories || []).reduce((n, c) => n + (c.guides?.length || 0), 0);
+                if ((state.categories?.length || 0) === 0 || total === 0) {
+                    const fallback = buildLocalGuidebookFallbackState();
+                    if ((fallback.categories?.length || 0) > 0) {
+                        state = fallback;
+                        total = (state.categories || []).reduce((n, c) => n + (c.guides?.length || 0), 0);
+                        saveGuidebookState(state);
+                        await interaction.editReply({ content: `⚠️ PlayNC scrape returned empty data. Loaded **local fallback** guidebook.\n✅ Ready: ${state.categories?.length || 0} categories, ${total} guides.\n**\`/panel type:guidebook_plaync\`** to post.` });
+                    } else {
+                        await interaction.editReply({ content: '❌ PlayNC scrape returned no data, and no local fallback files were found.' });
+                    }
+                } else {
+                    saveGuidebookState(state);
+                    await interaction.editReply({ content: `✅ Guidebook fetched. ${state.categories?.length || 0} categories, ${total} guides.\n**\`/panel type:guidebook_plaync\`** to post.` });
+                }
             } catch (err) {
                 console.error('[guidebook_fetch]', err);
-                await interaction.editReply({ content: `❌ Failed: ${err.message}` }).catch(() => {});
+                const fallback = buildLocalGuidebookFallbackState();
+                if ((fallback.categories?.length || 0) > 0) {
+                    const total = (fallback.categories || []).reduce((n, c) => n + (c.guides?.length || 0), 0);
+                    saveGuidebookState(fallback);
+                    await interaction.editReply({ content: `⚠️ Failed to scrape PlayNC: ${err.message}\nLoaded **local fallback** guidebook: ${fallback.categories.length} categories, ${total} guides.` }).catch(() => {});
+                } else {
+                    await interaction.editReply({ content: `❌ Failed: ${err.message}` }).catch(() => {});
+                }
             }
         } else if (['preset','boss','cut','server_open','boss_add','boss_remove','boss_alert_mode','boss_event_multiplier','boss_fetch'].includes(interaction.commandName)) {
             const guildId = interaction.guildId;
@@ -4160,7 +4284,7 @@ client.on('interactionCreate', async (interaction) => {
         try {
             const id = interaction.customId;
             if (id === 'btn_tactics_open') {
-                const row = buildTacticsCategorySelect();
+                const row = buildTacticsCategorySelect(false);
                 await interaction.reply({
                     content: '**TACTICS** — Select a category.\n_Visible only to you_',
                     components: [row],
@@ -4415,27 +4539,28 @@ client.on('interactionCreate', async (interaction) => {
             }).catch(() => {});
             return;
         }
-        if (interaction.customId === 'select_tactics_category') {
+        if (interaction.customId.startsWith('select_tactics_category')) {
             const category = interaction.values?.[0];
+            const isPublic = interaction.customId.split(':')[1] === '1';
             const cat = TACTICS_DATA[category];
             if (!cat) {
                 await interaction.reply({ content: '❌ Invalid category.', flags: EPHEMERAL_FLAGS });
                 return;
             }
-            const subRow = buildTacticsSubSelect(category);
+            const subRow = buildTacticsSubSelect(category, isPublic);
             if (!subRow) {
                 await interaction.reply({ content: '❌ No sub-options.', flags: EPHEMERAL_FLAGS });
                 return;
             }
             await interaction.update({
-                content: `**TACTICS** — Select guide for **${cat.label}**.\n_Visible only to you_`,
+                content: isPublic ? `**TACTICS** — Select guide for **${cat.label}**.\n_Everyone will see the selected guide._` : `**TACTICS** — Select guide for **${cat.label}**.\n_Visible only to you_`,
                 components: [subRow],
-                flags: EPHEMERAL_FLAGS
             });
             return;
         }
         if (interaction.customId.startsWith('select_tactics_sub:')) {
             const category = interaction.customId.split(':')[1];
+            const isPublic = interaction.customId.split(':')[2] === '1';
             const subValue = interaction.values?.[0];
             const cat = TACTICS_DATA[category];
             const item = cat?.items?.find(i => i.value === subValue);
@@ -4450,12 +4575,20 @@ client.on('interactionCreate', async (interaction) => {
             }
             const title = item.label;
             const embeds = buildTacticsEmbeds(content, title);
-            await interaction.update({
-                content: null,
-                embeds,
-                components: [],
-                flags: EPHEMERAL_FLAGS
-            }).catch(() => {});
+            if (isPublic) {
+                await interaction.update({
+                    content: null,
+                    embeds,
+                    components: []
+                }).catch(() => {});
+            } else {
+                await interaction.update({
+                    content: null,
+                    embeds,
+                    components: [],
+                    flags: EPHEMERAL_FLAGS
+                }).catch(() => {});
+            }
             return;
         }
         if (interaction.customId === 'select_join_country') {
@@ -4917,14 +5050,93 @@ const GUIDEBOOK_MAX_GUIDES_PER_CATEGORY = 6;
 const GUIDEBOOK_MAX_CLASS_GUIDES = 8;
 const GUIDEBOOK_MAX_DETAIL_PER_CATEGORY = 4;
 const GUIDEBOOK_MAX_CONTENT_LENGTH = 3500;
+const GUIDEBOOK_FALLBACK_CATEGORIES = [
+    {
+        id: 'local_class',
+        name: '클래스 가이드',
+        nameEn: 'Class Guides (Local)',
+        guides: [
+            { title: 'Swordmaster PVE', file: 'inven_58_english.txt', url: 'https://www.inven.co.kr/board/aion2/6448/58' },
+            { title: 'Gladiator PVE', file: 'inven_6625_english.txt', url: 'https://www.inven.co.kr/board/aion2/6438/6625' },
+            { title: 'Assassin PVE', file: 'inven_3856_english.txt', url: 'https://www.inven.co.kr/board/aion2/6449/3856' },
+            { title: 'Ranger PVE', file: 'inven_4009_english.txt', url: 'https://www.inven.co.kr/board/aion2/6450/4009' },
+            { title: 'Chanter PVE', file: 'inven_116_english.txt', url: 'https://www.inven.co.kr/board/aion2/6451/116' },
+            { title: 'Cleric Guide', file: 'inven_657_english.txt', url: 'https://www.inven.co.kr/board/aion2/6452/657' },
+            { title: 'Sorcerer PVE', file: 'inven_66_english.txt', url: 'https://www.inven.co.kr/board/aion2/6453/66' },
+            { title: 'Spiritmaster PVE', file: 'inven_2760_english.txt', url: 'https://www.inven.co.kr/board/aion2/6454/2760' },
+            { title: 'Spiritmaster PVP', file: 'inven_965_english.txt', url: 'https://www.inven.co.kr/board/aion2/6454/965' }
+        ]
+    },
+    {
+        id: 'local_tactics',
+        name: '운영/공략 묶음',
+        nameEn: 'Curated TACTICS (Local)',
+        guides: [
+            { title: 'Fast Leveling', file: 'tactics_fast_leveling.txt', url: 'https://www.inven.co.kr/webzine/news/?news=311570' },
+            { title: 'Kinah Farming', file: 'tactics_kinah_farming.txt', url: 'https://www.inven.co.kr/board/aion2/6444/1067' },
+            { title: 'CP Boost Guide', file: 'tactics_cp_boost_guide.txt', url: 'https://www.inven.co.kr/board/aion2/6444/1383' },
+            { title: 'Pantheon/Abyss Guide', file: 'tactics_pantheon_guide.txt', url: 'https://www.inven.co.kr/webzine/news/?news=311736' },
+            { title: 'Dungeon Tactics', file: 'tactics_dungeon_tactics.txt', url: 'https://www.inven.co.kr/board/aion2/6444/1393' },
+            { title: 'Daily Checklist', file: 'tactics_daily_checklist.txt', url: 'https://www.inven.co.kr/board/aion2/6444/1067' },
+            { title: 'Pro Tips', file: 'tactics_pro_tips.txt', url: 'https://www.inven.co.kr/board/aion2/6444/1067' }
+        ]
+    }
+];
+
+function extractImageUrlsFromText(text, max = 5) {
+    return Array.from(
+        new Set((String(text || '').match(/https?:\/\/[^\s)]+?\.(?:png|jpe?g|webp|gif)(?:\?[^\s)]*)?/gi) || []))
+    ).slice(0, max);
+}
+
+function buildLocalGuidebookFallbackState() {
+    const categories = [];
+    for (const cat of GUIDEBOOK_FALLBACK_CATEGORIES) {
+        const guides = [];
+        for (const g of cat.guides) {
+            const p = path.join(__dirname, g.file);
+            if (!fs.existsSync(p)) continue;
+            const raw = fs.readFileSync(p, 'utf8').trim();
+            if (!raw) continue;
+            const imageUrls = extractImageUrlsFromText(raw, 5);
+            const lines = raw.split('\n').map(s => s.trim()).filter(Boolean);
+            const firstBody = lines.find(l =>
+                !l.startsWith('#') &&
+                !l.startsWith('-') &&
+                !/^source:?/i.test(l) &&
+                !/^images:?/i.test(l) &&
+                !/^대표 이미지:?/i.test(l) &&
+                !/^출처:?/i.test(l)
+            ) || 'Local curated fallback guide.';
+            guides.push({
+                title: g.title,
+                titleEn: g.title,
+                url: g.url || `${GUIDEBOOK_BASE_URL}/list`,
+                desc: firstBody.slice(0, 240),
+                descEn: firstBody.slice(0, 240),
+                content: raw.slice(0, GUIDEBOOK_MAX_CONTENT_LENGTH),
+                contentEn: raw.slice(0, GUIDEBOOK_MAX_CONTENT_LENGTH),
+                images: imageUrls
+            });
+        }
+        if (guides.length > 0) categories.push({
+            id: cat.id,
+            name: cat.name,
+            nameEn: cat.nameEn,
+            guides
+        });
+    }
+    return { categories, fetchedAt: new Date().toISOString(), source: 'local_fallback' };
+}
 
 function loadGuidebookState() {
     try {
         const raw = fs.readFileSync(CONFIG.GUIDEBOOK_STATE_PATH, 'utf8');
         const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.categories)) return parsed;
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.categories) && parsed.categories.length > 0) return parsed;
     } catch (_) {}
-    return { categories: [], fetchedAt: null };
+    const fallback = buildLocalGuidebookFallbackState();
+    return fallback.categories.length > 0 ? fallback : { categories: [], fetchedAt: null };
 }
 
 function buildGuidebookCategorySelect(state, isPublic = false) {

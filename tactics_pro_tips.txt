@@ -1,0 +1,125 @@
+# 💡 #pro-tips (Advanced Practical Tips)
+
+Sources:
+- https://www.inven.co.kr/board/aion2/6444/1067
+- https://www.inven.co.kr/board/aion2/6444/1401
+- https://www.inven.co.kr/board/aion2/6444/231
+- https://www.inven.co.kr/board/aion2/6444/300
+
+Images:
+- https://upload3.inven.co.kr/upload/2026/02/25/bbs/i1780309042.png?MW=800
+- https://upload3.inven.co.kr/upload/2025/11/19/bbs/i1512380282.png?MW=800
+- https://upload3.inven.co.kr/upload/2025/11/21/bbs/i1992631608.png?MW=800
+
+---
+
+## Why "small" tips matter
+- Many players focus only on major upgrades and miss operational gains.
+- Small efficiency improvements compound every day.
+- These tips target hidden losses in gear transitions, timing, and resource usage.
+
+---
+
+## Gear replacement without waste
+
+When replacing equipment:
+- evaluate transfer potential to alt characters
+- preserve niche-use gear for specific content
+- check soul imprint and trade restrictions before action
+
+Never dismantle immediately if secondary value exists.
+
+---
+
+## Refinement strategy updates
+
+Meta shifts can change refinement value priorities.
+
+Use this framework:
+- compare legacy refinement lines against new set trajectories
+- include kinah burn rate in every plan
+- avoid chasing trendy paths without cost curve check
+
+A stable moderate path usually beats unstable high-cost spikes.
+
+---
+
+## Rift timing optimization
+
+- Rift windows are time-structured opportunities.
+- Late movement into active windows causes direct reward loss.
+- Pre-position before window start whenever possible.
+
+Schedule rule:
+- lock rift windows in weekly planner first, then fill other content around them.
+
+---
+
+## Soul crystal utilization
+
+- Soul crystals often accumulate unused.
+- Build a periodic spend routine tied to your pet progression interface.
+- Delayed usage equals delayed stat value.
+
+Simple control:
+- perform soul crystal audit every two or three sessions.
+
+---
+
+## Mobile keysetting discipline
+
+For mobile-heavy users:
+- separate survival, movement, main burst, and utility zones
+- place forced manual skills in reachable thumb arcs
+- avoid layout changes too often; muscle memory is DPS
+
+Thermal and battery management:
+- adjust session types by device condition
+- use lower-intensity loops during high heat periods
+
+---
+
+## Integration with daily routine
+
+These tips work best when routine-linked:
+- gear review day
+- refinement budget day
+- rift-focused day
+- soul-crystal consume checkpoint
+- mobile layout review checkpoint
+
+Structure prevents drift.
+
+---
+
+## Common mistakes
+
+Mistake: Immediate disposal of replaced gear.
+Fix: evaluate alternate role value first.
+
+Mistake: Refinement spending without budget guard.
+Fix: pre-set weekly kinah cap for refinement.
+
+Mistake: Rift reaction play instead of pre-positioning.
+Fix: build movement lead time before open windows.
+
+Mistake: Hoarding soul crystals indefinitely.
+Fix: recurring consumption checkpoint in planner.
+
+Mistake: Constant key layout rewiring.
+Fix: keep stable layout and refine only pain points.
+
+---
+
+## Practical checklist
+
+- [ ] old gear has transfer or niche-use review before disposal
+- [ ] refinement path includes weekly cost ceiling
+- [ ] rift windows are inserted into weekly plan
+- [ ] soul crystal usage is tracked periodically
+- [ ] mobile key layout supports real combat finger flow
+
+---
+
+## Practical conclusion
+Operational excellence comes from repeated micro-decisions. If you optimize replacement, refinement, timing, consumables, and control layout together, your account performance improves noticeably without requiring constant high-intensity play.

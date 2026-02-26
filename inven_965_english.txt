@@ -1,40 +1,104 @@
-# 정령성 PVP Guide (입문자용) — 영절/공절
+# Spiritmaster PVP Beginner Guide (Fear/Silence Focus)
 
-*출처: https://www.inven.co.kr/board/aion2/6454/965*
+Source:
+- https://www.inven.co.kr/board/aion2/6454/965
 
----
-
-## 1. PVP 개요
-
-- 아이온1 확정 CC 메타와 다름 → **전부 확률**
-- 영절 60% / 공절 40% / 마차 75% 기본 확률
-- 확률 해소를 위해 **정신계 상태이상 적중** 필수
+Images:
+- https://upload3.inven.co.kr/upload/2026/01/08/bbs/i1722910142.jpg
+- https://upload3.inven.co.kr/upload/2025/12/03/bbs/i1505462875.png
 
 ---
 
-## 2. 상태이상 적중 확보
-
-**가)** 펫작 → 지식 스텟 상향
-**나)** 만신전 → 지식 스텟 상향
-**다)** 무기·가더 → 상태이상 적중 수치
-
-**공포 적중 예시**: 영절 60% + 지식 8% + 무기/가더 30% + 패시브 ~15% = **73~83%**
+## Guide scope
+- This guide is written for entry-level Spiritmaster PVP players.
+- It is centered on solo skirmish style and small-scale engagements.
+- It assumes you want practical consistency, not highlight-only play.
 
 ---
 
-## 3. 무기·가더 제작
+## Core PVP identity in current environment
 
-- **5소켓** 제작 필수
-- **4소켓 필수 옵션**: 무공증·전속·위력·다단히트적중
-- **+상태이상 적중** 1개 반드시
-
----
-
-## 4. 대상
-
-- 1:1 / 고독 / 솔쟁 중심
-- 무과금·약세 천족·21돌파·명룡무기·십부장 풀 2돌 세팅 기준
+- The class does not rely on guaranteed crowd control chains.
+- Key control tools are probability-based and require stat support.
+- Therefore, status accuracy optimization is mandatory, not optional.
 
 ---
 
-*인벤 정령성 게시판 · 작성자: 영절공절*
+## Why status accuracy is everything
+
+Without proper status accuracy:
+- Fear chains fail too often.
+- Silence pressure windows collapse.
+- You lose initiative and become forced into defensive play.
+
+With proper status accuracy:
+- Your control attempts become reliable enough to build real win conditions.
+- You can plan engagements around expected success ranges instead of pure luck.
+
+---
+
+## Main stat-building route for control consistency
+
+Primary sources:
+- Pet-related intelligence/stat growth.
+- Pantheon/board side progression tied to control reliability.
+- Weapon and guarder option lines with status-hit value.
+
+The guide's key message:
+- You cannot skip these and still expect consistent control in actual matches.
+
+---
+
+## Weapon and guarder requirements
+
+- High-quality crafted weapon and guarder are strongly recommended.
+- Core offensive sockets are still required for pressure.
+- One dedicated status-hit option slot is critical for control reliability.
+
+Practical balance:
+- Keep enough offensive value to convert control into kills.
+- Do not sacrifice all control reliability for raw damage greed.
+
+---
+
+## Engagement style (beginner-friendly)
+
+Recommended style:
+- 1v1 / solo skirmish / roaming fights.
+- Avoid forced large-scale frontline brawls while learning.
+- Play around isolation and controlled entry timing.
+
+---
+
+## Basic combat flow
+
+1. Enter from favorable angle and range.
+2. Attempt control with prepared stat-backed setup.
+3. Confirm control success before committing full burst.
+4. If control fails, disengage and reset rather than overcommitting.
+
+This reset discipline is crucial for beginner Spiritmasters.
+
+---
+
+## Common mistakes
+
+- Building pure damage with weak status accuracy.
+- Forcing all-in when first control attempt fails.
+- Fighting in bad terrain with no retreat route.
+- Taking large-scale fights before mastering small-scale timing.
+
+---
+
+## Practical progression checklist
+
+- [ ] Did I secure reliable status-hit stat sources?
+- [ ] Is my weapon/guarder setup balanced for control + damage?
+- [ ] Am I practicing reset discipline after failed control?
+- [ ] Do I choose fights by terrain and angle, not ego?
+- [ ] Can I consistently execute small-scale win flow?
+
+---
+
+## Practical conclusion
+Spiritmaster PVP begins with control reliability. Build status accuracy first, then layer damage and execution. Once your control windows become consistent, the class becomes dramatically more stable in real solo engagements.

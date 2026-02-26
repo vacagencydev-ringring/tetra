@@ -1,43 +1,105 @@
-# 정령성 PVE 세팅·딜싸이클
+# Spiritmaster PVE Setup and Rotation Guide
 
-*출처: https://www.inven.co.kr/board/aion2/6454/2760*
+Source:
+- https://www.inven.co.kr/board/aion2/6454/2760
 
----
-
-## 1. 스킬 특화 (번호)
-
-- **냉기 충격**: 2 4
-- **화염 전소**: 3 4 5
-- **원소 융합**: 1 3 5 / 2 3 5
-- **협공: 저주**: 3 4 5 / 2특 3 4 (고대의 정령 협공:저주 모션 패치 후 융합 20 추천)
-- **공간 지배**: 2 3 / 2 5 (PVP)
-- **영혼의 절규**: 1 3
-- **연속 사격**: 4 5
-- **충격 해제**: 1 3
-- **불의 정령**: 2 5 / **물의 정령**: 3 5 / **바람의 정령**: 2 5 / **땅의 정령**: 2
-- 물·불 정령 16찍기 추천
+Images:
+- https://upload3.inven.co.kr/upload/2026/02/06/bbs/i1571387446.png?MW=800
+- https://upload3.inven.co.kr/upload/2026/02/06/bbs/i1239633961.png?MW=800
+- https://upload3.inven.co.kr/upload/2026/02/06/bbs/i1716318366.png?MW=800
 
 ---
 
-## 2. 소환 정령
-
-- 요즘 거의 **물정·불정**만 사용
-- 협공:저주 20레벨 피해감소 특화 적용 여부 패치 이력 있음
-
----
-
-## 3. 패시브
-
-- 원소결집, 연속역류, 정령강림: 투자 가치 낮음
-- 그 외 본문 참고
+## Guide scope
+- This guide reflects practical Spiritmaster PVE execution with ongoing patch adjustments.
+- It is not a static one-time build; recommendations are tied to recent behavior changes.
+- Main focus: summon choice, specialization mapping, and stable real-fight damage flow.
 
 ---
 
-## 4. 세팅
+## Core specialization map
 
-- 응기룡 없는 기준 연구·결론 공유
-- 매주 변경되는 부분 있어 가이드 수정 반영
+Commonly used specialization pairs/sets include:
+- Cold Shock
+- Flame Burn
+- Elemental Fusion
+- Cooperative Curse
+- Space Control
+- Soul Scream
+- Rapid Shot
+- Shock Release
+
+Summon-side specialization is also part of the rotation architecture:
+- Fire spirit route
+- Water spirit route
+- Wind spirit route
+- Earth spirit route
 
 ---
 
-*인벤 정령성 게시판 · 작성자: 융송*
+## Key breakpoint insight
+
+- Recent motion and behavior changes increased the value of high-level fusion/co-op curse paths.
+- Practical recommendation from the guide context: secure key high-level breakpoints where your real damage distribution shifts.
+- This is especially relevant when curse-coop contribution becomes a larger slice of total output.
+
+---
+
+## Summon selection in real PVE
+
+Current practical trend:
+- Water and fire summons are the most frequently used in common PVE scenarios.
+
+Why this matters:
+- The summon choice changes both your skill rhythm and your practical utility profile.
+- Build your specialization and cooldown order around your primary summon, not the other way around.
+
+---
+
+## Passive investment perspective
+
+- Not every passive gives equal practical value in current PVE flow.
+- Some passives may appear strong on paper but underperform in real boss uptime.
+- Prioritize passives that reinforce your active rotation consistency and summon uptime.
+
+---
+
+## Rotation principles
+
+1. Open with stable setup rather than immediate greed burst.
+2. Maintain curse/fusion pressure through reliable windows.
+3. Re-anchor around summon-friendly cycles after movement mechanics.
+4. Avoid overcommitting to long-lock skills during uncertain boss movement.
+
+---
+
+## Practical execution notes
+
+- Track boss movement and phase changes before spending major cooldowns.
+- Preserve at least one mobility-safe sequence for recovery windows.
+- Keep your summon state and your active skill rhythm synchronized.
+- Rebuild quickly after forced interruptions instead of forcing old sequence timing.
+
+---
+
+## Common mistakes
+
+- Treating Spiritmaster as a fixed one-loop class regardless of boss pattern.
+- Investing heavily in low-impact passives while core cycle is unstable.
+- Delaying summon breakpoint levels that unlock major practical value.
+- Chasing theoretical peak over stable real uptime.
+
+---
+
+## Build maintenance checklist
+
+- [ ] Is my main summon choice aligned with current content?
+- [ ] Did I secure key fusion/co-op breakpoint levels?
+- [ ] Are my passives supporting active cycle reliability?
+- [ ] Can I keep pressure after movement-heavy mechanics?
+- [ ] Did I retune after recent patches?
+
+---
+
+## Practical conclusion
+Spiritmaster PVE performance scales through synchronization: summon selection, specialization breakpoints, and adaptable rotation flow. Stable execution across real mechanics beats rigid theoretical loops.
