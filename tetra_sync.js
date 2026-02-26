@@ -1078,7 +1078,7 @@ async function translateKoToEnViaMyMemory(text) {
     try {
         const { data } = await axios.get('https://api.mymemory.translated.net/get', {
             params: { q: input.slice(0, 450), langpair: 'ko|en' },
-            timeout: 7000
+            timeout: 10000
         });
         const translated = decodeXmlAttr(data?.responseData?.translatedText || '').trim();
         return translated || null;
@@ -1093,7 +1093,7 @@ async function translateKoToEnViaGoogle(text) {
     try {
         const { data } = await axios.get('https://translate.googleapis.com/translate_a/single', {
             params: { client: 'gtx', sl: 'ko', tl: 'en', dt: 't', q: input.slice(0, 2000) },
-            timeout: 7000,
+            timeout: 10000,
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
         });
         if (!Array.isArray(data) || !Array.isArray(data[0])) return null;
@@ -1125,7 +1125,12 @@ async function translateKoToEnLong(text) {
     const chunks = splitForTranslation(text, 450);
     if (!chunks.length) return '';
     const translated = [];
-    for (const chunk of chunks) translated.push(await translateKoToEn(chunk));
+    for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        const t = await translateKoToEn(chunk);
+        translated.push((t && String(t).trim()) ? t : chunk);
+        if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 300));
+    }
     return translated.join('\n');
 }
 
@@ -6208,7 +6213,7 @@ function extractTableRowsFromInvenContent($, content) {
 
 async function fetchInvenArticle(url) {
     const res = await axios.get(url, {
-        timeout: 15000,
+        timeout: 25000,
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0' },
         maxRedirects: 3,
         responseType: 'text',
