@@ -872,57 +872,57 @@ const TACTICS_DATA = {
     class: {
         label: 'Class Guide',
         items: [
-            { value: '58', label: '검성 PVE 스킬트리', file: 'inven_58_english.txt' },
-            { value: '6625', label: '수호성 PVE 스킬 정리', file: 'inven_6625_english.txt' },
-            { value: '3856', label: '살성 PVE 가이드', file: 'inven_3856_english.txt' },
-            { value: '4009', label: '궁성 PVE 세팅 가이드', file: 'inven_4009_english.txt' },
-            { value: '116', label: '호법성 PVE 종합 가이드', file: 'inven_116_english.txt' },
-            { value: '657', label: '치유성 가이드', file: 'inven_657_english.txt' },
-            { value: '66', label: '마도성 PVE 공략', file: 'inven_66_english.txt' },
-            { value: '2760', label: '정령성 PVE 세팅·딜싸이클', file: 'inven_2760_english.txt' },
-            { value: '965', label: '정령성 PVP 입문 가이드', file: 'inven_965_english.txt' }
+            { value: '58', label: 'Swordmaster PVE Skill Tree', file: 'inven_58_english.txt' },
+            { value: '6625', label: 'Gladiator PVE Skill Build', file: 'inven_6625_english.txt' },
+            { value: '3856', label: 'Assassin PVE Guide', file: 'inven_3856_english.txt' },
+            { value: '4009', label: 'Ranger PVE Setup Guide', file: 'inven_4009_english.txt' },
+            { value: '116', label: 'Chanter PVE Comprehensive Guide', file: 'inven_116_english.txt' },
+            { value: '657', label: 'Cleric Guide', file: 'inven_657_english.txt' },
+            { value: '66', label: 'Sorcerer PVE Guide', file: 'inven_66_english.txt' },
+            { value: '2760', label: 'Spiritmaster PVE Setup and Rotation', file: 'inven_2760_english.txt' },
+            { value: '965', label: 'Spiritmaster PVP Starter Guide', file: 'inven_965_english.txt' }
         ]
     },
     fast_leveling: {
-        label: '#fast-leveling (레벨링 가이드)',
+        label: 'Fast Leveling Guide',
         items: [
-            { value: '311570', label: '초반 핵심 팁 총정리', file: 'tactics_fast_leveling.txt' }
+            { value: '311570', label: 'Core Early-Game Leveling Tips', file: 'tactics_fast_leveling.txt' }
         ]
     },
     kinah_farming: {
-        label: '#kinah-farming (키나/재화 수급)',
+        label: 'Kinah Farming Guide',
         items: [
-            { value: '1067_kinah', label: '6캐릭 배럭 주간 수익 계산', file: 'tactics_kinah_farming.txt' }
+            { value: '1067_kinah', label: '6-Character Weekly Income Plan', file: 'tactics_kinah_farming.txt' }
         ]
     },
     cp_boost_guide: {
-        label: '#cp-boost-guide (전투력/스펙업)',
+        label: 'CP Boost Guide',
         items: [
-            { value: 'cp_boost', label: '강타·보드·훈장·장비 비교', file: 'tactics_cp_boost_guide.txt' }
+            { value: 'cp_boost', label: 'Strike, Board, Medals, Gear Comparison', file: 'tactics_cp_boost_guide.txt' }
         ]
     },
     pantheon_guide: {
-        label: '#pantheon-guide (만신전/어비스)',
+        label: 'Pantheon Guide',
         items: [
-            { value: '311736', label: '어비스 포인트 획득 총정리', file: 'tactics_pantheon_guide.txt' }
+            { value: '311736', label: 'Abyss Point Acquisition Overview', file: 'tactics_pantheon_guide.txt' }
         ]
     },
     dungeon_tactics: {
-        label: '#dungeon-tactics (던전 공략)',
+        label: 'Dungeon Tactics Guide',
         items: [
-            { value: 'dungeon_bundle', label: '신규 초월 + 4~6단 핵심 패턴', file: 'tactics_dungeon_tactics.txt' }
+            { value: 'dungeon_bundle', label: 'New Transcendence + Tier 4-6 Core Patterns', file: 'tactics_dungeon_tactics.txt' }
         ]
     },
     daily_checklist: {
-        label: '#daily-checklist (일일/주간 루틴)',
+        label: 'Daily Checklist Guide',
         items: [
-            { value: 'daily_bundle', label: '일일/주간 숙제 + 오드 수급', file: 'tactics_daily_checklist.txt' }
+            { value: 'daily_bundle', label: 'Daily/Weekly Tasks + Odd Energy Flow', file: 'tactics_daily_checklist.txt' }
         ]
     },
     pro_tips: {
-        label: '#pro-tips (각종 꿀팁)',
+        label: 'Pro Tips Guide',
         items: [
-            { value: 'tips_bundle', label: '장비 활용·연성·균열·모바일 세팅', file: 'tactics_pro_tips.txt' }
+            { value: 'tips_bundle', label: 'Gear Reuse, Refinement, Rift, Mobile Setup', file: 'tactics_pro_tips.txt' }
         ]
     }
 };
@@ -935,14 +935,14 @@ function buildTacticsCategorySelect(isPublic = false) {
             .addOptions(
                 { label: '🏰 Dungeon Guide', value: 'dungeon', description: 'Conquest, Transcendence, Ludra guides' },
                 { label: '🐾 Pet Guide', value: 'pet', description: 'Pet understanding, soul, stats' },
-                { label: '⚔️ 클래스 가이드', value: 'class', description: '검성·수호성·살성·궁성·호법·치유·마도·정령' },
-                { label: '🚀 #fast-leveling', value: 'fast_leveling', description: '초반 레벨링 핵심 팁 총정리' },
-                { label: '💰 #kinah-farming', value: 'kinah_farming', description: '배럭 키나/재화 수급 루틴' },
-                { label: '⚔️ #cp-boost-guide', value: 'cp_boost_guide', description: '강타·보드·훈장·장비 비교' },
-                { label: '🏛️ #pantheon-guide', value: 'pantheon_guide', description: '어비스 포인트 수급 가이드' },
-                { label: '👹 #dungeon-tactics', value: 'dungeon_tactics', description: '신규 초월·4~6단 패턴 정리' },
-                { label: '📅 #daily-checklist', value: 'daily_checklist', description: '일일/주간 숙제 및 오드 관리' },
-                { label: '💡 #pro-tips', value: 'pro_tips', description: '운영 효율·연성·균열·모바일 팁' }
+                { label: '⚔️ Class Guide', value: 'class', description: 'Swordmaster, Gladiator, Assassin, Ranger, Chanter, Cleric, Sorcerer, Spiritmaster' },
+                { label: '🚀 Fast Leveling', value: 'fast_leveling', description: 'Core early-game leveling priorities' },
+                { label: '💰 Kinah Farming', value: 'kinah_farming', description: 'Weekly kinah and resource farming routines' },
+                { label: '⚔️ CP Boost Guide', value: 'cp_boost_guide', description: 'Strike, board, medals, and gear growth plan' },
+                { label: '🏛️ Pantheon Guide', value: 'pantheon_guide', description: 'Abyss point and progression strategy' },
+                { label: '👹 Dungeon Tactics', value: 'dungeon_tactics', description: 'New transcendence and tier 4-6 mechanics' },
+                { label: '📅 Daily Checklist', value: 'daily_checklist', description: 'Daily/weekly tasks and resource control' },
+                { label: '💡 Pro Tips', value: 'pro_tips', description: 'Optimization tips for setup and routine' }
             )
     );
 }
@@ -2636,8 +2636,8 @@ const commands = [
                 { name: 'Info YouTube (Translated Links)', value: 'youtube' },
                 { name: '📖 Usage Guide (Korean)', value: 'guide_ko' },
                 { name: '📖 Usage Guide (English)', value: 'guide_en' },
-                { name: '📖 PlayNC Guidebook (공식 가이드북)', value: 'guidebook_plaync' },
-                { name: '⚔️ TACTICS (Dungeon & Pet Guides)', value: 'tactics' }
+                { name: '📖 PlayNC Guidebook (Official)', value: 'guidebook_plaync' },
+                { name: '⚔️ TACTICS (All Guide Categories)', value: 'tactics' }
             ))
         .toJSON(),
     new SlashCommandBuilder()
@@ -3431,14 +3431,18 @@ client.on('interactionCreate', async (interaction) => {
             await interaction.editReply({ content: `✅ Member list updated: ${merged.count} row(s).` });
         } else if (interaction.commandName === 'guidebook_fetch') {
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
-            await interaction.editReply({ content: '⏳ Fetching PlayNC guidebook… (2–5 min, scraping + translation)' });
+            await interaction.editReply({ content: '⏳ Fetching PlayNC guidebook… (up to 3 min). If scraping is slow, local fallback loads automatically.' });
             try {
-                let state = await scrapePlayncGuidebookAll();
+                let state = await withTimeout(
+                    scrapePlayncGuidebookAll(),
+                    GUIDEBOOK_FETCH_TIMEOUT_MS,
+                    'guidebook_fetch'
+                );
                 let total = (state.categories || []).reduce((n, c) => n + (c.guides?.length || 0), 0);
                 if ((state.categories?.length || 0) === 0 || total === 0) {
                     const fallback = buildLocalGuidebookFallbackState();
                     if ((fallback.categories?.length || 0) > 0) {
-                        state = fallback;
+                        state = applyGuidebookCategoryCoverage(fallback);
                         total = (state.categories || []).reduce((n, c) => n + (c.guides?.length || 0), 0);
                         saveGuidebookState(state);
                         await interaction.editReply({ content: `⚠️ PlayNC scrape returned empty data. Loaded **local fallback** guidebook.\n✅ Ready: ${state.categories?.length || 0} categories, ${total} guides.\n**\`/panel type:guidebook_plaync\`** to post.` });
@@ -3446,6 +3450,7 @@ client.on('interactionCreate', async (interaction) => {
                         await interaction.editReply({ content: '❌ PlayNC scrape returned no data, and no local fallback files were found.' });
                     }
                 } else {
+                    state = applyGuidebookCategoryCoverage(state);
                     saveGuidebookState(state);
                     await interaction.editReply({ content: `✅ Guidebook fetched. ${state.categories?.length || 0} categories, ${total} guides.\n**\`/panel type:guidebook_plaync\`** to post.` });
                 }
@@ -3453,9 +3458,10 @@ client.on('interactionCreate', async (interaction) => {
                 console.error('[guidebook_fetch]', err);
                 const fallback = buildLocalGuidebookFallbackState();
                 if ((fallback.categories?.length || 0) > 0) {
-                    const total = (fallback.categories || []).reduce((n, c) => n + (c.guides?.length || 0), 0);
-                    saveGuidebookState(fallback);
-                    await interaction.editReply({ content: `⚠️ Failed to scrape PlayNC: ${err.message}\nLoaded **local fallback** guidebook: ${fallback.categories.length} categories, ${total} guides.` }).catch(() => {});
+                    const normalized = applyGuidebookCategoryCoverage(fallback);
+                    const total = (normalized.categories || []).reduce((n, c) => n + (c.guides?.length || 0), 0);
+                    saveGuidebookState(normalized);
+                    await interaction.editReply({ content: `⚠️ Failed to scrape PlayNC: ${err.message}\nLoaded **local fallback** guidebook: ${normalized.categories.length} categories, ${total} guides.` }).catch(() => {});
                 } else {
                     await interaction.editReply({ content: `❌ Failed: ${err.message}` }).catch(() => {});
                 }
@@ -4241,12 +4247,20 @@ client.on('interactionCreate', async (interaction) => {
             } else if (kind === 'tactics') {
                 if (!hasManageGuild(interaction)) { await interaction.editReply({ content: '❌ Admin permission required.' }); return; }
                 const embed = new EmbedBuilder()
-                    .setTitle('⚔️ TACTICS — Dungeon & Pet Guides')
+                    .setTitle('⚔️ TACTICS — All Guide Categories')
                     .setDescription(
                         '**Inven AION2 guides (translated) — shown only to you when opened.**\n\n' +
                         '**Categories:**\n' +
                         '• **Dungeon Guide** — Stagger Gauge, Kaisinel, Krao Cave, Draupnir, Urugugu, Barklon, Fire Temple, Savage Horn Cave, Dead Dramata, Transcendence, Ludra 1–2, Ludra 3\n' +
-                        '• **Pet Guide** — Pet Understanding (펫작), Pet Soul DB, Pet Stats\n\n' +
+                        '• **Pet Guide** — Pet Understanding, Pet Soul DB, Pet Stats\n' +
+                        '• **Class Guide** — Swordmaster, Gladiator, Assassin, Ranger, Chanter, Cleric, Sorcerer, Spiritmaster\n' +
+                        '• **Fast Leveling** — Early leveling route and progression priorities\n' +
+                        '• **Kinah Farming** — Multi-character weekly farming and schedule planning\n' +
+                        '• **CP Boost Guide** — Strike options, board growth, medals, gear replacement logic\n' +
+                        '• **Pantheon Guide** — AP acquisition and Abyss progression plan\n' +
+                        '• **Dungeon Tactics** — New transcendence and tier 4–6 pattern handling\n' +
+                        '• **Daily Checklist** — Daily/weekly routine and resource control\n' +
+                        '• **Pro Tips** — Practical optimization tips (gear, timing, mobile setup)\n\n' +
                         '**How to use:**\n' +
                         '• Click the button below and select category → guide\n' +
                         '• Or use **`/tactics`** — same flow, ephemeral\n\n' +
@@ -5033,27 +5047,29 @@ const GUIDEBOOK_BASE_URL = 'https://aion2.plaync.com/ko-kr/guidebook';
 const AION2_CLASS_NAMES = ['검성', '수호성', '살성', '궁성', '호법성', '치유성', '마도성', '정령성'];
 const AION2_CLASS_NAMES_EN = { '검성': 'Swordmaster', '수호성': 'Gladiator', '살성': 'Assassin', '궁성': 'Ranger', '호법성': 'Chanter', '치유성': 'Cleric', '마도성': 'Sorcerer', '정령성': 'Spiritmaster' };
 const GUIDEBOOK_CATEGORIES = [
-    { id: '4227', name: '초보자 가이드', nameEn: 'Beginner\'s Guide' },
-    { id: '4234', name: '클래스', nameEn: 'Class', mergeWithSkill: true },
-    { id: '4235', name: '스킬', nameEn: 'Skill', mergeIntoClass: true },
-    { id: '4236', name: '아이템', nameEn: 'Items' },
-    { id: '4237', name: '저널', nameEn: 'Journal' },
-    { id: '4238', name: '지역', nameEn: 'Regions' },
-    { id: '4239', name: '성장과 수집', nameEn: 'Growth & Collection' },
-    { id: '4240', name: 'PK 및 결투', nameEn: 'PK & Duel' },
-    { id: '4241', name: '몬스터와 던전', nameEn: 'Monsters & Dungeons' },
-    { id: '4242', name: '커뮤니티', nameEn: 'Community' },
-    { id: '4243', name: '주요 시스템', nameEn: 'Main Systems' },
-    { id: '4244', name: '채집과 제작', nameEn: 'Gathering & Crafting' },
+    { id: '4227', name: 'Beginner\'s Guide', nameEn: 'Beginner\'s Guide' },
+    { id: '4234', name: 'Class', nameEn: 'Class' },
+    { id: '4235', name: 'Skill', nameEn: 'Skill' },
+    { id: '4236', name: 'Items', nameEn: 'Items' },
+    { id: '4237', name: 'Journal', nameEn: 'Journal' },
+    { id: '4238', name: 'Regions', nameEn: 'Regions' },
+    { id: '4239', name: 'Growth & Collection', nameEn: 'Growth & Collection' },
+    { id: '4240', name: 'PK & Duel', nameEn: 'PK & Duel' },
+    { id: '4241', name: 'Monsters & Dungeons', nameEn: 'Monsters & Dungeons' },
+    { id: '4242', name: 'Community', nameEn: 'Community' },
+    { id: '4243', name: 'Main Systems', nameEn: 'Main Systems' },
+    { id: '4244', name: 'Gathering & Crafting', nameEn: 'Gathering & Crafting' },
 ];
 const GUIDEBOOK_MAX_GUIDES_PER_CATEGORY = 6;
 const GUIDEBOOK_MAX_CLASS_GUIDES = 8;
 const GUIDEBOOK_MAX_DETAIL_PER_CATEGORY = 4;
 const GUIDEBOOK_MAX_CONTENT_LENGTH = 3500;
+const GUIDEBOOK_FETCH_TIMEOUT_MS = Math.max(60_000, parseInt(process.env.GUIDEBOOK_FETCH_TIMEOUT_MS || '180000', 10) || 180_000);
+const GUIDEBOOK_DETAIL_ENRICH_PER_CATEGORY = Math.max(0, parseInt(process.env.GUIDEBOOK_DETAIL_ENRICH_PER_CATEGORY || '1', 10) || 1);
 const GUIDEBOOK_FALLBACK_CATEGORIES = [
     {
         id: 'local_class',
-        name: '클래스 가이드',
+        name: 'Class Guides (Local)',
         nameEn: 'Class Guides (Local)',
         guides: [
             { title: 'Swordmaster PVE', file: 'inven_58_english.txt', url: 'https://www.inven.co.kr/board/aion2/6448/58' },
@@ -5089,9 +5105,61 @@ function extractImageUrlsFromText(text, max = 5) {
     ).slice(0, max);
 }
 
+function withTimeout(promise, ms, label = 'operation') {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
+    });
+    return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
+
+function applyGuidebookCategoryCoverage(state) {
+    const source = state && typeof state === 'object' ? state : {};
+    const byId = new Map(
+        (Array.isArray(source.categories) ? source.categories : [])
+            .map(cat => [String(cat?.id || ''), cat])
+    );
+
+    const categories = GUIDEBOOK_CATEGORIES.map(def => {
+        const existing = byId.get(def.id);
+        const guides = Array.isArray(existing?.guides) ? [...existing.guides] : [];
+        if (guides.length === 0) {
+            const listUrl = `${GUIDEBOOK_BASE_URL}/list#categoryId=${def.id}`;
+            guides.push({
+                title: `${def.nameEn || def.name} (Index)`,
+                titleEn: `${def.nameEn || def.name} (Index)`,
+                url: listUrl,
+                desc: 'Guide index for this category.',
+                descEn: 'Guide index for this category.',
+                content: `Open the official list page for this category:\n${listUrl}`,
+                contentEn: `Open the official list page for this category:\n${listUrl}`,
+                images: []
+            });
+        }
+        return {
+            id: def.id,
+            name: def.name,
+            nameEn: def.nameEn || def.name,
+            guides
+        };
+    });
+
+    return {
+        ...source,
+        categories,
+        fetchedAt: source.fetchedAt || new Date().toISOString()
+    };
+}
+
 function buildLocalGuidebookFallbackState() {
-    const categories = [];
+    const categoryMap = Object.fromEntries(
+        GUIDEBOOK_CATEGORIES.map(cat => [
+            cat.id,
+            { id: cat.id, name: cat.name, nameEn: cat.nameEn || cat.name, guides: [] }
+        ])
+    );
     for (const cat of GUIDEBOOK_FALLBACK_CATEGORIES) {
+        const targetCategoryId = cat.id === 'local_class' ? '4234' : '4227';
         const guides = [];
         for (const g of cat.guides) {
             const p = path.join(__dirname, g.file);
@@ -5119,24 +5187,24 @@ function buildLocalGuidebookFallbackState() {
                 images: imageUrls
             });
         }
-        if (guides.length > 0) categories.push({
-            id: cat.id,
-            name: cat.name,
-            nameEn: cat.nameEn,
-            guides
-        });
+        if (guides.length > 0 && categoryMap[targetCategoryId]) {
+            categoryMap[targetCategoryId].guides.push(...guides);
+        }
     }
-    return { categories, fetchedAt: new Date().toISOString(), source: 'local_fallback' };
+    const categories = GUIDEBOOK_CATEGORIES.map(cat => categoryMap[cat.id]);
+    return applyGuidebookCategoryCoverage({ categories, fetchedAt: new Date().toISOString(), source: 'local_fallback' });
 }
 
 function loadGuidebookState() {
     try {
         const raw = fs.readFileSync(CONFIG.GUIDEBOOK_STATE_PATH, 'utf8');
         const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.categories) && parsed.categories.length > 0) return parsed;
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.categories) && parsed.categories.length > 0) {
+            return applyGuidebookCategoryCoverage(parsed);
+        }
     } catch (_) {}
     const fallback = buildLocalGuidebookFallbackState();
-    return fallback.categories.length > 0 ? fallback : { categories: [], fetchedAt: null };
+    return fallback.categories.length > 0 ? applyGuidebookCategoryCoverage(fallback) : { categories: [], fetchedAt: null };
 }
 
 function buildGuidebookCategorySelect(state, isPublic = false) {
@@ -5335,7 +5403,8 @@ function findSkillLinkFromDetail(g, className) {
     return null;
 }
 
-async function fetchAndEnrichGuide(browser, g) {
+async function fetchAndEnrichGuide(browser, g, options = {}) {
+    const translateContent = options.translateContent !== false;
     if (!g.url || !g.url.includes('view')) return g;
     try {
         const detail = await scrapePlayncGuidebookView(browser, g.url);
@@ -5343,12 +5412,15 @@ async function fetchAndEnrichGuide(browser, g) {
         g.images = detail.images || [];
         g.links = detail.links || [];
         if (detail.title) g.title = detail.title;
-        if (hasHangul(g.title)) g.titleEn = await translateKoToEnLong(g.title) || g.title;
+        if (hasHangul(g.title)) g.titleEn = await withTimeout(translateKoToEn(g.title), 4000, 'guide title translation').catch(() => g.title) || g.title;
         else g.titleEn = g.title;
-        if (g.desc && hasHangul(g.desc)) g.descEn = await translateKoToEn(g.desc) || g.desc;
+        if (g.desc && hasHangul(g.desc)) g.descEn = await withTimeout(translateKoToEn(g.desc), 4000, 'guide desc translation').catch(() => g.desc) || g.desc;
         else g.descEn = g.desc;
-        if (g.content && hasHangul(g.content)) g.contentEn = await translateKoToEnLong(g.content.slice(0, 1500)) || g.content.slice(0, 1500);
-        else g.contentEn = (g.content || '').slice(0, 1500);
+        if (translateContent && g.content && hasHangul(g.content)) {
+            g.contentEn = await withTimeout(translateKoToEnLong(g.content.slice(0, 1200)), 9000, 'guide content translation').catch(() => g.content.slice(0, 1200)) || g.content.slice(0, 1200);
+        } else {
+            g.contentEn = (g.content || '').slice(0, 1200);
+        }
     } catch (err) {
         console.warn(`[guidebook] view ${g.title?.slice(0, 30)} failed:`, err.message);
     }
@@ -5362,73 +5434,41 @@ async function scrapePlayncGuidebookAll() {
         browser = await puppeteer.launch(await getPuppeteerLaunchOptions());
         for (let ci = 0; ci < GUIDEBOOK_CATEGORIES.length; ci++) {
             const cat = GUIDEBOOK_CATEGORIES[ci];
-            if (cat.mergeIntoClass) continue;
-
             try {
-                if (cat.mergeWithSkill) {
-                    const classGuides = await scrapePlayncGuidebookCategory(browser, '4234');
-                    const skillGuides = await scrapePlayncGuidebookCategory(browser, '4235');
-                    const classMap = {};
-                    for (const g of (classGuides || []).slice(0, GUIDEBOOK_MAX_CLASS_GUIDES * 2)) {
-                        const t = (g.title || '').trim();
-                        const matched = AION2_CLASS_NAMES.find(c => t === c || t.startsWith(c + ' ') || t.startsWith(c + '('));
-                        if (matched) {
-                            classMap[matched] = classMap[matched] || {};
-                            if (!classMap[matched].basicInfo) classMap[matched].basicInfo = g;
-                        }
-                    }
-                    for (const g of (skillGuides || []).slice(0, GUIDEBOOK_MAX_CLASS_GUIDES * 2)) {
-                        const parsed = parseClassSkillTitle(g.title);
-                        if (parsed) {
-                            classMap[parsed.className] = classMap[parsed.className] || {};
-                            classMap[parsed.className].skillFromList = g;
-                        }
-                    }
-                    const mergedGuides = [];
-                    for (const c of AION2_CLASS_NAMES) {
-                        const entries = classMap[c] || {};
-                        if (entries.basicInfo) {
-                            const g = await fetchAndEnrichGuide(browser, entries.basicInfo);
-                            g.title = `${c} - 기본정보`;
-                            g.titleEn = `${AION2_CLASS_NAMES_EN[c] || c} - Basic Info`;
-                            mergedGuides.push(g);
-                            await new Promise(r => setTimeout(r, 600));
+                let guides = await withTimeout(
+                    scrapePlayncGuidebookCategory(browser, cat.id),
+                    25000,
+                    `guidebook category ${cat.id}`
+                );
+                guides = Array.isArray(guides) ? guides.slice(0, GUIDEBOOK_MAX_GUIDES_PER_CATEGORY) : [];
+                for (let i = 0; i < guides.length; i++) {
+                    const g = guides[i];
+                    g.images = Array.isArray(g.images) ? g.images : [];
+                    g.links = Array.isArray(g.links) ? g.links : [];
+                    g.content = g.content || g.desc || '';
 
-                            const skillLink = findSkillLinkFromDetail(g, c);
-                            const skillG = skillLink
-                                ? { url: skillLink, title: `${c} 스킬`, desc: null }
-                                : entries.skillFromList;
-                            if (skillG) {
-                                const enriched = await fetchAndEnrichGuide(browser, skillG);
-                                enriched.title = `${c} - 스킬`;
-                                enriched.titleEn = `${AION2_CLASS_NAMES_EN[c] || c} - Skills`;
-                                mergedGuides.push(enriched);
-                                await new Promise(r => setTimeout(r, 600));
-                            }
-                        } else if (entries.skillFromList) {
-                            const enriched = await fetchAndEnrichGuide(browser, entries.skillFromList);
-                            enriched.title = `${c} - 스킬`;
-                            enriched.titleEn = `${AION2_CLASS_NAMES_EN[c] || c} - Skills`;
-                            mergedGuides.push(enriched);
-                            await new Promise(r => setTimeout(r, 600));
-                        }
+                    if (hasHangul(g.title || '')) {
+                        g.titleEn = await withTimeout(translateKoToEn(g.title), 4000, 'list title translation').catch(() => g.title) || g.title;
+                    } else {
+                        g.titleEn = g.title;
                     }
-                    results.categories.push({ id: cat.id, name: cat.name, nameEn: cat.nameEn || cat.name, guides: mergedGuides });
-                } else {
-                    let guides = await scrapePlayncGuidebookCategory(browser, cat.id);
-                    if (guides.length === 0) continue;
-                    guides = guides.slice(0, GUIDEBOOK_MAX_GUIDES_PER_CATEGORY);
-                    for (let i = 0; i < guides.length; i++) {
-                        const g = guides[i];
-                        await fetchAndEnrichGuide(browser, g);
-                        await new Promise(r => setTimeout(r, 600));
+                    if (g.desc && hasHangul(g.desc)) {
+                        g.descEn = await withTimeout(translateKoToEn(g.desc), 4000, 'list desc translation').catch(() => g.desc) || g.desc;
+                    } else {
+                        g.descEn = g.desc || '';
                     }
-                    results.categories.push({ id: cat.id, name: cat.name, nameEn: cat.nameEn || cat.name, guides });
+                    g.contentEn = (g.descEn || g.desc || '').slice(0, 350);
+
+                    if (i < GUIDEBOOK_DETAIL_ENRICH_PER_CATEGORY) {
+                        await withTimeout(fetchAndEnrichGuide(browser, g, { translateContent: false }), 20000, 'guide detail enrich').catch(() => {});
+                    }
+                    await new Promise(r => setTimeout(r, 150));
                 }
+                results.categories.push({ id: cat.id, name: cat.name, nameEn: cat.nameEn || cat.name, guides });
             } catch (err) {
                 console.warn(`[guidebook] category ${cat.id} failed:`, err.message);
             }
-            await new Promise(r => setTimeout(r, 800));
+            await new Promise(r => setTimeout(r, 250));
         }
         return results;
     } finally {
