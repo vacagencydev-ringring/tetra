@@ -5090,6 +5090,43 @@ function isValidEmbedUrl(u) {
     const trimmed = u.trim();
     return trimmed.startsWith('http://') || trimmed.startsWith('https://');
 }
+
+const NC_FOOTER_PATTERNS = [
+    /\bSupport\s+NC\s*Privacy\s*Center/i,
+    /\bNC\s*Privacy\s*Center\s+NCSOFT/i,
+    /\bNCSOFT\s+Service\s+Agreement/i,
+    /\bNC\s+Probab(?:ility|ability)\s+Information/i,
+    /\bGame\s+Usage\s+Rating\b/i,
+    /\bCompany\s*Introduction\s*Terms\s*of\s*Use/i,
+    /\bTerms\s*of\s*Use\s*Privacy\s*Policy/i,
+    /\bCompany\s*Name\s*NCSoft/i,
+    /\bCo-CEOs?\s+Taek/i,
+    /\bBusiness\s*Registration\s*Number\s+\d/i,
+    /\bMail\s*Order\s*Business\s*Report\s*No\./i,
+    /\b(?:12\s+)?Daewangpangyo-ro\s*(?:644|12)/i,
+    /\b144-85-04244\b/,
+    /\b2013-Gyeonggi\s+Seongnam/i,
+    /\b1600-0020\b/,
+    /\bFax\s+02-\d/i,
+    /credit@ncsoft\.com/i,
+    /\bCopyright\s*[©ⓒ]\s*(NCSOFT|NCSoft)/i,
+    /\bAll\s+Rights\s+Reserved\b/i,
+    /\bNCSOFT\s+OFF\b/i,
+    /\s+회사소개\s*이용약관\s*개인정보/i,
+    /\b상호\s*\(주\)\s*엔씨소프트\b/i,
+    /\b사업자\s*등록번호\s*\d{3}-\d{2}-\d{5}/,
+];
+
+function stripNcsoftFooter(text) {
+    if (!text || typeof text !== 'string') return text || '';
+    let out = text.trim();
+    let minIdx = out.length;
+    for (const rx of NC_FOOTER_PATTERNS) {
+        const m = out.match(rx);
+        if (m && m.index != null && m.index < minIdx) minIdx = m.index;
+    }
+    return minIdx < out.length ? out.slice(0, minIdx).trim() : out;
+}
 const AION2_CLASS_NAMES = ['검성', '수호성', '살성', '궁성', '호법성', '치유성', '마도성', '정령성'];
 const AION2_CLASS_NAMES_EN = { '검성': 'Swordmaster', '수호성': 'Gladiator', '살성': 'Assassin', '궁성': 'Ranger', '호법성': 'Chanter', '치유성': 'Cleric', '마도성': 'Sorcerer', '정령성': 'Spiritmaster' };
 const GUIDEBOOK_CATEGORIES = [
@@ -5315,8 +5352,8 @@ function buildGuidebookGuideEmbeds(guide, catName) {
     const EMBED_DESC_MAX = 3800;
     const maxContentLen = GUIDEBOOK_MAX_CONTENT_LENGTH;
     const title = guide.titleEn || guide.title || 'Guide';
-    const desc = (guide.descEn || guide.desc || '').trim();
-    const content = (guide.contentEn || guide.content || '').slice(0, maxContentLen).trim();
+    const desc = stripNcsoftFooter(guide.descEn || guide.desc || '').trim();
+    const content = stripNcsoftFooter(guide.contentEn || guide.content || '').trim().slice(0, maxContentLen);
     let text = [desc, content].filter(Boolean).join('\n\n');
     const linkUrl = isValidEmbedUrl(guide.url) ? guide.url : null;
     if (linkUrl) text = `[${title}](${linkUrl})\n\n` + text;

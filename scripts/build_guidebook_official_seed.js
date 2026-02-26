@@ -135,6 +135,156 @@ const NOISE_LINE_PATTERNS = [
   /^\[Go to .*Service Policy.*\]$/i
 ];
 
+// Footer cutoff: cut content at first legal/company block (improves readability)
+const FOOTER_START_PATTERNS = [
+  /\bAccount\s+Access\s+Security\s+Service\s+PURPLE\b/i,
+  /\bYout\s*ube\s*Company\s*Introduction/i,
+  // Korean footer markers (match start of footer block to cut)
+  /\s+계정접속보안서비스PURPLE퍼플/i,
+  /\s+회사소개\s*이용약관\s*개인정보/i,
+  /\b계정접속보안서비스\s*PURPLE\s*퍼플\s*Youtube\s*회사소개/i,
+  /Youtube\s*회사소개\s*이용약관/i,
+  /\b상호\s*\(주\)\s*엔씨소프트\b/i,
+  /\b사업자\s*등록번호\s*\d{3}-\d{2}-\d{5}/,
+  /\b통신판매업신고\s*제\d/i,
+  /\b고객상담\s*1600-0020\b/,
+  // EN footer (order: match earliest possible)
+  /\b(?:Support\s+)?NC\s*Privacy\s*Center/i,
+  /\bNCSOFT\s+Service\s+Agreement/i,
+  /\bNC\s+Probab(?:ility|ability)\s+Information/i,
+  /\bGame\s+Usage\s+Rating\b/i,
+  /\bCompany\s+Introduction\s*Terms\s*of\s*Use/i,
+  /\bTerms\s*of\s*Use\s*Privacy\s*Policy/i,
+  /\bPrivacy\s*Policy\s*Youth\s*Protection/i,
+  /\bYouth\s*Protection\s*Policy\b/i,
+  /\bCommunity\s*Policy\s*Operation\s*Policy/i,
+  /\bCustomer\s*Support\s*NC\s*Privacy/i,
+  /\bNCSoft\s*Co\.?,?\s*Ltd\.?/i,
+  /\bCompany\s*Name\s*NCSoft/i,
+  /\bCo-CEOs?\s+Taek/i,
+  /\bBusiness\s*Registration\s*Number\s+\d/i,
+  /\bMail\s*Order\s*Business\s*Report\s*No\./i,
+  /\bDaewangpangyo-ro\s*\d/i,
+  /\b\d+\s+Daewangpangyo-ro/i,
+  /\b144-85-04244\b/,
+  /\b2013-Gyeonggi\s+Seongnam/i,
+  /\b1600-0020\b/,
+  /\bFax\s+02-\d/i,
+  /\b02-2186-\d{4}\b/,
+  /credit@ncsoft\.com/i,
+  /\bCopyright\s*[©ⓒ]\s*(NCSOFT|NCSoft|Inven)/i,
+  /\bAll\s+Rights\s+Reserved\.?\s*(NCSOFT|NCSoft|OFF)?\s*$/im,
+  /\bNCSOFT\s+OFF\b/i
+];
+
+function stripFooterFromGuide(text) {
+  let out = String(text || '').trim();
+  if (!out) return '';
+  let minIdx = out.length;
+  for (const rx of FOOTER_START_PATTERNS) {
+    const m = out.match(rx);
+    if (m && m.index != null && m.index < minIdx) minIdx = m.index;
+  }
+  if (minIdx < out.length) out = out.slice(0, minIdx).trim();
+  return out;
+}
+
+// Fix common machine-translation errors in contentEn
+// Fix typos present in original PlayNC content (한글)
+const CONTENT_KO_FIXES = [
+  ['서택', '선택'],
+  ['뱡향', '방향'],
+];
+
+const CONTENT_EN_FIXES = [
+  [/\bth\s+Issue\s+Name\s+Description\b/gi, ''],
+  // Dungeon/Tactics guide fixes
+  [/\bResuranta\b/gi, 'Reshanta'],
+  [/\bAbys\b/gi, 'Abyss'],
+  [/\bGeodium\s+Storage\b/gi, 'Odium Storage'],
+  [/\bDeva\s+Biological\b/gi, 'Daeva Biological'],
+  [/\bDevinion\b/gi, 'Daevanion'],
+  [/\bChanga\s+Rung\b/gi, 'Changarung'],
+  [/\bRanking\s+Transcendent\s+Ranking\s+Jeong\b/gi, 'Ranking: You can check transcendence ranking information'],
+  [/\bby\s+selecting\s+the\s+Mong\s+floor\b/gi, 'by selecting the floor'],
+  [/\bConfirm\s+battle\s+and\s+ranking\b/gi, 'Subjugation battle and ranking'],
+  [/\btranscendental\s+and\s+transcendental\b/gi, 'transcendence'],
+  [/\bthis\s+door\s+The\s+book\s+was\b/gi, 'This document was'],
+  [/\bdetails\s+of\s+the\s+awakening\s+war\b/gi, 'details of the subjugation battle'],
+  [/\bDestiny\s+The\s+'Combine\s+of\s+Destiny'\b/gi, "The 'Nexus of Destiny'"],
+  [/\bJaeryeon\s+Rudra\s+of\s+Sanctuary\s+Abyss\b/gi, 'Abyss Forge Rudra (Sanctuary)'],
+  [/\bCheck\s+the\s+information\s+of\s+the\s+awakening\s+war\b/gi, 'Check the details of the subjugation battle'],
+  [/\bCebu\s+Stats\b/gi, 'Detailed Stats'],
+  [/\bCebu\b/gi, 'Detailed'],
+  [/\bKinagaso\b/gi, 'kinah'],
+  [/\bkinagaso\b/g, 'kinah'],
+  [/\ball\.\s+You\s+can\s+directly/gi, 'You can directly'],
+  [/\bManipulated\s+PC\s+Mobile\s+Attack\b/gi, ''],
+  [/\bThe\s+beat\s+is\s+spot\s+on\.?\b/gi, ''],
+  [/\bDetailed\s+Stats\s+Detailed\b/gi, 'Detailed Stats'],
+  [/\bYou\s+can\s+do\s+it\.\s*$/gim, ''],
+  [/\bYou\s+can\s+do\s+it\.\s+(?=[A-Z])/g, ''],
+  [/\bIt\s+all\s+works\s+out\.\b/gi, ''],
+  [/\.\s*\.\s*/g, '. '],
+  [/\bSword\s+Castle\b/gi, 'Gladiator'],
+  [/\bPalace\s+Castle\b/gi, 'Ranger'],
+  [/\bSpirit\s+Castle\b/gi, 'Spiritmaster'],
+  [/\bMagic\s+Castle\b/gi, 'Sorcerer'],
+  [/\bHeal\s+Castle\b/gi, 'Cleric'],
+  [/\bGuardian\s+Castle\s+that\s+leads\s+the\s+flow\s+of\s+the\s+battlefield\s+with\s+mantras\b/gi, 'Chanter that leads the flow of the battlefield with mantras'],
+  [/\bGladiator\s+and\s+Guardian\s+Castle\b/gi, 'Gladiator and Templar'],
+  [/\bGuardian\s+Castle\b/gi, 'Templar'],
+];
+
+function fixContentEn(text) {
+  let out = String(text || '').trim();
+  for (const [rx, repl] of CONTENT_EN_FIXES) {
+    out = out.replace(rx, repl);
+  }
+  return out.replace(/\n{3,}/g, '\n\n').replace(/\s{2,}/g, ' ').trim();
+}
+
+// Fix false table formatting in EN (applied after formatGuideParagraphs)
+const POST_FORMAT_EN_FIXES = [
+  [/ • \*\*(\d+)\.\*\* (can|be|accounts|presets|basic|days)\b/g, ' $1 $2'],
+  [/ • \*\*(\d+)\.\*\* (types?|o'clock|minutes?|people|hours?|wins?|times?|challenges?)\b/g, ' $1 $2'],
+  [/\blevel\s+• \*\*(\d+)\.\*\*/g, 'level $1'],
+  [/\(Maximum\s+---\s+\*\*8\)\*\*\)/g, '(Maximum 8)'],
+  [/[''\u2018\u2019]Suho[''\u2018\u2019][\s\S]*?[''\u2018\u2019]Kid\s+Nahma[''\u2018\u2019][\s\S]*?PM/gi, "Guardian Deity Nahma and Angry Guardian Deity Nahma: Sat/Sun 10 PM"],
+];
+
+function formatGuideParagraphs(text) {
+  const t = String(text || '').trim();
+  if (!t) return '';
+  let out = t
+    // Remove inline noise (목차 닫기, Table of Contents Close)
+    .replace(/\s*목차\s*닫기\s*/g, ' ')
+    .replace(/\s*Table\s+of\s+Contents\s+Close\s*/gi, ' ')
+    .replace(/\s*Close\s+Table\s+of\s+Contents\s*/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    // Weapon/equipment → paragraph break
+    .replace(/\s+(착용\s*무기|Equipped?\s*Weapon|Weapon\s+used)\s*:/gi, '\n\n**$1:** ')
+    .replace(/\s+(이\s*문서는\s+\d{4}-\d{2}-\d{2})/g, '\n\n$1')
+    .replace(/\s+(This\s+document\s+was\s+updated\s+on\s+\d{4}-\d{2}-\d{2})/gi, '\n\n$1')
+    // Table header → section divider + header
+    .replace(/(?:번호\s+명칭\s+설명|Number\s+Name\s+Description|No\.\s+Name\s+Description)\s*/gi, '\n\n**표**\n')
+    // Table rows: only when number at line start (after \n) to avoid "Aion 2", "7 accounts"
+    .replace(/\n\s*(\d{1,2})\.?\s+(?![\)])/g, '\n\n• **$1.** ')
+    // Section headers at line/paragraph start (avoid "(Maximum 8)" etc)
+    .replace(/(^|\n)\s*(1)\)\s+/g, '$1\n\n**1)** ')
+    .replace(/(^|\n)\s*([2-9]|\d{2,})\)\s+/g, '$1\n\n---\n**$2)** ')
+    // Sentence + number start: ". 1 X" → new paragraph
+    .replace(/([.!?])\s+(\d+)\s+([A-Z가-힣])/g, '$1\n\n$2. $3')
+    .replace(/([.!?])\s+(The\s+[A-Z])/g, '$1\n\n$2')
+    .replace(/([.!?])\s+(It\s+[a-z])/g, '$1\n\n$2')
+    .replace(/([.!?])\s+(Each\s+[a-z])/g, '$1\n\n$2')
+    .replace(/([.!?])\s+(You\s+can)/gi, '$1\n\n$2')
+    .replace(/\n{3,}/g, '\n\n');
+  // First --- can be removed if at very start, clean up
+  out = out.replace(/^\s*---\s*\n+/, '');
+  return out.split('\n').map(l => l.trim()).filter(Boolean).join('\n\n');
+}
+
 function normalizeText(s) {
   return String(s || '').replace(/\s+/g, ' ').trim();
 }
@@ -234,6 +384,8 @@ function cleanGuideText(text, { titleHint = '' } = {}) {
     .replace(/Close Table of Contents/gi, ' ')
     .replace(/\s{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n');
+  merged = stripFooterFromGuide(merged);
+  merged = formatGuideParagraphs(merged);
   return merged.trim();
 }
 
@@ -535,7 +687,40 @@ async function enrichGuideDetailWithRetry(browser, guide) {
   return guide;
 }
 
+function postprocessExistingSeed() {
+  const data = JSON.parse(fs.readFileSync(OUTPUT_PATH, 'utf8'));
+  let count = 0;
+  for (const cat of data.categories || []) {
+    for (const g of cat.guides || []) {
+      if (typeof g.content === 'string') {
+        let ko = stripFooterFromGuide(g.content);
+        for (const [from, to] of CONTENT_KO_FIXES) ko = ko.split(from).join(to);
+        g.content = formatGuideParagraphs(ko);
+        count++;
+      }
+      if (typeof g.contentEn === 'string') {
+        let en = stripFooterFromGuide(g.contentEn);
+        en = fixContentEn(en);
+        en = formatGuideParagraphs(en);
+        for (const [rx, repl] of POST_FORMAT_EN_FIXES) en = en.replace(rx, repl);
+        g.contentEn = en;
+        count++;
+      }
+      if (typeof g.descEn === 'string') {
+        g.descEn = fixContentEn(g.descEn);
+        count++;
+      }
+    }
+  }
+  fs.writeFileSync(OUTPUT_PATH, JSON.stringify(data, null, 2));
+  console.log(`[guidebook] postprocess done. updated ${count} fields. output: ${OUTPUT_PATH}`);
+}
+
 async function main() {
+  if (process.argv.includes('--postprocess')) {
+    postprocessExistingSeed();
+    return;
+  }
   let browser = null;
   try {
     const result = { fetchedAt: new Date().toISOString(), categories: [] };
