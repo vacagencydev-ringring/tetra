@@ -2726,7 +2726,16 @@ const commands = [
             .addChoices(
                 { name: '🏰 Dungeon Guide', value: 'dungeon' },
                 { name: '🐾 Pet Guide', value: 'pet' },
-                { name: '⚔️ Class Guide', value: 'class' },
+                { name: '⚔️ Class Guide (general)', value: 'class' },
+                { name: '⚔️ Gladiator', value: 'class_gladiator' },
+                { name: '⚔️ Templar', value: 'class_templar' },
+                { name: '⚔️ Assassin', value: 'class_assassin' },
+                { name: '⚔️ Ranger', value: 'class_ranger' },
+                { name: '⚔️ Chanter', value: 'class_chanter' },
+                { name: '⚔️ Cleric', value: 'class_cleric' },
+                { name: '⚔️ Sorcerer', value: 'class_sorcerer' },
+                { name: '⚔️ Spiritmaster PvE', value: 'class_spiritmaster_pve' },
+                { name: '⚔️ Spiritmaster PvP', value: 'class_spiritmaster_pvp' },
                 { name: '🚀 Fast Leveling', value: 'fast_leveling' },
                 { name: '💰 Kinah Farming', value: 'kinah_farming' },
                 { name: '⚔️ CP Boost Guide', value: 'cp_boost_guide' },
@@ -3083,7 +3092,8 @@ const LINK_SET_OPTIONS = [
     { label: '📍 Clear (use channel where used)', value: '__clear__', description: 'Reset to default' },
     { label: '🏰 Dungeon Guide', value: 'dungeon' },
     { label: '🐾 Pet Guide', value: 'pet' },
-    { label: '⚔️ Class Guide', value: 'class' },
+    { label: '⚔️ Class Guide (general)', value: 'class' },
+    ...(TACTICS_DATA.class?.items || []).map(i => ({ label: `⚔️ ${i.label}`, value: `class_${slugFromClassLabel(i.label)}` })),
     { label: '🚀 Fast Leveling', value: 'fast_leveling' },
     { label: '💰 Kinah Farming', value: 'kinah_farming' },
     { label: '⚔️ CP Boost Guide', value: 'cp_boost_guide' },
@@ -3108,6 +3118,15 @@ function buildLinkCategorySelectRow() {
 
 function slugFromClassLabel(label) {
     return String(label || '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+}
+
+function getLinkCategoryLabel(cat) {
+    if (!cat) return 'none';
+    if (cat.startsWith('class_')) {
+        const item = TACTICS_DATA.class?.items?.find(i => `class_${slugFromClassLabel(i.label)}` === cat);
+        return item ? item.label : cat.replace(/^class_/, '').replace(/_/g, ' ');
+    }
+    return TACTICS_DATA[cat]?.label || cat;
 }
 
 function buildLinkClassSubSelectRow() {
@@ -3540,11 +3559,12 @@ client.on('interactionCreate', async (interaction) => {
                 catByGuild[interaction.guildId] = tacticsCat;
                 if (parentCat?.type === ChannelType.GuildCategory) parentByGuild[interaction.guildId] = parentCat.id;
                 const targetCh = await resolveTacticsCategoryToChannel(interaction.guildId, tacticsCat, parentCat?.id);
-                const label = TACTICS_DATA[tacticsCat]?.label || tacticsCat;
+                const label = getLinkCategoryLabel(tacticsCat);
+                const hint = (TACTICS_CATEGORY_SEARCH_KEYS[tacticsCat] || [tacticsCat])[0];
                 savePanelState({ ...state, linkTargetTacticsCategoryByGuild: catByGuild, linkTargetParentCategoryIdByGuild: parentByGuild }, true);
                 await safeEphemeral(interaction, targetCh
                     ? `✅ Link results → **${label}** → <#${targetCh.id}>.\n\n**\`!link <url>\`** and **Add Link** will post there.`
-                    : `✅ **${label}** set. No matching channel found${parentCat ? ` under **${parentCat.name}**` : ''}. Create a channel whose name contains \`${tacticsCat}\`.`);
+                    : `✅ **${label}** set. No matching channel found${parentCat ? ` under **${parentCat.name}**` : ''}. Create a channel whose name contains \`${hint}\`.`);
             } else {
                 savePanelState({ ...state, linkTargetTacticsCategoryByGuild: catByGuild, linkTargetParentCategoryIdByGuild: parentByGuild }, true);
                 await safeEphemeral(interaction, '✅ Link target cleared. Results will post in **the channel where the command or button was used**.');
@@ -4655,7 +4675,7 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 const state = loadPanelState();
                 const current = state.linkTargetTacticsCategoryByGuild?.[interaction.guildId];
-                const label = current ? (TACTICS_DATA[current]?.label || current) : 'none';
+                const label = getLinkCategoryLabel(current);
                 await interaction.reply({
                     content: `**Link target (Admin)**\nCurrent: **${label}**\n\nChoose category for \`!link\` and Add Link results:`,
                     components: [buildLinkSetSelectRow()],
@@ -4868,12 +4888,13 @@ client.on('interactionCreate', async (interaction) => {
                 catByGuild[interaction.guildId] = value;
                 const parentId = parentByGuild[interaction.guildId] || null;
                 const targetCh = await resolveTacticsCategoryToChannel(interaction.guildId, value, parentId);
-                const label = TACTICS_DATA[value]?.label || value;
+                const label = getLinkCategoryLabel(value);
                 savePanelState({ ...state, linkTargetTacticsCategoryByGuild: catByGuild, linkTargetParentCategoryIdByGuild: parentByGuild }, true);
+                const hint = (TACTICS_CATEGORY_SEARCH_KEYS[value] || [value])[0];
                 await interaction.update({
                     content: targetCh
                         ? `✅ Link results → **${label}** → <#${targetCh.id}>.\n\nUse \`/link_channel_set parent:<category>\` to change Discord category.`
-                        : `✅ **${label}** set. No matching channel found. Create a channel whose name contains \`${value}\` or use \`/link_channel_set parent:<category>\`.`,
+                        : `✅ **${label}** set. No matching channel found. Create a channel whose name contains \`${hint}\` or use \`/link_channel_set parent:<category>\`.`,
                     components: []
                 }).catch(() => {});
             }
