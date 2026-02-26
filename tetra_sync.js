@@ -3062,9 +3062,10 @@ function createYoutubeAddModal() {
         );
 }
 
-function createLinkAddModal() {
+function createLinkAddModal(category) {
+    const cid = category || 'current';
     return new ModalBuilder()
-        .setCustomId('modal_link_add')
+        .setCustomId(`modal_link_add:${cid}`)
         .setTitle('Add Link')
         .addComponents(
             new ActionRowBuilder().addComponents(
@@ -3076,6 +3077,42 @@ function createLinkAddModal() {
                     .setRequired(true)
             )
         );
+}
+
+const LINK_SET_OPTIONS = [
+    { label: '📍 Clear (use channel where used)', value: '__clear__', description: 'Reset to default' },
+    { label: '🏰 Dungeon Guide', value: 'dungeon' },
+    { label: '🐾 Pet Guide', value: 'pet' },
+    { label: '⚔️ Class Guide', value: 'class' },
+    { label: '🚀 Fast Leveling', value: 'fast_leveling' },
+    { label: '💰 Kinah Farming', value: 'kinah_farming' },
+    { label: '⚔️ CP Boost Guide', value: 'cp_boost_guide' },
+    { label: '🏛️ Pantheon Guide', value: 'pantheon_guide' },
+    { label: '👹 Dungeon Tactics', value: 'dungeon_tactics' },
+    { label: '📅 Daily Checklist', value: 'daily_checklist' },
+    { label: '💡 Pro Tips', value: 'pro_tips' },
+    { label: '👔 Wardrobe Guide', value: 'wardrobe_guide' }
+];
+
+function buildLinkCategorySelectRow() {
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId('select_link_category')
+            .setPlaceholder('Where to post this link?')
+            .addOptions(
+                { label: '📍 This channel', value: 'current', description: 'Post in current channel' },
+                ...LINK_SET_OPTIONS.filter(o => o.value !== '__clear__')
+            )
+    );
+}
+
+function buildLinkSetSelectRow() {
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId('select_link_set')
+            .setPlaceholder('Set link target for !link / Add Link (Admin)')
+            .addOptions(LINK_SET_OPTIONS)
+    );
 }
 
 async function registerGuildSlashCommands(rest, guild) {
@@ -4309,7 +4346,12 @@ client.on('interactionCreate', async (interaction) => {
                         .setCustomId('btn_link_add')
                         .setLabel('Add Link')
                         .setEmoji('📰')
-                        .setStyle(ButtonStyle.Primary)
+                        .setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder()
+                        .setCustomId('btn_link_set')
+                        .setLabel('Set')
+                        .setEmoji('⚙️')
+                        .setStyle(ButtonStyle.Secondary)
                 );
                 const isLinkPanel = m => m.author?.id === client.user?.id && m.embeds[0]?.title?.includes('Link —');
                 let allLinkPanels = (await channel.messages.fetch({ limit: 100 })).filter(isLinkPanel);
@@ -4583,7 +4625,24 @@ client.on('interactionCreate', async (interaction) => {
                     await safeEphemeral(interaction, 'Manage Server permission required to add links.');
                     return;
                 }
-                await interaction.showModal(createLinkAddModal());
+                await interaction.reply({
+                    content: '**Where to post this link?**',
+                    components: [buildLinkCategorySelectRow()],
+                    flags: EPHEMERAL_FLAGS
+                });
+            } else if (id === 'btn_link_set') {
+                if (!hasManageGuild(interaction)) {
+                    await safeEphemeral(interaction, 'Manage Server permission required.');
+                    return;
+                }
+                const state = loadPanelState();
+                const current = state.linkTargetTacticsCategoryByGuild?.[interaction.guildId];
+                const label = current ? (TACTICS_DATA[current]?.label || current) : 'none';
+                await interaction.reply({
+                    content: `**Link target (Admin)**\nCurrent: **${label}**\n\nChoose category for \`!link\` and Add Link results:`,
+                    components: [buildLinkSetSelectRow()],
+                    flags: EPHEMERAL_FLAGS
+                });
             } else if (id === 'btn_payment_confirm') {
                 await interaction.reply({
                     content: '💎 Select currency for payment confirmation.',
@@ -4753,6 +4812,36 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             await interaction.showModal(createJoinVerifyModal(regionCfg.value));
+            return;
+        }
+        if (interaction.customId === 'select_link_category') {
+            const category = interaction.values?.[0] || 'current';
+            await interaction.showModal(createLinkAddModal(category));
+            return;
+        }
+        if (interaction.customId === 'select_link_set') {
+            const value = interaction.values?.[0];
+            const state = loadPanelState();
+            const catByGuild = state.linkTargetTacticsCategoryByGuild && typeof state.linkTargetTacticsCategoryByGuild === 'object' ? { ...state.linkTargetTacticsCategoryByGuild } : {};
+            const parentByGuild = state.linkTargetParentCategoryIdByGuild && typeof state.linkTargetParentCategoryIdByGuild === 'object' ? { ...state.linkTargetParentCategoryIdByGuild } : {};
+            if (value === '__clear__') {
+                delete catByGuild[interaction.guildId];
+                delete parentByGuild[interaction.guildId];
+                savePanelState({ ...state, linkTargetTacticsCategoryByGuild: catByGuild, linkTargetParentCategoryIdByGuild: parentByGuild }, true);
+                await interaction.update({ content: '✅ Link target cleared. Results will post in **the channel where used**.', components: [] }).catch(() => {});
+            } else if (value) {
+                catByGuild[interaction.guildId] = value;
+                const parentId = parentByGuild[interaction.guildId] || null;
+                const targetCh = await resolveTacticsCategoryToChannel(interaction.guildId, value, parentId);
+                const label = TACTICS_DATA[value]?.label || value;
+                savePanelState({ ...state, linkTargetTacticsCategoryByGuild: catByGuild, linkTargetParentCategoryIdByGuild: parentByGuild }, true);
+                await interaction.update({
+                    content: targetCh
+                        ? `✅ Link results → **${label}** → <#${targetCh.id}>.\n\nUse \`/link_channel_set parent:<category>\` to change Discord category.`
+                        : `✅ **${label}** set. No matching channel found. Create a channel whose name contains \`${value}\` or use \`/link_channel_set parent:<category>\`.`,
+                    components: []
+                }).catch(() => {});
+            }
             return;
         }
         if (interaction.customId === 'select_payment_currency') {
@@ -4972,7 +5061,8 @@ client.on('interactionCreate', async (interaction) => {
             return;
         }
 
-        if (customId === 'modal_link_add') {
+        if (customId.startsWith('modal_link_add:')) {
+            const category = customId.replace('modal_link_add:', '') || 'current';
             const urlInput = (interaction.fields.getTextInputValue('link_url') || '').trim().replace(/^<(.+)>$/g, '$1');
             if (!urlInput) {
                 await interaction.reply({ content: '❌ Please enter a URL.', flags: EPHEMERAL_FLAGS });
@@ -4996,7 +5086,11 @@ client.on('interactionCreate', async (interaction) => {
                     .setFooter({ text: 'Link' })
                     .setTimestamp();
                 if (data.images?.[0] && isValidEmbedUrl(data.images[0])) embed.setThumbnail(data.images[0]);
-                const targetCh = await getLinkTargetChannel(interaction.guildId) || interaction.channel;
+                let targetCh = interaction.channel;
+                if (category !== 'current') {
+                    const parentId = (loadPanelState().linkTargetParentCategoryIdByGuild || {})[interaction.guildId];
+                    targetCh = await resolveTacticsCategoryToChannel(interaction.guildId, category, parentId) || interaction.channel;
+                }
                 await targetCh.send({ embeds: [embed] });
                 await interaction.editReply({ content: targetCh.id !== interaction.channel.id ? `✅ Posted to <#${targetCh.id}>` : '✅ Posted summarized & translated article to channel.' });
             } catch (err) {
