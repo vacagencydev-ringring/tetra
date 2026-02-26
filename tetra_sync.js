@@ -140,7 +140,7 @@ const CONFIG = {
     KINAH_STATE_PATH: path.join(STATE_DIR, 'kinah_state.json'),
     KINAH_TICKER_MS: Math.max(60_000, parseInt(process.env.KINAH_TICKER_MS || '300000', 10) || 300_000),
     AON_TRANSLATE_STATE_PATH: path.join(STATE_DIR, 'aon_translate_state.json'),
-    AON_SOURCE_BOT_ID: process.env.AON_SOURCE_BOT_ID || '1436590099235340410',
+    AON_SOURCE_BOT_ID: process.env.AON_SOURCE_BOT_ID || '1445310764846940303',
     PANEL_IMAGES: {
         salary: path.join(__dirname, 'panels', 'salary.png')
     },
@@ -2517,11 +2517,15 @@ async function runKinahTicker(client) {
                 token: formatKrw(stabilized),
                 numeric: stabilized,
             };
-            // Ignore tiny jitters under 3% after stabilization.
+            // Per-guild posting policy:
+            // - Post on first baseline
+            // - Post when value changes meaningfully (>=3%)
+            // - Also post once per polling interval even when unchanged (heartbeat)
             const previousStable = watch.lastRate;
             const changeRatio = previousStable == null ? null : Math.abs(stabilized - previousStable) / Math.max(previousStable, 1);
             const isChanged = previousStable == null || stabilized !== previousStable;
-            const shouldPost = isChanged && (changeRatio == null || changeRatio >= 0.03);
+            const dueByInterval = !watch.lastPostedAt || (now - Number(watch.lastPostedAt || 0) >= intervalMs);
+            const shouldPost = dueByInterval || (isChanged && (changeRatio == null || changeRatio >= 0.03));
 
             watch.lastRawText = snapshot.token;
             watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
@@ -4238,6 +4242,7 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.editReply({ content: kind === 'guide_ko' ? '✅ Korean guide panel posted.' : '✅ English usage guide panel posted.' });
             } else if (kind === 'guidebook_plaync') {
                 if (!hasManageGuild(interaction)) { await interaction.editReply({ content: '❌ Admin permission required.' }); return; }
+                try {
                 const state = loadGuidebookState();
                 const embeds = buildGuidebookPlayncEmbeds(state);
                 const row = new ActionRowBuilder().addComponents(
@@ -4259,6 +4264,10 @@ client.on('interactionCreate', async (interaction) => {
                 allGb = (await channel.messages.fetch({ limit: 50 })).filter(isGbPanel);
                 for (const m of allGb.values()) { if (m.id !== sent.id) await m.delete().catch(() => {}); }
                 await interaction.editReply({ content: '✅ PlayNC Guidebook panel posted. Buttons: **ephemeral** (you only) / **Post to Channel** (admin, public). Run **`/guidebook_fetch`** to refresh.' });
+                } catch (err) {
+                    console.error('[panel guidebook_plaync]', err);
+                    await interaction.editReply({ content: `❌ Guidebook panel failed: ${err.message || 'Unknown error'}` }).catch(() => {});
+                }
             } else if (kind === 'tactics') {
                 if (!hasManageGuild(interaction)) { await interaction.editReply({ content: '❌ Admin permission required.' }); return; }
                 const embed = new EmbedBuilder()
@@ -4577,10 +4586,12 @@ client.on('interactionCreate', async (interaction) => {
             const catName = cat.nameEn || cat.name || 'Guide';
             const embeds = buildGuidebookGuideEmbeds(guide, catName);
             await interaction.update({
-                content: null,
+                content: '',
                 embeds,
                 components: []
-            }).catch(() => {});
+            }).catch(err => {
+                console.error('[select_guidebook_guide]', err);
+            });
             return;
         }
         if (interaction.customId.startsWith('select_tactics_category')) {
@@ -5074,6 +5085,11 @@ async function scrapePlayncCharacter(pageUrl) {
 }
 
 const GUIDEBOOK_BASE_URL = 'https://aion2.plaync.com/ko-kr/guidebook';
+function isValidEmbedUrl(u) {
+    if (!u || typeof u !== 'string') return false;
+    const trimmed = u.trim();
+    return trimmed.startsWith('http://') || trimmed.startsWith('https://');
+}
 const AION2_CLASS_NAMES = ['검성', '수호성', '살성', '궁성', '호법성', '치유성', '마도성', '정령성'];
 const AION2_CLASS_NAMES_EN = { '검성': 'Swordmaster', '수호성': 'Gladiator', '살성': 'Assassin', '궁성': 'Ranger', '호법성': 'Chanter', '치유성': 'Cleric', '마도성': 'Sorcerer', '정령성': 'Spiritmaster' };
 const GUIDEBOOK_CATEGORIES = [
@@ -5302,8 +5318,8 @@ function buildGuidebookGuideEmbeds(guide, catName) {
     const desc = (guide.descEn || guide.desc || '').trim();
     const content = (guide.contentEn || guide.content || '').slice(0, maxContentLen).trim();
     let text = [desc, content].filter(Boolean).join('\n\n');
-    if (guide.url) text = `[${title}](${guide.url})\n\n` + text;
-
+    const linkUrl = isValidEmbedUrl(guide.url) ? guide.url : null;
+    if (linkUrl) text = `[${title}](${linkUrl})\n\n` + text;
     const parts = [];
     while (text.length > EMBED_DESC_MAX) {
         const chunk = text.slice(0, EMBED_DESC_MAX);
@@ -5314,11 +5330,12 @@ function buildGuidebookGuideEmbeds(guide, catName) {
     }
     if (text) parts.push(text);
 
+    const thumb = isValidEmbedUrl(guide.images?.[0]) ? guide.images[0] : null;
     const embeds = parts.map((p, i) => {
         const emb = new EmbedBuilder().setColor(0x5865F2).setDescription(p.slice(0, 4096));
         if (i === 0) {
             emb.setTitle(`📖 ${catName}: ${title}`);
-            if (guide.images?.[0]) emb.setThumbnail(guide.images[0]);
+            if (thumb) emb.setThumbnail(thumb);
         } else {
             emb.setTitle(`${title} (${i + 1}/${parts.length})`);
         }
@@ -5327,9 +5344,9 @@ function buildGuidebookGuideEmbeds(guide, catName) {
     if (embeds.length === 0) {
         const fallback = new EmbedBuilder()
             .setTitle(`📖 ${catName}: ${title}`)
-            .setDescription(`[${title}](${guide.url})\n\n${desc || 'No content.'}`)
+            .setDescription(`${linkUrl ? `[${title}](${linkUrl})\n\n` : ''}${desc || 'No content.'}`)
             .setColor(0x5865F2);
-        if (guide.images?.[0]) fallback.setThumbnail(guide.images[0]);
+        if (thumb) fallback.setThumbnail(thumb);
         return [fallback];
     }
     return embeds;
@@ -5548,7 +5565,11 @@ function buildGuidebookPlayncEmbeds(state) {
     const listLines = categories.map(cat => {
         const guides = cat.guides || [];
         const catName = cat.nameEn || cat.name;
-        const links = guides.slice(0, 5).map(g => `• [${g.titleEn || g.title}](${g.url})`).join('\n');
+        const links = guides.slice(0, 5).map(g => {
+            const t = g.titleEn || g.title || 'Guide';
+            const u = isValidEmbedUrl(g.url) ? g.url : GUIDEBOOK_BASE_URL + '/list';
+            return `• [${t}](${u})`;
+        }).join('\n');
         return `**${catName}** (${guides.length})\n${links || '-'}`;
     });
     embeds.push(new EmbedBuilder()
@@ -5563,11 +5584,12 @@ function buildGuidebookPlayncEmbeds(state) {
         if (guides.length === 0) continue;
         for (let i = 0; i < Math.min(guides.length, maxDetailPerCat); i++) {
             const g = guides[i];
-            const title = g.titleEn || g.title;
+            const title = g.titleEn || g.title || 'Guide';
             const desc = (g.descEn || g.desc || '').slice(0, 150);
             const content = (g.contentEn || g.content || '').slice(0, maxContentLen);
-            const thumb = g.images?.[0] || null;
-            let body = `[${title}](${g.url})${desc ? `\n${desc}` : ''}`;
+            const thumb = isValidEmbedUrl(g.images?.[0]) ? g.images[0] : null;
+            const linkUrl = isValidEmbedUrl(g.url) ? g.url : GUIDEBOOK_BASE_URL + '/list';
+            let body = `[${title}](${linkUrl})${desc ? `\n${desc}` : ''}`;
             if (content) body += `\n\n${content}${(g.contentEn || g.content || '').length > maxContentLen ? '…' : ''}`;
             const embed = new EmbedBuilder()
                 .setTitle(`📖 ${catName}: ${title}`)
