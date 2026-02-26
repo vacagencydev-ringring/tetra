@@ -1,6 +1,10 @@
 // ── 환경변수 로드 (.env 파일)
 try { require('dotenv').config(); } catch (_) {}
 
+// ── 크래시 방지: 미처리 예외/프로미스 시 로그만 남기고 종료 방지
+process.on('uncaughtException', err => { console.error('[uncaughtException]', err?.message || err); });
+process.on('unhandledRejection', (reason, p) => { console.error('[unhandledRejection]', reason); });
+
 // ── Render 생존 신고용 웹 서버 (UptimeRobot Ping)
 const express = require('express');
 const app = express();
@@ -6143,10 +6147,10 @@ function buildLinkEmbeds(data) {
 function formatLinkSummaryForReadability(text) {
     if (!text || typeof text !== 'string') return text;
     let out = text
-        .replace(/(\d{1,2})[.)]\s+/g, '\n**$1.** ')           // "1. " "2) " → 줄바꿈 + 볼드
-        .replace(/(\.)\s*(\d{1,2})\s+([A-Z])/g, '$1\n\n**$2.** $3')  // ". 1 Text" → 문단 나눔
-        .replace(/^(\d{1,2})\s+([A-Z])/m, '**$1.** $2')       // 문장 시작 "1 Text"
-        .replace(/\n{3,}/g, '\n\n')
+        .replace(/(\d{1,2})[.)]\s+/g, '\n\n**$1.** ')          // "1. " "2) " → 빈줄+볼드 (섹션 구분)
+        .replace(/(\.)\s*(\d{1,2})\s+([A-Za-z\u00c0-\u024f\u0400-\u04ff])/g, '$1\n\n**$2.** $3')
+        .replace(/^(\d{1,2})\s+([A-Za-z\u00c0-\u024f\u0400-\u04ff])/m, '**$1.** $2')
+        .replace(/\n{4,}/g, '\n\n\n')
         .replace(/^[\s\n]+|[\s\n]+$/g, '')
         .trim();
     return out;
@@ -6256,11 +6260,11 @@ async function fetchInvenArticle(url) {
             .replace(/\n{3,}/g, '\n\n')
             .replace(/[ \t]+/g, ' ')
             .trim();
-        const SUMMARY_MAX = 900;
+        const SUMMARY_MAX = 3500;
         summary = rawText.slice(0, SUMMARY_MAX).trim();
         const last = summary.lastIndexOf('\n');
         if (last > SUMMARY_MAX * 0.5) summary = summary.slice(0, last).trim();
-        else if (summary.length >= SUMMARY_MAX) summary = summary.slice(0, 750).trim() + '…';
+        else if (summary.length >= SUMMARY_MAX) summary = summary.slice(0, 3200).trim() + '\n\n…';
     }
     const imgs = [
         ...new Set(
