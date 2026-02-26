@@ -5560,8 +5560,6 @@ function buildGuidebookPlayncEmbeds(state) {
             .setTimestamp()];
     }
     const embeds = [];
-    const maxDetailPerCat = GUIDEBOOK_MAX_DETAIL_PER_CATEGORY;
-    const maxContentLen = GUIDEBOOK_MAX_CONTENT_LENGTH;
     const listLines = categories.map(cat => {
         const guides = cat.guides || [];
         const catName = cat.nameEn || cat.name;
@@ -5572,37 +5570,15 @@ function buildGuidebookPlayncEmbeds(state) {
         }).join('\n');
         return `**${catName}** (${guides.length})\n${links || '-'}`;
     });
+    // Discord limit: 6000 chars total across ALL embeds. Panel shows overview only; details via Open Guidebook.
+    const DESC_MAX = 4000;
     embeds.push(new EmbedBuilder()
         .setTitle('📖 AION2 Official Guidebook (PlayNC)')
-        .setDescription(`[🔗 Full Guidebook](${GUIDEBOOK_BASE_URL}/list)\n\n${listLines.join('\n\n').slice(0, 3800)}`)
+        .setDescription(`[🔗 Full Guidebook](${GUIDEBOOK_BASE_URL}/list)\n\n${listLines.join('\n\n').slice(0, DESC_MAX)}`)
         .setColor(0x5865F2)
         .setFooter({ text: state.fetchedAt ? `Fetched: ${state.fetchedAt.slice(0, 10)}` : 'Run /guidebook_fetch to refresh' })
         .setTimestamp());
-    for (const cat of categories) {
-        const catName = cat.nameEn || cat.name;
-        const guides = cat.guides || [];
-        if (guides.length === 0) continue;
-        for (let i = 0; i < Math.min(guides.length, maxDetailPerCat); i++) {
-            const g = guides[i];
-            const title = g.titleEn || g.title || 'Guide';
-            const desc = (g.descEn || g.desc || '').slice(0, 150);
-            const content = (g.contentEn || g.content || '').slice(0, maxContentLen);
-            const thumb = isValidEmbedUrl(g.images?.[0]) ? g.images[0] : null;
-            const linkUrl = isValidEmbedUrl(g.url) ? g.url : GUIDEBOOK_BASE_URL + '/list';
-            let body = `[${title}](${linkUrl})${desc ? `\n${desc}` : ''}`;
-            if (content) body += `\n\n${content}${(g.contentEn || g.content || '').length > maxContentLen ? '…' : ''}`;
-            const embed = new EmbedBuilder()
-                .setTitle(`📖 ${catName}: ${title}`)
-                .setDescription(body.slice(0, 3900))
-                .setColor(0x5865F2)
-                .setTimestamp();
-            if (thumb) embed.setThumbnail(thumb);
-            embeds.push(embed);
-            if (embeds.length >= 10) break;
-        }
-        if (embeds.length >= 10) break;
-    }
-    return embeds.slice(0, 10);
+    return embeds;
 }
 
 function buildLinkFallbackEmbed(charName, addUrlHint = false, displayQuery = null) {
