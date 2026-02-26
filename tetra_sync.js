@@ -866,8 +866,8 @@ const TACTICS_DATA = {
     pet: {
         label: 'Pet Guide',
         items: [
-            { value: '518', label: 'Pet Understanding (펫작)', file: 'inven_pet_518_english.txt' },
-            { value: '689', label: 'Pet Soul Acquisition (DB)', file: 'inven_pet_689_english.txt' },
+            { value: '518', label: 'Pet Progression Fundamentals', file: 'inven_pet_518_english.txt' },
+            { value: '689', label: 'Pet Soul Acquisition Database', file: 'inven_pet_689_english.txt' },
             { value: '1077', label: 'Pet Stats & Understanding', file: 'inven_pet_1077_english.txt' }
         ]
     },
@@ -881,8 +881,8 @@ const TACTICS_DATA = {
             { value: '116', label: 'Chanter', file: 'inven_116_english.txt' },
             { value: '657', label: 'Cleric', file: 'inven_657_english.txt' },
             { value: '66', label: 'Sorcerer', file: 'inven_66_english.txt' },
-            { value: '2760', label: 'Spiritmaster (PVE)', file: 'inven_2760_english.txt' },
-            { value: '965', label: 'Spiritmaster (PVP)', file: 'inven_965_english.txt' }
+            { value: '2760', label: 'Spiritmaster PvE', file: 'inven_2760_english.txt' },
+            { value: '965', label: 'Spiritmaster PvP', file: 'inven_965_english.txt' }
         ]
     },
     fast_leveling: {
@@ -937,7 +937,7 @@ function buildTacticsCategorySelect(isPublic = false) {
             .addOptions(
                 { label: '🏰 Dungeon Guide', value: 'dungeon', description: 'Conquest, Transcendence, Ludra guides' },
                 { label: '🐾 Pet Guide', value: 'pet', description: 'Pet understanding, soul, stats' },
-                { label: '⚔️ Class Guide', value: 'class', description: 'Gladiator, Templar, Assassin, Ranger, Chanter, Cleric, Sorcerer, Spiritmaster' },
+                { label: '⚔️ Class Guide', value: 'class', description: 'Gladiator, Templar, Assassin, Ranger, Chanter, Cleric, Sorcerer, Spiritmaster PvE/PvP' },
                 { label: '🚀 Fast Leveling', value: 'fast_leveling', description: 'Core early-game leveling priorities' },
                 { label: '💰 Kinah Farming', value: 'kinah_farming', description: 'Weekly kinah and resource farming routines' },
                 { label: '⚔️ CP Boost Guide', value: 'cp_boost_guide', description: 'Strike, board, medals, and gear growth plan' },
@@ -4268,7 +4268,7 @@ client.on('interactionCreate', async (interaction) => {
                         '**Categories:**\n' +
                         '• **Dungeon Guide** — Stagger Gauge, Kaisinel, Krao Cave, Draupnir, Urugugu, Barklon, Fire Temple, Savage Horn Cave, Dead Dramata, Transcendence, Ludra 1–2, Ludra 3\n' +
                         '• **Pet Guide** — Pet Understanding, Pet Soul DB, Pet Stats\n' +
-                        '• **Class Guide** — Gladiator, Templar, Assassin, Ranger, Chanter, Cleric, Sorcerer, Spiritmaster\n' +
+                        '• **Class Guide** — Gladiator, Templar, Assassin, Ranger, Chanter, Cleric, Sorcerer, Spiritmaster PvE/PvP\n' +
                         '• **Fast Leveling** — Early leveling route and progression priorities\n' +
                         '• **Kinah Farming** — Multi-character weekly farming and schedule planning\n' +
                         '• **CP Boost Guide** — Strike options, board growth, medals, gear replacement logic\n' +

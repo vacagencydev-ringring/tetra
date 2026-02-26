@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-02-26T08:46:18.414Z",
+  "fetchedAt": "2026-02-26T08:56:10.330Z",
   "categories": [
     {
       "id": "4227",
@@ -106,7 +106,7 @@
       "guides": [
         {
           "title": "클래스 소개",
-          "titleEn": "About the class",
+          "titleEn": "Class Overview",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%81%B4%EB%9E%98%EC%8A%A4%20%EC%86%8C%EA%B0%9C",
           "desc": "AION2 월드의 다양한 클래스를 소개합니다.",
           "descEn": "Introducing different classes in the world of AION2.",
@@ -119,7 +119,7 @@
         },
         {
           "title": "검성",
-          "titleEn": "Sword Castle",
+          "titleEn": "Gladiator",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B2%80%EC%84%B1",
           "desc": "대검을 다루는 전장의 지휘관, 검성 클래스 소개입니다.",
           "descEn": "Introducing the Sword Saint class, the commander of the Great Sword Battlefield.",
@@ -132,7 +132,7 @@
         },
         {
           "title": "수호성",
-          "titleEn": "Patron surname",
+          "titleEn": "Templar",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%88%98%ED%98%B8%EC%84%B1",
           "desc": "방패로 아군을 보호하는 철벽의 수호자, 수호성 클래스 소개입니다.",
           "descEn": "An introduction to the Guardian of the Iron Wall, the Guardian Class, who protects his allies with a shield.",
@@ -145,7 +145,7 @@
         },
         {
           "title": "살성",
-          "titleEn": "Fattening",
+          "titleEn": "Assassin",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%82%B4%EC%84%B1",
           "desc": "그림자 속에서 암살을 완성하는 칼날, 살성 클래스 소개입니다.",
           "descEn": "Introducing the Firing Class, a blade that completes an assassination in the shadows.",
@@ -158,7 +158,7 @@
         },
         {
           "title": "궁성",
-          "titleEn": "Castle",
+          "titleEn": "Ranger",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B6%81%EC%84%B1",
           "desc": "전장을 꿰뚫는 매의 눈, 궁성 클래스 소개입니다.",
           "descEn": "Introducing the Falcon's Eye, the Gung Sung class, which pierces the battlefield.",
@@ -171,7 +171,7 @@
         },
         {
           "title": "마도성",
-          "titleEn": "Castle of the Demonic",
+          "titleEn": "Sorcerer",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%A7%88%EB%8F%84%EC%84%B1",
           "desc": "폭발적인 마력을 다루는 절대 화력의 지배자, 마도성 클래스 소개입니다.",
           "descEn": "This is an introduction to the Magic class, the ruler of absolute firepower that deals with explosive mana.",
@@ -184,7 +184,7 @@
         },
         {
           "title": "정령성",
-          "titleEn": "Spirituality",
+          "titleEn": "Spiritmaster",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%A0%95%EB%A0%B9%EC%84%B1",
           "desc": "정령과 함께 싸우는 신비의 조율자, 정령성 클래스 소개입니다.",
           "descEn": "This is an introduction to the Spirit class, the Mysterious Adjuster who fights alongside spirits.",
@@ -197,7 +197,7 @@
         },
         {
           "title": "치유성",
-          "titleEn": "Healing",
+          "titleEn": "Cleric",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%B9%98%EC%9C%A0%EC%84%B1",
           "desc": "생명을 잇는 전장의 구원자, 치유성 클래스 소개입니다.",
           "descEn": "Introducing the Battlerealm Savior, Healing Class.",
@@ -210,7 +210,7 @@
         },
         {
           "title": "호법성",
-          "titleEn": "Lawfulness",
+          "titleEn": "Chanter",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%98%B8%EB%B2%95%EC%84%B1",
           "desc": "전장의 흐름을 바꾸는 진언의 현자, 호법성 클래스 소개입니다.",
           "descEn": "An introduction to the sage of battlefield mantras, the class of lawlessness.",
@@ -230,7 +230,7 @@
       "guides": [
         {
           "title": "스킬 소개",
-          "titleEn": "Intro to Skills",
+          "titleEn": "Skill Overview",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%8A%A4%ED%82%AC%20%EC%86%8C%EA%B0%9C",
           "desc": "클래스 스킬의 종류와 기본 정보를 소개합니다.",
           "descEn": "Introduce the class skill type and basic information.",
@@ -243,7 +243,7 @@
         },
         {
           "title": "검성 스킬",
-          "titleEn": "Sword Saint Skill",
+          "titleEn": "Gladiator Skills",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B2%80%EC%84%B1%20%EC%8A%A4%ED%82%AC",
           "desc": "검성 클래스 스킬 정보입니다",
           "descEn": "This is your swordsmanship class skill information",
@@ -256,7 +256,7 @@
         },
         {
           "title": "수호성 스킬",
-          "titleEn": "Protective Skill",
+          "titleEn": "Templar Skills",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%88%98%ED%98%B8%EC%84%B1%20%EC%8A%A4%ED%82%AC",
           "desc": "수호성 클래스 스킬 정보입니다",
           "descEn": "This is your patronage class skill information",
@@ -269,7 +269,7 @@
         },
         {
           "title": "살성 스킬",
-          "titleEn": "Flesh Skill",
+          "titleEn": "Assassin Skills",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%82%B4%EC%84%B1%20%EC%8A%A4%ED%82%AC",
           "desc": "살성 클래스 스킬 정보입니다",
           "descEn": "This is the Fueled Class skill information",
@@ -282,7 +282,7 @@
         },
         {
           "title": "궁성 스킬",
-          "titleEn": "Castle Skill",
+          "titleEn": "Ranger Skills",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B6%81%EC%84%B1%20%EC%8A%A4%ED%82%AC",
           "desc": "궁성 스킬 정보입니다.",
           "descEn": "Here's your Gung-Sung skill information.",
@@ -295,7 +295,7 @@
         },
         {
           "title": "마도성 스킬",
-          "titleEn": "Demonic Skill",
+          "titleEn": "Sorcerer Skills",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%A7%88%EB%8F%84%EC%84%B1%20%EC%8A%A4%ED%82%AC",
           "desc": "마도성 클래스 스킬 정보입니다",
           "descEn": "This is the Magic Class skill information",
@@ -308,7 +308,7 @@
         },
         {
           "title": "정령성 스킬",
-          "titleEn": "Spirit Skill",
+          "titleEn": "Spiritmaster Skills",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%A0%95%EB%A0%B9%EC%84%B1%20%EC%8A%A4%ED%82%AC",
           "desc": "정령성 클래스 스킬 정보입니다",
           "descEn": "Spirit class skill information.",
@@ -321,7 +321,7 @@
         },
         {
           "title": "치유성 스킬",
-          "titleEn": "Healing Skills",
+          "titleEn": "Cleric Skills",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%B9%98%EC%9C%A0%EC%84%B1%20%EC%8A%A4%ED%82%AC",
           "desc": "치유성 클래스 스킬 정보입니다",
           "descEn": "This is the Healing Class Skill Information",
@@ -334,7 +334,7 @@
         },
         {
           "title": "호법성 스킬",
-          "titleEn": "Lawfulness Skills",
+          "titleEn": "Chanter Skills",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%98%B8%EB%B2%95%EC%84%B1%20%EC%8A%A4%ED%82%AC",
           "desc": "호법성 클래스 스킬 정보입니다",
           "descEn": "This is your lawfulness class skill information",
@@ -354,7 +354,7 @@
       "guides": [
         {
           "title": "아이템 기본 안내",
-          "titleEn": "Item basic instructions",
+          "titleEn": "Item Basics",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%95%84%EC%9D%B4%ED%85%9C%20%EA%B8%B0%EB%B3%B8%20%EC%95%88%EB%82%B4",
           "desc": "아이템 기능의 기본 가이드입니다.",
           "descEn": "This is the basic guide for the item function.",
@@ -367,7 +367,7 @@
         },
         {
           "title": "장비",
-          "titleEn": "equipment.",
+          "titleEn": "Equipment",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%9E%A5%EB%B9%84",
           "desc": "장비의 종류와 특징에 대한 가이드입니다.",
           "descEn": "A guide to the types and features of the equipment.",
@@ -380,7 +380,7 @@
         },
         {
           "title": "기타 아이템",
-          "titleEn": "Extra Items",
+          "titleEn": "Misc Items",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B8%B0%ED%83%80%20%EC%95%84%EC%9D%B4%ED%85%9C",
           "desc": "기타 아이템 특징에 대한 가이드입니다.",
           "descEn": "This is your guide to miscellaneous item features.",
@@ -400,7 +400,7 @@
       "guides": [
         {
           "title": "저널 소개",
-          "titleEn": "About the journal",
+          "titleEn": "Journal Overview",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%A0%80%EB%84%90%20%EC%86%8C%EA%B0%9C",
           "desc": "저널에 관련된 정보를 안내합니다.",
           "descEn": "Direct the user to the relevant information in the journal.",
@@ -413,7 +413,7 @@
         },
         {
           "title": "퀘스트 종류",
-          "titleEn": "Quest Type",
+          "titleEn": "Quest Types",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%80%98%EC%8A%A4%ED%8A%B8%20%EC%A2%85%EB%A5%98",
           "desc": "퀘스트 종류 관련 가이드입니다.",
           "descEn": "Here's your guide to Quest types.",
@@ -433,7 +433,7 @@
       "guides": [
         {
           "title": "마계",
-          "titleEn": "Machyeo",
+          "titleEn": "Asmodae",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%A7%88%EA%B3%84",
           "desc": "아트레이아 마계 지역 정보입니다.",
           "descEn": "This is information about the Atreia Horse Trail area.",
@@ -446,7 +446,7 @@
         },
         {
           "title": "어비스 에레슈란타",
-          "titleEn": "Abyss Ereschranta",
+          "titleEn": "Abyss: Reshanta",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%96%B4%EB%B9%84%EC%8A%A4%20%EC%97%90%EB%A0%88%EC%8A%88%EB%9E%80%ED%83%80",
           "desc": "어비스 에레슈란타 지역 정보입니다.",
           "descEn": "Here is the information about the area of Abyss Ereschranta.",
@@ -459,7 +459,7 @@
         },
         {
           "title": "천계",
-          "titleEn": "SP18",
+          "titleEn": "Elysea",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%B2%9C%EA%B3%84",
           "desc": "아트레이아 천계 지역 정보입니다.",
           "descEn": "This is information about the Atreia celestial region.",
@@ -479,7 +479,7 @@
       "guides": [
         {
           "title": "통합 강화",
-          "titleEn": "Enhanced integration",
+          "titleEn": "Unified Enhancement",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%86%B5%ED%95%A9%20%EA%B0%95%ED%99%94",
           "desc": "아이템 강화 기능에 대한 가이드입니다.",
           "descEn": "This is a guide to item enhancements.",
@@ -505,7 +505,7 @@
         },
         {
           "title": "봉혼석 시스템",
-          "titleEn": "Bonjour Stone System",
+          "titleEn": "Soulstone System",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%B4%89%ED%98%BC%EC%84%9D%20%EC%8B%9C%EC%8A%A4%ED%85%9C",
           "desc": "봉혼석 시스템에 대한 가이드입니다.",
           "descEn": "This is a guide to the Bonhorn stone system.",
@@ -570,7 +570,7 @@
         },
         {
           "title": "업적",
-          "titleEn": "achievement, work",
+          "titleEn": "Achievements",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%97%85%EC%A0%81",
           "desc": "업적 시스템에 대한 가이드입니다.",
           "descEn": "A guide to the achievement system.",
@@ -623,7 +623,7 @@
       "guides": [
         {
           "title": "원정",
-          "titleEn": "Away",
+          "titleEn": "Expedition",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%9B%90%EC%A0%95",
           "desc": "원정 콘텐츠에 대한 가이드입니다.",
           "descEn": "This is a guide to expedition content.",
@@ -649,7 +649,7 @@
         },
         {
           "title": "봉인 던전 및 주둔지",
-          "titleEn": "Sealed dungeons and garrisons",
+          "titleEn": "Sealed Dungeons and Garrisons",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%B4%89%EC%9D%B8%20%EB%8D%98%EC%A0%84%20%EB%B0%8F%20%EC%A3%BC%EB%91%94%EC%A7%80",
           "desc": "봉인 던전 및 주둔지에 대한 가이드입니다.",
           "descEn": "A guide to sealed dungeons and garrisons.",
@@ -675,7 +675,7 @@
         },
         {
           "title": "전장",
-          "titleEn": "Zhenjiang",
+          "titleEn": "Battlefield",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%A0%84%EC%9E%A5",
           "desc": "전장 콘텐츠에 대한 가이드입니다.",
           "descEn": "This is a guide to Battlefield content.",
@@ -727,7 +727,7 @@
         },
         {
           "title": "각성전",
-          "titleEn": "Before the Awakening",
+          "titleEn": "Awakening Battle",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B0%81%EC%84%B1%EC%A0%84",
           "desc": "각성전 콘텐츠에 대한 가이드입니다.",
           "descEn": "This is a guide to the Awakening content.",
@@ -740,7 +740,7 @@
         },
         {
           "title": "토벌전",
-          "titleEn": "Subjugation war",
+          "titleEn": "Subjugation Battle",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%86%A0%EB%B2%8C%EC%A0%84",
           "desc": "토벌전 콘텐츠에 대한 가이드입니다.",
           "descEn": "This is a guide to the content of the subjugation war.",
@@ -825,7 +825,7 @@
       "guides": [
         {
           "title": "파티 및 포스 시스템",
-          "titleEn": "Party and Force Systems",
+          "titleEn": "Party and Force System",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%8C%8C%ED%8B%B0%20%EB%B0%8F%20%ED%8F%AC%EC%8A%A4%20%EC%8B%9C%EC%8A%A4%ED%85%9C",
           "desc": "파티/포스 시스템에 대한 가이드입니다.",
           "descEn": "This is a guide to the party/force system.",
@@ -864,7 +864,7 @@
         },
         {
           "title": "친구 관리",
-          "titleEn": "Manage friends",
+          "titleEn": "Friend Management",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%B9%9C%EA%B5%AC%20%EA%B4%80%EB%A6%AC",
           "desc": "친구 관리 기능에 대한 가이드입니다.",
           "descEn": "Here's your guide to managing your friends.",
@@ -903,7 +903,7 @@
         },
         {
           "title": "감정표현",
-          "titleEn": "Emote",
+          "titleEn": "Emotes",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B0%90%EC%A0%95%ED%91%9C%ED%98%84",
           "desc": "감정표현 기능에 대한 가이드입니다.",
           "descEn": "This is a guide to the Emote feature.",
@@ -923,7 +923,7 @@
       "guides": [
         {
           "title": "거래소",
-          "titleEn": "Exchange",
+          "titleEn": "Trading Post",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B1%B0%EB%9E%98%EC%86%8C",
           "desc": "거래소 기능에 대한 가이드입니다.",
           "descEn": "This is a guide to the functions of the exchange.",
@@ -936,7 +936,7 @@
         },
         {
           "title": "교환소",
-          "titleEn": "Exchange",
+          "titleEn": "Exchange Center",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B5%90%ED%99%98%EC%86%8C",
           "desc": "교환소 기능에 대한 가이드입니다.",
           "descEn": "This is a guide to exchange functions.",
@@ -949,7 +949,7 @@
         },
         {
           "title": "스타일 샵",
-          "titleEn": "Style shop",
+          "titleEn": "Style Shop",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%8A%A4%ED%83%80%EC%9D%BC%20%EC%83%B5",
           "desc": "스타일 샵 콘텐츠에 대한 가이드입니다.",
           "descEn": "This is a guide to Style Shop content.",
@@ -962,7 +962,7 @@
         },
         {
           "title": "구독 및 패스",
-          "titleEn": "Subscriptions and passes",
+          "titleEn": "Subscriptions and Passes",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B5%AC%EB%8F%85%20%EB%B0%8F%20%ED%8C%A8%EC%8A%A4",
           "desc": "구독 및 패스 기능에 대한 가이드입니다.",
           "descEn": "This is a guide to the Subscriptions and Passes features.",
@@ -988,7 +988,7 @@
         },
         {
           "title": "활강 및 비행 시스템",
-          "titleEn": "Downhill & Flight Systems",
+          "titleEn": "Gliding and Flight System",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%99%9C%EA%B0%95%20%EB%B0%8F%20%EB%B9%84%ED%96%89%20%EC%8B%9C%EC%8A%A4%ED%85%9C",
           "desc": "활강 및 비행 시스템에 대한 가이드입니다.",
           "descEn": "A guide to downhill and flight systems.",
@@ -1001,7 +1001,7 @@
         },
         {
           "title": "바람길 및 용오름 시스템",
-          "titleEn": "Breeze and Rising Storm Systems",
+          "titleEn": "Wind Path and Updraft System",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%B0%94%EB%9E%8C%EA%B8%B8%20%EB%B0%8F%20%EC%9A%A9%EC%98%A4%EB%A6%84%20%EC%8B%9C%EC%8A%A4%ED%85%9C",
           "desc": "바람길 및 용오름 시스템에 대한 가이드입니다.",
           "descEn": "This is a guide to wind roads and storm systems.",
@@ -1053,7 +1053,7 @@
         },
         {
           "title": "보급 의뢰",
-          "titleEn": "Supply Quest",
+          "titleEn": "Supply Request",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%B3%B4%EA%B8%89%20%EC%9D%98%EB%A2%B0",
           "desc": "보급 의뢰 콘텐츠에 대한 가이드입니다.",
           "descEn": "This is a guide to the content of the dissemination request.",
@@ -1073,7 +1073,7 @@
       "guides": [
         {
           "title": "정기추출",
-          "titleEn": "Periodic extraction",
+          "titleEn": "Aether Extraction",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%A0%95%EA%B8%B0%EC%B6%94%EC%B6%9C",
           "desc": "정기추출 콘텐츠에 대한 가이드입니다.",
           "descEn": "This is a guide to periodic extraction content.",
@@ -1086,7 +1086,7 @@
         },
         {
           "title": "제작 관리",
-          "titleEn": "Production management",
+          "titleEn": "Crafting Management",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%A0%9C%EC%9E%91%20%EA%B4%80%EB%A6%AC",
           "desc": "제작 관리 기능에 대한 가이드입니다.",
           "descEn": "This is a guide to the Crafting Management feature.",
@@ -1099,7 +1099,7 @@
         },
         {
           "title": "물질 변환",
-          "titleEn": "Substance conversion",
+          "titleEn": "Material Transformation",
           "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%AC%BC%EC%A7%88%20%EB%B3%80%ED%99%98",
           "desc": "물질 변환 기능에 대한 가이드입니다.",
           "descEn": "This is a guide to the substance conversion function.",

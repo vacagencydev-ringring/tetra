@@ -19,6 +19,66 @@ const CATEGORIES = [
   { id: '4244', name: 'Gathering & Crafting', nameEn: 'Gathering & Crafting' }
 ];
 
+// Canonical English labels for frequently-used guide routes.
+const TITLE_EN_OVERRIDES = {
+  '클래스 소개': 'Class Overview',
+  '검성': 'Gladiator',
+  '수호성': 'Templar',
+  '살성': 'Assassin',
+  '궁성': 'Ranger',
+  '마도성': 'Sorcerer',
+  '정령성': 'Spiritmaster',
+  '치유성': 'Cleric',
+  '호법성': 'Chanter',
+  '스킬 소개': 'Skill Overview',
+  '검성 스킬': 'Gladiator Skills',
+  '수호성 스킬': 'Templar Skills',
+  '살성 스킬': 'Assassin Skills',
+  '궁성 스킬': 'Ranger Skills',
+  '마도성 스킬': 'Sorcerer Skills',
+  '정령성 스킬': 'Spiritmaster Skills',
+  '치유성 스킬': 'Cleric Skills',
+  '호법성 스킬': 'Chanter Skills',
+  '아이템 기본 안내': 'Item Basics',
+  '장비': 'Equipment',
+  '기타 아이템': 'Misc Items',
+  '저널 소개': 'Journal Overview',
+  '퀘스트 종류': 'Quest Types',
+  '마계': 'Asmodae',
+  '천계': 'Elysea',
+  '어비스 에레슈란타': 'Abyss: Reshanta',
+  '통합 강화': 'Unified Enhancement',
+  '봉혼석 시스템': 'Soulstone System',
+  '업적': 'Achievements',
+  'PK 및 결투': 'PK and Duel',
+  '원정': 'Expedition',
+  '봉인 던전 및 주둔지': 'Sealed Dungeons and Garrisons',
+  '성역': 'Sanctuary',
+  '전장': 'Battlefield',
+  '각성전': 'Awakening Battle',
+  '토벌전': 'Subjugation Battle',
+  '파티 및 포스 시스템': 'Party and Force System',
+  '레기온': 'Legion',
+  '만신전': 'Pantheon',
+  '친구 관리': 'Friend Management',
+  '우편': 'Mail',
+  '채팅': 'Chat',
+  '감정표현': 'Emotes',
+  '거래소': 'Trading Post',
+  '교환소': 'Exchange Center',
+  '스타일 샵': 'Style Shop',
+  '구독 및 패스': 'Subscriptions and Passes',
+  '사망 및 부활': 'Death and Resurrection',
+  '활강 및 비행 시스템': 'Gliding and Flight System',
+  '바람길 및 용오름 시스템': 'Wind Path and Updraft System',
+  '옷장': 'Wardrobe',
+  '랭킹': 'Ranking',
+  '보급 의뢰': 'Supply Request',
+  '정기추출': 'Aether Extraction',
+  '제작 관리': 'Crafting Management',
+  '물질 변환': 'Material Transformation'
+};
+
 function normalizeText(s) {
   return String(s || '').replace(/\s+/g, ' ').trim();
 }
@@ -146,7 +206,8 @@ async function toGuideEntry(item) {
   const bodyText = stripHtml(item?.content || '');
   const desc = (summary || bodyText || 'Official guide entry').slice(0, 260);
   const content = (bodyText || summary || '').slice(0, 9000);
-  const titleEn = await translateKoToEn(title);
+  let titleEn = await translateKoToEn(title);
+  if (TITLE_EN_OVERRIDES[title]) titleEn = TITLE_EN_OVERRIDES[title];
   const descEn = await translateKoToEn(desc);
   const contentEn = await translateKoToEnLong(content, 3500);
   return {
