@@ -5134,20 +5134,13 @@ client.on('interactionCreate', async (interaction) => {
             await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
             try {
                 const data = await fetchInvenArticle(urlInput);
-                const embed = new EmbedBuilder()
-                    .setTitle(data.titleEn || data.title)
-                    .setURL(data.url)
-                    .setDescription((data.summary || 'No content').slice(0, 4096))
-                    .setColor(0xcc0000)
-                    .setFooter({ text: 'Link' })
-                    .setTimestamp();
-                if (data.images?.[0] && isValidEmbedUrl(data.images[0])) embed.setThumbnail(data.images[0]);
+                const linkEmbeds = buildLinkEmbeds(data);
                 let targetCh = interaction.channel;
                 if (category !== 'current') {
                     const parentId = (loadPanelState().linkTargetParentCategoryIdByGuild || {})[interaction.guildId];
                     targetCh = await resolveTacticsCategoryToChannel(interaction.guildId, category, parentId) || interaction.channel;
                 }
-                await targetCh.send({ embeds: [embed] });
+                await targetCh.send({ embeds: linkEmbeds });
                 await interaction.editReply({ content: targetCh.id !== interaction.channel.id ? `✅ Posted to <#${targetCh.id}>` : '✅ Posted summarized & translated article to channel.' });
             } catch (err) {
                 await interaction.editReply({ content: `❌ Link fetch failed: ${err.message || 'Unknown error'}` });
@@ -6099,6 +6092,32 @@ async function translateQueryForDisplay(query) {
 
 const INVEN_URL_PATTERN = /https?:\/\/(?:www\.)?inven\.co\.kr\/board\/aion2\/\d+\/\d+|https?:\/\/(?:www\.)?inven\.co\.kr\/webzine\/news\/\?news=\d+/i;
 
+const LINK_EMBED_DESC_MAX = 4096;
+
+function buildLinkEmbeds(data) {
+    const text = data.summary || 'No content';
+    const embeds = [];
+    let remaining = text;
+    let part = 0;
+    while (remaining && embeds.length < 10) {
+        const chunk = remaining.length <= LINK_EMBED_DESC_MAX
+            ? remaining
+            : remaining.slice(0, LINK_EMBED_DESC_MAX).replace(/\n[^\n]*$/, '');
+        const embed = new EmbedBuilder()
+            .setTitle(embeds.length === 0 ? (data.titleEn || data.title) : `${data.titleEn || data.title} (${part + 1})`)
+            .setURL(data.url)
+            .setDescription(chunk)
+            .setColor(0xcc0000)
+            .setFooter({ text: embeds.length === 0 ? 'Link' : `Link · Part ${part + 1}` })
+            .setTimestamp();
+        if (embeds.length === 0 && data.images?.[0] && isValidEmbedUrl(data.images[0])) embed.setThumbnail(data.images[0]);
+        embeds.push(embed);
+        remaining = remaining.slice(chunk.length).trim();
+        part++;
+    }
+    return embeds;
+}
+
 function formatLinkSummaryForReadability(text) {
     if (!text || typeof text !== 'string') return text;
     let out = text
@@ -6180,7 +6199,7 @@ function extractTableRowsFromInvenContent($, content) {
         }
     }
     if (rows.length < 2) return null;
-    return rows.slice(0, 40).map(r => `**${r.n}.** ${r.name} — ${r.source}`).join('\n');
+    return rows.slice(0, 150).map(r => `**${r.n}.** ${r.name} — ${r.source}`).join('\n');
 }
 
 async function fetchInvenArticle(url) {
@@ -6342,21 +6361,14 @@ client.on('messageCreate', async (message) => {
         } catch (_) {}
         try {
             const data = await fetchInvenArticle(urlInput);
-            const embed = new EmbedBuilder()
-                .setTitle(data.titleEn || data.title)
-                .setURL(data.url)
-                .setDescription((data.summary || 'No content').slice(0, 4096))
-                .setColor(0xcc0000)
-                .setFooter({ text: 'Link' })
-                .setTimestamp();
-            if (data.images?.[0] && isValidEmbedUrl(data.images[0])) embed.setThumbnail(data.images[0]);
+            const linkEmbeds = buildLinkEmbeds(data);
             const targetCh = await getLinkTargetChannel(message.guildId) || message.channel;
             if (targetCh.id !== message.channel.id) {
-                await targetCh.send({ embeds: [embed] }).catch(() => {});
+                await targetCh.send({ embeds: linkEmbeds }).catch(() => {});
                 if (progressMsg) await progressMsg.edit({ content: `✅ Posted to <#${targetCh.id}>`, embeds: [], allowedMentions: { parse: [] } }).catch(() => {});
             } else {
-                if (progressMsg) await progressMsg.edit({ content: null, embeds: [embed], allowedMentions: { parse: [] } }).catch(() => {});
-                else await message.channel.send({ embeds: [embed] }).catch(() => {});
+                if (progressMsg) await progressMsg.edit({ content: null, embeds: linkEmbeds, allowedMentions: { parse: [] } }).catch(() => {});
+                else await message.channel.send({ embeds: linkEmbeds }).catch(() => {});
             }
         } catch (err) {
             const errorText = `❌ Link fetch failed: ${err.message || 'Unknown error'}\nUsage: \`!link <url>\``;
