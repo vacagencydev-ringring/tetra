@@ -926,6 +926,12 @@ const TACTICS_DATA = {
         items: [
             { value: 'tips_bundle', label: 'Gear Reuse, Refinement, Rift, Mobile Setup', file: 'tactics_pro_tips.txt' }
         ]
+    },
+    wardrobe_guide: {
+        label: 'Wardrobe Guide',
+        items: [
+            { value: 'wardrobe_bundle', label: 'Wardrobe Guide', file: 'tactics_wardrobe_guide.txt' }
+        ]
     }
 };
 
@@ -944,7 +950,8 @@ function buildTacticsCategorySelect(isPublic = false) {
                 { label: '🏛️ Pantheon Guide', value: 'pantheon_guide', description: 'Abyss point and progression strategy' },
                 { label: '👹 Dungeon Tactics', value: 'dungeon_tactics', description: 'New transcendence and tier 4-6 mechanics' },
                 { label: '📅 Daily Checklist', value: 'daily_checklist', description: 'Daily/weekly tasks and resource control' },
-                { label: '💡 Pro Tips', value: 'pro_tips', description: 'Optimization tips for setup and routine' }
+                { label: '💡 Pro Tips', value: 'pro_tips', description: 'Optimization tips for setup and routine' },
+                { label: '👔 Wardrobe Guide', value: 'wardrobe_guide', description: 'Wardrobe and appearance guide' }
             )
     );
 }
@@ -1561,7 +1568,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '📰 6. 링크 요약·번역',
-                value: '**`!link <url>`** — 기사 링크 요약·영문 번역·썸네일\n**`/panel type:link`** — Add Link 버튼 패널 (Admin)\n지원: inven.co.kr/board/aion2/*, inven.co.kr/webzine/news/*',
+                value: '**`!link <url>`** — 기사 링크 요약·영문 번역·썸네일\n**`/panel type:link`** — Add Link 버튼 패널 (Admin)\n**`/link_channel_set category:<카테고리>`** — TACTICS 카테고리(dungeon, pet, class 등) 지정, parent로 Discord 카테고리 선택 (생략→현재 채널)\n지원: inven.co.kr/board/aion2/*, inven.co.kr/webzine/news/*',
                 inline: false
             }
         )
@@ -1692,7 +1699,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: '📰 6. Link (Summarize & Translate)',
-                value: '**`!link <url>`** — Summarize, translate to EN, attach thumbnail\n**`/panel type:link`** — Add Link button panel (Admin)\nSupported: inven.co.kr/board/aion2/*, inven.co.kr/webzine/news/*',
+                value: '**`!link <url>`** — Summarize, translate to EN, attach thumbnail\n**`/panel type:link`** — Add Link button panel (Admin)\n**`/link_channel_set category:<tactics>`** — TACTICS category (dungeon, pet, class…), parent=Discord category. Omit → current channel\nSupported: inven.co.kr/board/aion2/*, inven.co.kr/webzine/news/*',
                 inline: false
             }
         )
@@ -2710,6 +2717,32 @@ const commands = [
         .setDescription('Rebuild member list sheet from Member_List_* sheets (Admin)')
         .toJSON(),
     new SlashCommandBuilder()
+        .setName('link_channel_set')
+        .setDescription('Set TACTICS category for !link / Add Link results (Admin)')
+        .addStringOption(o => o
+            .setName('category')
+            .setDescription('TACTICS category — link results go to matching channel under parent. Omit to clear.')
+            .setRequired(false)
+            .addChoices(
+                { name: '🏰 Dungeon Guide', value: 'dungeon' },
+                { name: '🐾 Pet Guide', value: 'pet' },
+                { name: '⚔️ Class Guide', value: 'class' },
+                { name: '🚀 Fast Leveling', value: 'fast_leveling' },
+                { name: '💰 Kinah Farming', value: 'kinah_farming' },
+                { name: '⚔️ CP Boost Guide', value: 'cp_boost_guide' },
+                { name: '🏛️ Pantheon Guide', value: 'pantheon_guide' },
+                { name: '👹 Dungeon Tactics', value: 'dungeon_tactics' },
+                { name: '📅 Daily Checklist', value: 'daily_checklist' },
+                { name: '💡 Pro Tips', value: 'pro_tips' },
+                { name: '👔 Wardrobe Guide', value: 'wardrobe_guide' }
+            ))
+        .addChannelOption(o => o
+            .setName('parent')
+            .setDescription('Discord category under which to find the channel (e.g. tactics). Omit to search whole server.')
+            .setRequired(false)
+            .addChannelTypes(ChannelType.GuildCategory))
+        .toJSON(),
+    new SlashCommandBuilder()
         .setName('guidebook_fetch')
         .setDescription('Fetch AION2 PlayNC guidebook and cache (Admin)')
         .toJSON(),
@@ -3189,7 +3222,7 @@ client.on('interactionCreate', async (interaction) => {
                     '**DM Search:** `!char <name>`\n\n' +
                     '**Guides (ephemeral):** `/guide` `/homework` `/tactics` `/guidebook`\n' +
                     '**Admin Public:** `/tactics public:true` `/guidebook public:true`\n\n' +
-                    '**Link:** `!link <url>` — Summarize & translate article\n' +
+                    '**Link:** `!link <url>` — Summarize & translate\n**`/link_channel_set`** — Set channel for link results (Admin)\n' +
                     '**Other:** `/youtube_ready` `/aon_translate_status`\n' +
                     '**Welcome Setup (Admin):** `/welcome_set announcements_channel:<channel> welcome_channel:<channel>`'
                 )
@@ -3436,6 +3469,29 @@ client.on('interactionCreate', async (interaction) => {
                 await safeEphemeral(interaction, `✅ Welcome sent to <#${welcomeChannel.id}> for ${targetUser}.`);
             } else {
                 await safeEphemeral(interaction, '❌ Welcome channel is not configured or inaccessible. Run `/welcome_set` with `welcome_channel`.');
+            }
+        } else if (interaction.commandName === 'link_channel_set') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const tacticsCat = interaction.options.getString('category');
+            const parentCat = interaction.options.getChannel('parent');
+            const state = loadPanelState();
+            const catByGuild = state.linkTargetTacticsCategoryByGuild && typeof state.linkTargetTacticsCategoryByGuild === 'object' ? { ...state.linkTargetTacticsCategoryByGuild } : {};
+            const parentByGuild = state.linkTargetParentCategoryIdByGuild && typeof state.linkTargetParentCategoryIdByGuild === 'object' ? { ...state.linkTargetParentCategoryIdByGuild } : {};
+            delete catByGuild[interaction.guildId];
+            delete parentByGuild[interaction.guildId];
+            if (tacticsCat) {
+                catByGuild[interaction.guildId] = tacticsCat;
+                if (parentCat?.type === ChannelType.GuildCategory) parentByGuild[interaction.guildId] = parentCat.id;
+                const targetCh = await resolveTacticsCategoryToChannel(interaction.guildId, tacticsCat, parentCat?.id);
+                const label = TACTICS_DATA[tacticsCat]?.label || tacticsCat;
+                savePanelState({ ...state, linkTargetTacticsCategoryByGuild: catByGuild, linkTargetParentCategoryIdByGuild: parentByGuild }, true);
+                await safeEphemeral(interaction, targetCh
+                    ? `✅ Link results → **${label}** → <#${targetCh.id}>.\n\n**\`!link <url>\`** and **Add Link** will post there.`
+                    : `✅ **${label}** set. No matching channel found${parentCat ? ` under **${parentCat.name}**` : ''}. Create a channel whose name contains \`${tacticsCat}\`.`);
+            } else {
+                savePanelState({ ...state, linkTargetTacticsCategoryByGuild: catByGuild, linkTargetParentCategoryIdByGuild: parentByGuild }, true);
+                await safeEphemeral(interaction, '✅ Link target cleared. Results will post in **the channel where the command or button was used**.');
             }
         } else if (interaction.commandName === 'member_list_organize') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
@@ -4320,7 +4376,8 @@ client.on('interactionCreate', async (interaction) => {
                         '• **Pantheon Guide** — AP acquisition and Abyss progression plan\n' +
                         '• **Dungeon Tactics** — New transcendence and tier 4–6 pattern handling\n' +
                         '• **Daily Checklist** — Daily/weekly routine and resource control\n' +
-                        '• **Pro Tips** — Practical optimization tips (gear, timing, mobile setup)\n\n' +
+                        '• **Pro Tips** — Practical optimization tips (gear, timing, mobile setup)\n' +
+                        '• **Wardrobe Guide** — Wardrobe and appearance guide\n\n' +
                         '**How to use:**\n' +
                         '• Click the button below and select category → guide\n' +
                         '• Or use **`/tactics`** — same flow, ephemeral\n\n' +
@@ -4939,8 +4996,9 @@ client.on('interactionCreate', async (interaction) => {
                     .setFooter({ text: 'Link' })
                     .setTimestamp();
                 if (data.images?.[0] && isValidEmbedUrl(data.images[0])) embed.setThumbnail(data.images[0]);
-                await interaction.channel.send({ embeds: [embed] });
-                await interaction.editReply({ content: '✅ Posted summarized & translated article to channel.' });
+                const targetCh = await getLinkTargetChannel(interaction.guildId) || interaction.channel;
+                await targetCh.send({ embeds: [embed] });
+                await interaction.editReply({ content: targetCh.id !== interaction.channel.id ? `✅ Posted to <#${targetCh.id}>` : '✅ Posted summarized & translated article to channel.' });
             } catch (err) {
                 await interaction.editReply({ content: `❌ Link fetch failed: ${err.message || 'Unknown error'}` });
             }
@@ -5891,6 +5949,51 @@ async function translateQueryForDisplay(query) {
 
 const INVEN_URL_PATTERN = /https?:\/\/(?:www\.)?inven\.co\.kr\/board\/aion2\/\d+\/\d+|https?:\/\/(?:www\.)?inven\.co\.kr\/webzine\/news\/\?news=\d+/i;
 
+const TACTICS_CATEGORY_SEARCH_KEYS = {
+    dungeon: ['dungeon', '던전'],
+    pet: ['pet', '펫'],
+    class: ['class', '클래스'],
+    fast_leveling: ['leveling', '레벨', 'fast'],
+    kinah_farming: ['kinah', '키나'],
+    cp_boost_guide: ['cp', 'boost'],
+    pantheon_guide: ['pantheon', 'abyss', '팬테온', '심연'],
+    dungeon_tactics: ['dungeon_tactics', 'tactics'],
+    daily_checklist: ['daily', 'checklist', '일일'],
+    pro_tips: ['tips', 'pro', '팁'],
+    wardrobe_guide: ['wardrobe-guide', 'wardrobe', '옷장']
+};
+
+async function resolveTacticsCategoryToChannel(guildId, tacticsCat, parentCategoryId = null) {
+    const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+    if (!guild) return null;
+    const channels = guild.channels.cache.size ? guild.channels.cache : await guild.channels.fetch().catch(() => new Map());
+    const keys = TACTICS_CATEGORY_SEARCH_KEYS[tacticsCat] || [tacticsCat];
+    const candidates = [...channels.values()].filter(c => {
+        if (c.type !== ChannelType.GuildText && c.type !== ChannelType.GuildAnnouncement) return false;
+        if (parentCategoryId && c.parentId !== parentCategoryId) return false;
+        const nameLower = (c.name || '').toLowerCase();
+        return keys.some(k => nameLower.includes(k.toLowerCase()));
+    });
+    const first = candidates.sort((a, b) => (a.rawPosition ?? 0) - (b.rawPosition ?? 0))[0];
+    return first?.isTextBased?.() ? first : null;
+}
+
+async function getLinkTargetChannel(guildId) {
+    if (!guildId) return null;
+    const state = loadPanelState();
+    const chId = state.linkTargetChannelIdByGuild?.[guildId];
+    if (chId) {
+        const guild = client.guilds.cache.get(guildId) || await client.guilds.fetch(guildId).catch(() => null);
+        if (!guild) return null;
+        const ch = guild.channels.cache.get(chId) || await guild.channels.fetch(chId).catch(() => null);
+        return ch?.isTextBased?.() ? ch : null;
+    }
+    const tacticsCat = state.linkTargetTacticsCategoryByGuild?.[guildId];
+    const parentId = state.linkTargetParentCategoryIdByGuild?.[guildId];
+    if (tacticsCat) return resolveTacticsCategoryToChannel(guildId, tacticsCat, parentId);
+    return null;
+}
+
 async function fetchInvenArticle(url) {
     const res = await axios.get(url, {
         timeout: 15000,
@@ -6053,14 +6156,13 @@ client.on('messageCreate', async (message) => {
                 .setFooter({ text: 'Link' })
                 .setTimestamp();
             if (data.images?.[0] && isValidEmbedUrl(data.images[0])) embed.setThumbnail(data.images[0]);
-            if (progressMsg) {
-                await progressMsg.edit({
-                    content: null,
-                    embeds: [embed],
-                    allowedMentions: { parse: [] }
-                }).catch(() => {});
+            const targetCh = await getLinkTargetChannel(message.guildId) || message.channel;
+            if (targetCh.id !== message.channel.id) {
+                await targetCh.send({ embeds: [embed] }).catch(() => {});
+                if (progressMsg) await progressMsg.edit({ content: `✅ Posted to <#${targetCh.id}>`, embeds: [], allowedMentions: { parse: [] } }).catch(() => {});
             } else {
-                await message.channel.send({ embeds: [embed] }).catch(() => {});
+                if (progressMsg) await progressMsg.edit({ content: null, embeds: [embed], allowedMentions: { parse: [] } }).catch(() => {});
+                else await message.channel.send({ embeds: [embed] }).catch(() => {});
             }
         } catch (err) {
             const errorText = `❌ Link fetch failed: ${err.message || 'Unknown error'}\nUsage: \`!link <url>\``;
