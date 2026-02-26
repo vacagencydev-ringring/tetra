@@ -1,0 +1,1116 @@
+{
+  "fetchedAt": "2026-02-26T08:22:14.649Z",
+  "categories": [
+    {
+      "id": "4227",
+      "name": "Beginner's Guide",
+      "nameEn": "Beginner's Guide",
+      "guides": [
+        {
+          "title": "계정 접속 가이드",
+          "titleEn": "계정 접속 가이드",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B3%84%EC%A0%95%20%EC%A0%91%EC%86%8D%20%EA%B0%80%EC%9D%B4%EB%93%9C",
+          "desc": "AION2 계정 접속을 위한 가이드입니다.",
+          "descEn": "AION2 계정 접속을 위한 가이드입니다.",
+          "content": "계정 접속 가이드 계정 접속하는 방법을 소개합니다.",
+          "contentEn": "계정 접속 가이드 계정 접속하는 방법을 소개합니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19aaa3b6da6-30eb487c-e61f-4a33-90fe-241a114348dd",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d37229-88f96df2-9a78-4363-9c1f-470f63d1dac3"
+          ]
+        },
+        {
+          "title": "PURPLE On",
+          "titleEn": "PURPLE On",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=PURPLE%20On",
+          "desc": "어디서나 스트리밍 게임 플레이를 지원하는 기능",
+          "descEn": "어디서나 스트리밍 게임 플레이를 지원하는 기능",
+          "content": "PURPLE On 어디서나 스트리밍 게임 플레이를 지원하는 기능",
+          "contentEn": "PURPLE On 어디서나 스트리밍 게임 플레이를 지원하는 기능",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19aab8ad5de-9eb7d7e8-c411-47fd-a90d-77951869a2cf",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d37229-88f96df2-9a78-4363-9c1f-470f63d1dac3"
+          ]
+        },
+        {
+          "title": "UI 소개",
+          "titleEn": "UI 소개",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=UI%20%EC%86%8C%EA%B0%9C",
+          "desc": "기본 화면 구성과 기능들을 소개합니다.",
+          "descEn": "기본 화면 구성과 기능들을 소개합니다.",
+          "content": "UI 소개 기본 화면 구성과 기능들을 소개합니다.",
+          "contentEn": "UI 소개 기본 화면 구성과 기능들을 소개합니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f542727-0327ac06-341b-4fb1-8943-4007cb656807",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d1b12c-080d3a3a-c119-4867-b8ef-bcbcbb8a82c7"
+          ]
+        },
+        {
+          "title": "환경설정",
+          "titleEn": "환경설정",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%99%98%EA%B2%BD%EC%84%A4%EC%A0%95",
+          "desc": "환경설정 옵션에 대한 안내입니다.",
+          "descEn": "환경설정 옵션에 대한 안내입니다.",
+          "content": "환경설정 환경설정 옵션에 대한 안내입니다.",
+          "contentEn": "환경설정 환경설정 옵션에 대한 안내입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f730e27-7da526bf-c3a7-4f74-a164-afdedc154fea",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d25deb-81f23518-9cae-495b-9cb1-a84225a48964"
+          ]
+        },
+        {
+          "title": "모바일 조작",
+          "titleEn": "모바일 조작",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%AA%A8%EB%B0%94%EC%9D%BC%20%EC%A1%B0%EC%9E%91",
+          "desc": "모바일 환경에서의 조작 가이드입니다.",
+          "descEn": "모바일 환경에서의 조작 가이드입니다.",
+          "content": "모바일 조작 모바일 환경에서의 조작 가이드입니다.",
+          "contentEn": "모바일 조작 모바일 환경에서의 조작 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f6569a1-19019c9e-dcba-499e-be1d-8f707743bedd",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d2a313-85e17258-4f39-4095-aef5-db942f7ac411"
+          ]
+        },
+        {
+          "title": "PC 조작",
+          "titleEn": "PC 조작",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=PC%20%EC%A1%B0%EC%9E%91",
+          "desc": "PC 환경에서의 조작 가이드입니다.",
+          "descEn": "PC 환경에서의 조작 가이드입니다.",
+          "content": "PC 조작 PC 환경에서의 조작 가이드입니다.",
+          "contentEn": "PC 조작 PC 환경에서의 조작 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f683c81-8214f25c-c8bb-4e81-a5fb-301b2c5e66c9",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d2269e-efafbcb6-5d96-499e-a41e-f122e6515901"
+          ]
+        },
+        {
+          "title": "게임 컨트롤러 지원 BETA",
+          "titleEn": "게임 컨트롤러 지원 BETA",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B2%8C%EC%9E%84%20%EC%BB%A8%ED%8A%B8%EB%A1%A4%EB%9F%AC%20%EC%A7%80%EC%9B%90%20BETA",
+          "desc": "게임 컨트롤러 지원을 통한 조작 가이드입니다.",
+          "descEn": "게임 컨트롤러 지원을 통한 조작 가이드입니다.",
+          "content": "게임 컨트롤러 지원 BETA 게임 컨트롤러 지원을 통한 조작 가이드입니다.",
+          "contentEn": "게임 컨트롤러 지원 BETA 게임 컨트롤러 지원을 통한 조작 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f62061c-f5666645-0eef-4870-8949-8155b8460202",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a53fd338e-8bc9a23e-a2ed-40e7-b994-d9a1b4b2e9a7"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4234",
+      "name": "Class",
+      "nameEn": "Class",
+      "guides": [
+        {
+          "title": "클래스 소개",
+          "titleEn": "클래스 소개",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%81%B4%EB%9E%98%EC%8A%A4%20%EC%86%8C%EA%B0%9C",
+          "desc": "AION2 월드의 다양한 클래스를 소개합니다.",
+          "descEn": "AION2 월드의 다양한 클래스를 소개합니다.",
+          "content": "클래스 소개 AION2 월드의 다양한 클래스를 소개합니다.",
+          "contentEn": "클래스 소개 AION2 월드의 다양한 클래스를 소개합니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f6a3698-672c7082-3c90-46e9-ba88-4c3aa1d36419",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a57c730a7-729d1be6-a2e9-4ae4-abe3-7b31e5a32a3d"
+          ]
+        },
+        {
+          "title": "검성",
+          "titleEn": "검성",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B2%80%EC%84%B1",
+          "desc": "대검을 다루는 전장의 지휘관, 검성 클래스 소개입니다.",
+          "descEn": "대검을 다루는 전장의 지휘관, 검성 클래스 소개입니다.",
+          "content": "검성 대검을 다루는 전장의 지휘관, 검성 클래스 소개입니다.",
+          "contentEn": "검성 대검을 다루는 전장의 지휘관, 검성 클래스 소개입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f6b7ab2-7dcd22a0-bc68-435b-9bf7-e6b49b29ad0c",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d6140c-1558fd46-81fe-4b63-911d-c0f176b9d8d1"
+          ]
+        },
+        {
+          "title": "수호성",
+          "titleEn": "수호성",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%88%98%ED%98%B8%EC%84%B1",
+          "desc": "방패로 아군을 보호하는 철벽의 수호자, 수호성 클래스 소개입니다.",
+          "descEn": "방패로 아군을 보호하는 철벽의 수호자, 수호성 클래스 소개입니다.",
+          "content": "수호성 방패로 아군을 보호하는 철벽의 수호자, 수호성 클래스 소개입니다.",
+          "contentEn": "수호성 방패로 아군을 보호하는 철벽의 수호자, 수호성 클래스 소개입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f6c79b5-b3b6d122-a487-4a92-8c66-8c4a19b403c1",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d7c5a8-0497eac6-c43c-447e-bfe2-d5a90b853058"
+          ]
+        },
+        {
+          "title": "살성",
+          "titleEn": "살성",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%82%B4%EC%84%B1",
+          "desc": "그림자 속에서 암살을 완성하는 칼날, 살성 클래스 소개입니다.",
+          "descEn": "그림자 속에서 암살을 완성하는 칼날, 살성 클래스 소개입니다.",
+          "content": "살성 그림자 속에서 암살을 완성하는 칼날, 살성 클래스 소개입니다.",
+          "contentEn": "살성 그림자 속에서 암살을 완성하는 칼날, 살성 클래스 소개입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f6d1ac2-8edfa850-e149-478e-a518-74cda9684a4a",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d78e3b-a4c4fd7a-a226-4074-a3b6-4c5b971c07d5"
+          ]
+        },
+        {
+          "title": "궁성",
+          "titleEn": "궁성",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B6%81%EC%84%B1",
+          "desc": "전장을 꿰뚫는 매의 눈, 궁성 클래스 소개입니다.",
+          "descEn": "전장을 꿰뚫는 매의 눈, 궁성 클래스 소개입니다.",
+          "content": "궁성 전장을 꿰뚫는 매의 눈, 궁성 클래스 소개입니다.",
+          "contentEn": "궁성 전장을 꿰뚫는 매의 눈, 궁성 클래스 소개입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f6e1f7c-a1bade7b-a024-4b06-9229-73c9bd4d6ccb",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d7197c-0df1a1e8-1f75-4f02-af8d-a45435812105"
+          ]
+        },
+        {
+          "title": "마도성",
+          "titleEn": "마도성",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%A7%88%EB%8F%84%EC%84%B1",
+          "desc": "폭발적인 마력을 다루는 절대 화력의 지배자, 마도성 클래스 소개입니다.",
+          "descEn": "폭발적인 마력을 다루는 절대 화력의 지배자, 마도성 클래스 소개입니다.",
+          "content": "마도성 폭발적인 마력을 다루는 절대 화력의 지배자, 마도성 클래스 소개입니다.",
+          "contentEn": "마도성 폭발적인 마력을 다루는 절대 화력의 지배자, 마도성 클래스 소개입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f6d9673-400e7c40-8ea7-44d0-809e-fdd42c76752b",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d751c2-2a6c2cd1-00dd-4e46-9573-0f6e201420ab"
+          ]
+        },
+        {
+          "title": "정령성",
+          "titleEn": "정령성",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%A0%95%EB%A0%B9%EC%84%B1",
+          "desc": "정령과 함께 싸우는 신비의 조율자, 정령성 클래스 소개입니다.",
+          "descEn": "정령과 함께 싸우는 신비의 조율자, 정령성 클래스 소개입니다.",
+          "content": "정령성 정령과 함께 싸우는 신비의 조율자, 정령성 클래스 소개입니다.",
+          "contentEn": "정령성 정령과 함께 싸우는 신비의 조율자, 정령성 클래스 소개입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f6e991f-810b3620-fddc-465d-b8bb-b0ee53dcbdec",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d6e513-46f1dd56-d6da-45bf-be93-4bdf4e20f964"
+          ]
+        },
+        {
+          "title": "치유성",
+          "titleEn": "치유성",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%B9%98%EC%9C%A0%EC%84%B1",
+          "desc": "생명을 잇는 전장의 구원자, 치유성 클래스 소개입니다.",
+          "descEn": "생명을 잇는 전장의 구원자, 치유성 클래스 소개입니다.",
+          "content": "치유성 생명을 잇는 전장의 구원자, 치유성 클래스 소개입니다.",
+          "contentEn": "치유성 생명을 잇는 전장의 구원자, 치유성 클래스 소개입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f6f2a34-a1c6068c-d639-45d9-b909-944c95631009",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d66342-812de1cb-74c0-484c-971a-a70ff4e12157"
+          ]
+        },
+        {
+          "title": "호법성",
+          "titleEn": "호법성",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%98%B8%EB%B2%95%EC%84%B1",
+          "desc": "전장의 흐름을 바꾸는 진언의 현자, 호법성 클래스 소개입니다.",
+          "descEn": "전장의 흐름을 바꾸는 진언의 현자, 호법성 클래스 소개입니다.",
+          "content": "호법성 전장의 흐름을 바꾸는 진언의 현자, 호법성 클래스 소개입니다.",
+          "contentEn": "호법성 전장의 흐름을 바꾸는 진언의 현자, 호법성 클래스 소개입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f6fb5c1-7e59f749-fa36-4291-b711-8dab2ffdfcc0",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d6a0d8-5f156583-e4d3-4053-a6c9-d947bbdf164e"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4235",
+      "name": "Skill",
+      "nameEn": "Skill",
+      "guides": [
+        {
+          "title": "스킬 소개",
+          "titleEn": "스킬 소개",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%8A%A4%ED%82%AC%20%EC%86%8C%EA%B0%9C",
+          "desc": "클래스 스킬의 종류와 기본 정보를 소개합니다.",
+          "descEn": "클래스 스킬의 종류와 기본 정보를 소개합니다.",
+          "content": "스킬 소개 클래스 스킬의 종류와 기본 정보를 소개합니다.",
+          "contentEn": "스킬 소개 클래스 스킬의 종류와 기본 정보를 소개합니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f71836e-72700637-9089-4dec-9384-4e8260862010",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d83d80-18c93afd-8daf-49fb-9866-246168ace132"
+          ]
+        },
+        {
+          "title": "검성 스킬",
+          "titleEn": "검성 스킬",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B2%80%EC%84%B1%20%EC%8A%A4%ED%82%AC",
+          "desc": "검성 클래스 스킬 정보입니다",
+          "descEn": "검성 클래스 스킬 정보입니다",
+          "content": "검성 스킬 검성 클래스 스킬 정보입니다",
+          "contentEn": "검성 스킬 검성 클래스 스킬 정보입니다",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f846732-aa2c6dc1-2135-4b6f-86f8-13dd53a19620",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d874d7-b0953d9e-6524-4359-bca2-31ca967a30fc"
+          ]
+        },
+        {
+          "title": "수호성 스킬",
+          "titleEn": "수호성 스킬",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%88%98%ED%98%B8%EC%84%B1%20%EC%8A%A4%ED%82%AC",
+          "desc": "수호성 클래스 스킬 정보입니다",
+          "descEn": "수호성 클래스 스킬 정보입니다",
+          "content": "수호성 스킬 수호성 클래스 스킬 정보입니다",
+          "contentEn": "수호성 스킬 수호성 클래스 스킬 정보입니다",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f915643-cfc433e5-5869-4612-a133-8df93f8aeff9",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d8b8f6-25bb8b2d-297e-465a-8379-935e68f04d0c"
+          ]
+        },
+        {
+          "title": "살성 스킬",
+          "titleEn": "살성 스킬",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%82%B4%EC%84%B1%20%EC%8A%A4%ED%82%AC",
+          "desc": "살성 클래스 스킬 정보입니다",
+          "descEn": "살성 클래스 스킬 정보입니다",
+          "content": "살성 스킬 살성 클래스 스킬 정보입니다",
+          "contentEn": "살성 스킬 살성 클래스 스킬 정보입니다",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8f9504e5-7e04bbac-5b05-4a04-8142-8a6dd5511b32",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d9158b-323bbd4d-1956-4377-8b0a-df4e66573407"
+          ]
+        },
+        {
+          "title": "궁성 스킬",
+          "titleEn": "궁성 스킬",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B6%81%EC%84%B1%20%EC%8A%A4%ED%82%AC",
+          "desc": "궁성 스킬 정보입니다.",
+          "descEn": "궁성 스킬 정보입니다.",
+          "content": "궁성 스킬 궁성 클래스 스킬 정보입니다",
+          "contentEn": "궁성 스킬 궁성 클래스 스킬 정보입니다",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8fa0d42d-6c9206a5-898f-4594-b89a-bdda995ff747",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d952bd-a3c65790-5f26-4106-9720-8c6ec3423e85"
+          ]
+        },
+        {
+          "title": "마도성 스킬",
+          "titleEn": "마도성 스킬",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%A7%88%EB%8F%84%EC%84%B1%20%EC%8A%A4%ED%82%AC",
+          "desc": "마도성 클래스 스킬 정보입니다",
+          "descEn": "마도성 클래스 스킬 정보입니다",
+          "content": "마도성 스킬 마도성 클래스 스킬 정보입니다",
+          "contentEn": "마도성 스킬 마도성 클래스 스킬 정보입니다",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a8fa24434-c8b3cd76-7b9d-4e01-8f8d-92adf834443b",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d991e5-2c1c4079-e92e-47e4-9840-64a413f80347"
+          ]
+        },
+        {
+          "title": "정령성 스킬",
+          "titleEn": "정령성 스킬",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%A0%95%EB%A0%B9%EC%84%B1%20%EC%8A%A4%ED%82%AC",
+          "desc": "정령성 클래스 스킬 정보입니다",
+          "descEn": "정령성 클래스 스킬 정보입니다",
+          "content": "정령성 스킬 정령성 클래스 스킬 정보입니다",
+          "contentEn": "정령성 스킬 정령성 클래스 스킬 정보입니다",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90520f91-8fdf2d28-1b94-4546-87ee-14cd438c8589",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52d9cb3a-26477fd3-4f00-4628-934e-fdfb44a2ee1c"
+          ]
+        },
+        {
+          "title": "치유성 스킬",
+          "titleEn": "치유성 스킬",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%B9%98%EC%9C%A0%EC%84%B1%20%EC%8A%A4%ED%82%AC",
+          "desc": "치유성 클래스 스킬 정보입니다",
+          "descEn": "치유성 클래스 스킬 정보입니다",
+          "content": "치유성 스킬 치유성 스킬 정보입니다.",
+          "contentEn": "치유성 스킬 치유성 스킬 정보입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a905af2ca-703dde7b-3ff9-4361-8af9-07360e17b7cb",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52da0deb-6c0d52be-a845-4a4c-bf7b-0981abb10830"
+          ]
+        },
+        {
+          "title": "호법성 스킬",
+          "titleEn": "호법성 스킬",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%98%B8%EB%B2%95%EC%84%B1%20%EC%8A%A4%ED%82%AC",
+          "desc": "호법성 클래스 스킬 정보입니다",
+          "descEn": "호법성 클래스 스킬 정보입니다",
+          "content": "호법성 스킬 호법성 스킬 정보입니다.",
+          "contentEn": "호법성 스킬 호법성 스킬 정보입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a9068caf5-fe7cc572-959d-4c46-8246-29d823d2bd15",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a6c5ca31f-c3936a45-09c9-4a5d-a86d-ce7164bed3ac"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4236",
+      "name": "Items",
+      "nameEn": "Items",
+      "guides": [
+        {
+          "title": "아이템 기본 안내",
+          "titleEn": "아이템 기본 안내",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%95%84%EC%9D%B4%ED%85%9C%20%EA%B8%B0%EB%B3%B8%20%EC%95%88%EB%82%B4",
+          "desc": "아이템 기능의 기본 가이드입니다.",
+          "descEn": "아이템 기능의 기본 가이드입니다.",
+          "content": "아이템 기본 안내 아이템 기능의 기본 가이드입니다.",
+          "contentEn": "아이템 기본 안내 아이템 기능의 기본 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a906e474e-7c0e7c02-2a29-4249-b59b-897723e76674",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52dc5a77-49daf477-2956-4781-b0e2-599ef3beea67"
+          ]
+        },
+        {
+          "title": "장비",
+          "titleEn": "장비",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%9E%A5%EB%B9%84",
+          "desc": "장비의 종류와 특징에 대한 가이드입니다.",
+          "descEn": "장비의 종류와 특징에 대한 가이드입니다.",
+          "content": "장비 장비의 종류와 특징에 대한 가이드입니다.",
+          "contentEn": "장비 장비의 종류와 특징에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a9070ea10-08f53737-83e8-4018-9132-5af603bba42e",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52dcd60b-495e1f73-332f-49d9-b734-d6c11df7fa52"
+          ]
+        },
+        {
+          "title": "기타 아이템",
+          "titleEn": "기타 아이템",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B8%B0%ED%83%80%20%EC%95%84%EC%9D%B4%ED%85%9C",
+          "desc": "기타 아이템 특징에 대한 가이드입니다.",
+          "descEn": "기타 아이템 특징에 대한 가이드입니다.",
+          "content": "기타 아이템 기타 아이템 특징에 대한 가이드입니다.",
+          "contentEn": "기타 아이템 기타 아이템 특징에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a9071e2b1-4fc85772-db9c-4045-8a1b-30708ce30145",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52dc9089-f04ab383-9046-4233-af37-b3affee11a6d"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4237",
+      "name": "Journal",
+      "nameEn": "Journal",
+      "guides": [
+        {
+          "title": "저널 소개",
+          "titleEn": "저널 소개",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%A0%80%EB%84%90%20%EC%86%8C%EA%B0%9C",
+          "desc": "저널에 관련된 정보를 안내합니다.",
+          "descEn": "저널에 관련된 정보를 안내합니다.",
+          "content": "저널 소개 저널에 관련된 정보를 안내합니다.",
+          "contentEn": "저널 소개 저널에 관련된 정보를 안내합니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a9073bf28-7583ba8c-0313-45c1-8d7a-93942c0b2cdc",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a6978930c-d12ad15c-bab1-4f09-b88b-e6eb5f91abb7"
+          ]
+        },
+        {
+          "title": "퀘스트 종류",
+          "titleEn": "퀘스트 종류",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%80%98%EC%8A%A4%ED%8A%B8%20%EC%A2%85%EB%A5%98",
+          "desc": "퀘스트 종류 관련 가이드입니다.",
+          "descEn": "퀘스트 종류 관련 가이드입니다.",
+          "content": "퀘스트 종류 퀘스트에 관련된 정보를 안내합니다.",
+          "contentEn": "퀘스트 종류 퀘스트에 관련된 정보를 안내합니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a9074ebb2-a9912a1b-cbd6-4b11-9aab-19f3c95628b6",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a69797b36-1a535120-a748-4b75-b39e-ee503136e2b3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4238",
+      "name": "Regions",
+      "nameEn": "Regions",
+      "guides": [
+        {
+          "title": "마계",
+          "titleEn": "마계",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%A7%88%EA%B3%84",
+          "desc": "아트레이아 마계 지역 정보입니다.",
+          "descEn": "아트레이아 마계 지역 정보입니다.",
+          "content": "마계 아트레이아 마계 지역 정보입니다.",
+          "contentEn": "마계 아트레이아 마계 지역 정보입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a9076fb06-7bbdc350-36fe-4a7f-bfaf-25bb49227dfa",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a6c72205f-1de7ab9a-4c1e-4848-a574-3214ab302158"
+          ]
+        },
+        {
+          "title": "어비스 에레슈란타",
+          "titleEn": "어비스 에레슈란타",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%96%B4%EB%B9%84%EC%8A%A4%20%EC%97%90%EB%A0%88%EC%8A%88%EB%9E%80%ED%83%80",
+          "desc": "어비스 에레슈란타 지역 정보입니다.",
+          "descEn": "어비스 에레슈란타 지역 정보입니다.",
+          "content": "어비스 에레슈란타 어비스 에레슈란타 지역 정보입니다.",
+          "contentEn": "어비스 에레슈란타 어비스 에레슈란타 지역 정보입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a9078fed2-e20fefb7-c8d1-4925-9cc7-211621cd8e01",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a6c74eb81-aa8a02a4-6e68-46ba-81c8-b442da019776"
+          ]
+        },
+        {
+          "title": "천계",
+          "titleEn": "천계",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%B2%9C%EA%B3%84",
+          "desc": "아트레이아 천계 지역 정보입니다.",
+          "descEn": "아트레이아 천계 지역 정보입니다.",
+          "content": "천계 아트레이아 천계 지역 정보입니다.",
+          "contentEn": "천계 아트레이아 천계 지역 정보입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a907ab657-9cc806bd-3ced-4735-a6af-47d1c21661ae",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a6c775c2c-93b66b2e-de40-4288-a571-595f47c15212"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4239",
+      "name": "Growth & Collection",
+      "nameEn": "Growth & Collection",
+      "guides": [
+        {
+          "title": "통합 강화",
+          "titleEn": "통합 강화",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%86%B5%ED%95%A9%20%EA%B0%95%ED%99%94",
+          "desc": "아이템 강화 기능에 대한 가이드입니다.",
+          "descEn": "아이템 강화 기능에 대한 가이드입니다.",
+          "content": "통합 강화 아이템 강화 기능에 대한 가이드입니다.",
+          "contentEn": "통합 강화 아이템 강화 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a907e35a2-76943870-8cc3-4e54-81a8-c683cf7d144a",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52ded0a8-5b4bc0e1-2d56-4b5f-afc0-468d1cbd8a8a"
+          ]
+        },
+        {
+          "title": "아르카나",
+          "titleEn": "아르카나",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%95%84%EB%A5%B4%EC%B9%B4%EB%82%98",
+          "desc": "아르카나의 특징에 대한 가이드입니다.",
+          "descEn": "아르카나의 특징에 대한 가이드입니다.",
+          "content": "아르카나 아르카나의 특징에 대한 가이드입니다.",
+          "contentEn": "아르카나 아르카나의 특징에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a908031b9-709677f7-c145-4ea5-b584-817bf3b1355b",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52dfb87c-5c574a5f-a071-416e-a265-8ac2a74e2312"
+          ]
+        },
+        {
+          "title": "봉혼석 시스템",
+          "titleEn": "봉혼석 시스템",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%B4%89%ED%98%BC%EC%84%9D%20%EC%8B%9C%EC%8A%A4%ED%85%9C",
+          "desc": "봉혼석 시스템에 대한 가이드입니다.",
+          "descEn": "봉혼석 시스템에 대한 가이드입니다.",
+          "content": "봉혼석 시스템 봉혼석 시스템에 대한 가이드입니다.",
+          "contentEn": "봉혼석 시스템 봉혼석 시스템에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90813f90-49a1d5f8-0eec-49d9-b6b7-71e1fc6ed94e",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52e0271b-79d844a3-1bdf-4e13-bc4e-8ba17f5d5d0a"
+          ]
+        },
+        {
+          "title": "데바니온",
+          "titleEn": "데바니온",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%8D%B0%EB%B0%94%EB%8B%88%EC%98%A8",
+          "desc": "데바니온의 특징에 대한 가이드입니다.",
+          "descEn": "데바니온의 특징에 대한 가이드입니다.",
+          "content": "데바니온 데바니온의 특징에 대한 가이드입니다.",
+          "contentEn": "데바니온 데바니온의 특징에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a9082e024-2802ac7b-606e-4f20-a71f-1bba7a01a7c8",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52dd5e8d-7b2ec084-0880-4eab-92de-6b4e98a4ef3b"
+          ]
+        },
+        {
+          "title": "모노리스",
+          "titleEn": "모노리스",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%AA%A8%EB%85%B8%EB%A6%AC%EC%8A%A4",
+          "desc": "모노리스 시스템에 대한 가이드입니다.",
+          "descEn": "모노리스 시스템에 대한 가이드입니다.",
+          "content": "모노리스 모노리스 시스템에 대한 가이드입니다.",
+          "contentEn": "모노리스 모노리스 시스템에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a9084ece6-86a6246e-f033-4786-8107-5119b1afba91",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52df7b82-70eebfad-658b-4285-b309-16e31a3f51e9"
+          ]
+        },
+        {
+          "title": "펫",
+          "titleEn": "펫",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%8E%AB",
+          "desc": "펫 시스템에 대한 가이드입니다.",
+          "descEn": "펫 시스템에 대한 가이드입니다.",
+          "content": "펫 펫 시스템에 대한 가이드입니다.",
+          "contentEn": "펫 펫 시스템에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90866034-52e5d469-8792-44e6-a2ea-577f31340101",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52de429e-247af905-690c-4773-abb2-0cb814b5ac0d"
+          ]
+        },
+        {
+          "title": "날개",
+          "titleEn": "날개",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%82%A0%EA%B0%9C",
+          "desc": "날개 시스템에 대한 가이드입니다.",
+          "descEn": "날개 시스템에 대한 가이드입니다.",
+          "content": "날개 날개 시스템에 대한 가이드입니다.",
+          "contentEn": "날개 날개 시스템에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90873b44-9c9f0541-bba4-47ac-ba5f-401ee6cda84e",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52ddf3be-897cff2d-ad8d-4362-b749-70cec88fb8d8"
+          ]
+        },
+        {
+          "title": "업적",
+          "titleEn": "업적",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%97%85%EC%A0%81",
+          "desc": "업적 시스템에 대한 가이드입니다.",
+          "descEn": "업적 시스템에 대한 가이드입니다.",
+          "content": "업적 업적 시스템에 대한 가이드입니다.",
+          "contentEn": "업적 업적 시스템에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a9088101e-a84711f5-d41f-402c-af43-5f6d5ce32538",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52df3eea-ac69dcea-996e-49fc-81ca-07fdbf91f3f6"
+          ]
+        },
+        {
+          "title": "타이틀",
+          "titleEn": "타이틀",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%83%80%EC%9D%B4%ED%8B%80",
+          "desc": "타이틀 시스템에 대한 가이드입니다.",
+          "descEn": "타이틀 시스템에 대한 가이드입니다.",
+          "content": "타이틀 타이틀 시스템에 대한 가이드입니다.",
+          "contentEn": "타이틀 타이틀 시스템에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90892ef5-8f50d29a-f6c3-4ef1-bfcc-e2c63b4a2f7d",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52df0701-3468d6de-b63a-4e9b-a9ef-4a16b2741d25"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4240",
+      "name": "PK & Duel",
+      "nameEn": "PK & Duel",
+      "guides": [
+        {
+          "title": "PK 및 결투",
+          "titleEn": "PK 및 결투",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=PK%20%EB%B0%8F%20%EA%B2%B0%ED%88%AC",
+          "desc": "PK 및 결투 기능에 대한 가이드입니다.",
+          "descEn": "PK 및 결투 기능에 대한 가이드입니다.",
+          "content": "PK 및 결투 PK 및 결투 기능에 대한 가이드입니다.",
+          "contentEn": "PK 및 결투 PK 및 결투 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a9098d95f-3761ed8c-c703-4244-b6db-fc47394ab3ad",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a68aced2d-26c46b1c-ade5-4827-a524-a8c472e44619"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4241",
+      "name": "Monsters & Dungeons",
+      "nameEn": "Monsters & Dungeons",
+      "guides": [
+        {
+          "title": "원정",
+          "titleEn": "원정",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%9B%90%EC%A0%95",
+          "desc": "원정 콘텐츠에 대한 가이드입니다.",
+          "descEn": "원정 콘텐츠에 대한 가이드입니다.",
+          "content": "원정 원정 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "원정 원정 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a909b588b-b0bff3d1-c047-40f7-93f3-f3a618773ab3",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a60d7fd82-8deb47ae-6180-4750-8522-0cfa564f8359"
+          ]
+        },
+        {
+          "title": "일일 던전",
+          "titleEn": "일일 던전",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%9D%BC%EC%9D%BC%20%EB%8D%98%EC%A0%84",
+          "desc": "일일 던전 콘텐츠에 대한 가이드입니다.",
+          "descEn": "일일 던전 콘텐츠에 대한 가이드입니다.",
+          "content": "일일 던전 일일 던전 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "일일 던전 일일 던전 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a909c5e91-d243b48e-f25b-415f-a540-b4bcb1eb09ce",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a60da5d5c-f03dd0d0-e3f6-427e-b95b-b8b28509b01d"
+          ]
+        },
+        {
+          "title": "봉인 던전 및 주둔지",
+          "titleEn": "봉인 던전 및 주둔지",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%B4%89%EC%9D%B8%20%EB%8D%98%EC%A0%84%20%EB%B0%8F%20%EC%A3%BC%EB%91%94%EC%A7%80",
+          "desc": "봉인 던전 및 주둔지에 대한 가이드입니다.",
+          "descEn": "봉인 던전 및 주둔지에 대한 가이드입니다.",
+          "content": "봉인 던전 및 주둔지 봉인 던전 및 주둔지에 대한 가이드입니다.",
+          "contentEn": "봉인 던전 및 주둔지 봉인 던전 및 주둔지에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a909d0025-d6f05d4f-e8e0-4660-b6a5-074a311ccc48",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a60e65cfb-abc7e237-c53f-446d-81b4-6c9677f06b8e"
+          ]
+        },
+        {
+          "title": "성역",
+          "titleEn": "성역",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%84%B1%EC%97%AD",
+          "desc": "성역 콘텐츠에 대한 가이드입니다.",
+          "descEn": "성역 콘텐츠에 대한 가이드입니다.",
+          "content": "성역 성역 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "성역 성역 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a909edb85-a8eb9ff5-41bb-4890-bdc4-d5f35b19699d",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a60dc74ac-21affa5d-38e8-4951-b167-ad91c1c348c8"
+          ]
+        },
+        {
+          "title": "전장",
+          "titleEn": "전장",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%A0%84%EC%9E%A5",
+          "desc": "전장 콘텐츠에 대한 가이드입니다.",
+          "descEn": "전장 콘텐츠에 대한 가이드입니다.",
+          "content": "전장 전장 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "전장 전장 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90afd5ed-69db926d-5608-4a60-ad12-2a6252ecf1cd",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a610cc4b4-e4dc3646-8902-4a28-83fe-462a578f6606"
+          ]
+        },
+        {
+          "title": "초월",
+          "titleEn": "초월",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%B4%88%EC%9B%94",
+          "desc": "초월 콘텐츠에 대한 가이드입니다.",
+          "descEn": "초월 콘텐츠에 대한 가이드입니다.",
+          "content": "초월 초월 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "초월 초월 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90a076ba-cf446952-744e-404c-aa5c-f6a8aa21fa3e",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a6101480d-5ea95cfb-4c68-4c66-8e9a-8873f310c248"
+          ]
+        },
+        {
+          "title": "악몽",
+          "titleEn": "악몽",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%95%85%EB%AA%BD",
+          "desc": "악몽 콘텐츠에 대한 가이드입니다.",
+          "descEn": "악몽 콘텐츠에 대한 가이드입니다.",
+          "content": "악몽 악몽 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "악몽 악몽 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90a408dd-5a370990-5d7d-4427-be63-994c68308701",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a60ef7cb3-e07119f3-4a86-4312-a02a-cceaed0b7bfe"
+          ]
+        },
+        {
+          "title": "어비스",
+          "titleEn": "어비스",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%96%B4%EB%B9%84%EC%8A%A4",
+          "desc": "어비스 콘텐츠에 대한 가이드입니다.",
+          "descEn": "어비스 콘텐츠에 대한 가이드입니다.",
+          "content": "어비스 어비스 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "어비스 어비스 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90a5ba18-9c8e3c33-9672-4dad-8dff-c3c34c947611",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a6100d840-4dd533ef-e633-442d-82a2-1d61c19a9eaf"
+          ]
+        },
+        {
+          "title": "각성전",
+          "titleEn": "각성전",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B0%81%EC%84%B1%EC%A0%84",
+          "desc": "각성전 콘텐츠에 대한 가이드입니다.",
+          "descEn": "각성전 콘텐츠에 대한 가이드입니다.",
+          "content": "각성전 각성전 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "각성전 각성전 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90a67f51-b9da3e9c-e09a-4db8-a0a4-dbee98d36e59",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a60f625a6-f8d0e60c-4a1e-46e5-b11a-960276d6ed2e"
+          ]
+        },
+        {
+          "title": "토벌전",
+          "titleEn": "토벌전",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%86%A0%EB%B2%8C%EC%A0%84",
+          "desc": "토벌전 콘텐츠에 대한 가이드입니다.",
+          "descEn": "토벌전 콘텐츠에 대한 가이드입니다.",
+          "content": "토벌전 토벌전 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "토벌전 토벌전 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90a7342d-ec95f042-3270-4060-8277-ba24bc7a6132",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a61005d10-e80c26aa-c552-4dd0-8948-45e1b5a3f726"
+          ]
+        },
+        {
+          "title": "시즌",
+          "titleEn": "시즌",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%8B%9C%EC%A6%8C",
+          "desc": "시즌 시스템에 대한 가이드입니다.",
+          "descEn": "시즌 시스템에 대한 가이드입니다.",
+          "content": "시즌 시즌 시스템에 대한 가이드입니다.",
+          "contentEn": "시즌 시즌 시스템에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a91603fad-60745300-512f-4631-9c94-4f92d7ba6562",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a60ff9e79-510dd346-e3b3-4dba-aa8a-555b955e11d0"
+          ]
+        },
+        {
+          "title": "투기장",
+          "titleEn": "투기장",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%88%AC%EA%B8%B0%EC%9E%A5",
+          "desc": "투기장 콘텐츠에 대한 가이드입니다.",
+          "descEn": "투기장 콘텐츠에 대한 가이드입니다.",
+          "content": "투기장 투기장 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "투기장 투기장 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90a9c674-1e43c9ce-5e45-49fd-8a63-e6c1587701bb",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a60f959d9-085bcfff-0e9e-4536-a34c-cbf726bbce3d"
+          ]
+        },
+        {
+          "title": "필드 네임드",
+          "titleEn": "필드 네임드",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%95%84%EB%93%9C%20%EB%84%A4%EC%9E%84%EB%93%9C",
+          "desc": "필드 네임드 콘텐츠에 관련된 가이드 입니다.",
+          "descEn": "필드 네임드 콘텐츠에 관련된 가이드 입니다.",
+          "content": "필드 네임드 필드 네임드 콘텐츠에 관련된 가이드 입니다.",
+          "contentEn": "필드 네임드 필드 네임드 콘텐츠에 관련된 가이드 입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90ac6dec-143d9bfd-f59b-4870-8c81-b00441a5ea52",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a6105c6ab-dc387c34-0660-4ced-9c24-50b313d2b0a9"
+          ]
+        },
+        {
+          "title": "슈고 페스타",
+          "titleEn": "슈고 페스타",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%8A%88%EA%B3%A0%20%ED%8E%98%EC%8A%A4%ED%83%80",
+          "desc": "슈고 페스타 콘텐츠에 대한 가이드 입니다.",
+          "descEn": "슈고 페스타 콘텐츠에 대한 가이드 입니다.",
+          "content": "슈고 페스타 슈고 페스타 콘텐츠에 대한 가이드 입니다.",
+          "contentEn": "슈고 페스타 슈고 페스타 콘텐츠에 대한 가이드 입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90ad462c-c2b68f07-259e-413f-8a74-1d1723bba97c",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a61077560-51a2cea2-5c94-4297-87e6-4ad318b31fc7"
+          ]
+        },
+        {
+          "title": "차원 침공 소개",
+          "titleEn": "차원 침공 소개",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%B0%A8%EC%9B%90%20%EC%B9%A8%EA%B3%B5%20%EC%86%8C%EA%B0%9C",
+          "desc": "차원 침공 콘텐츠에 대한 가이드 입니다.",
+          "descEn": "차원 침공 콘텐츠에 대한 가이드 입니다.",
+          "content": "차원 침공 소개 차원 침공 콘텐츠에 대한 가이드 입니다.",
+          "contentEn": "차원 침공 소개 차원 침공 콘텐츠에 대한 가이드 입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90ae57e5-3d4922cb-147e-411f-9d28-39606b54646c",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a610cc4b4-e4dc3646-8902-4a28-83fe-462a578f6606"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4242",
+      "name": "Community",
+      "nameEn": "Community",
+      "guides": [
+        {
+          "title": "파티 및 포스 시스템",
+          "titleEn": "파티 및 포스 시스템",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%8C%8C%ED%8B%B0%20%EB%B0%8F%20%ED%8F%AC%EC%8A%A4%20%EC%8B%9C%EC%8A%A4%ED%85%9C",
+          "desc": "파티/포스 시스템에 대한 가이드입니다.",
+          "descEn": "파티/포스 시스템에 대한 가이드입니다.",
+          "content": "파티 및 포스 시스템 파티/포스 시스템에 대한 가이드입니다.",
+          "contentEn": "파티 및 포스 시스템 파티/포스 시스템에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90b18eb6-d4a02322-8f9c-473f-ac9e-a2b6db439662",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a61163cb1-27aa69d5-1d1a-4bd5-9242-31c85a6de1e6"
+          ]
+        },
+        {
+          "title": "레기온",
+          "titleEn": "레기온",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%A0%88%EA%B8%B0%EC%98%A8",
+          "desc": "레기온 콘텐츠에 대한 가이드입니다.",
+          "descEn": "레기온 콘텐츠에 대한 가이드입니다.",
+          "content": "레기온 레기온 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "레기온 레기온 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90b31b87-bf829398-2b8f-407e-a755-8fd436596351",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a611d0e63-a4840f4b-6370-49a4-b815-1ffb12549bf6"
+          ]
+        },
+        {
+          "title": "만신전",
+          "titleEn": "만신전",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%A7%8C%EC%8B%A0%EC%A0%84",
+          "desc": "만신전 콘텐츠에 대한 가이드입니다.",
+          "descEn": "만신전 콘텐츠에 대한 가이드입니다.",
+          "content": "만신전 만신전 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "만신전 만신전 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90b90243-785f1a64-ed6b-4dde-9eef-276dc31dd6aa",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a61223976-07c88066-769a-401f-96dc-a26aeea3e037"
+          ]
+        },
+        {
+          "title": "친구 관리",
+          "titleEn": "친구 관리",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%B9%9C%EA%B5%AC%20%EA%B4%80%EB%A6%AC",
+          "desc": "친구 관리 기능에 대한 가이드입니다.",
+          "descEn": "친구 관리 기능에 대한 가이드입니다.",
+          "content": "친구 관리 친구 관리 기능에 대한 가이드입니다.",
+          "contentEn": "친구 관리 친구 관리 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90b9df28-2853200a-46fe-4f97-8c04-86a79146bb0f",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a612491b8-5bbeb91e-818e-40c4-8e8a-b1e28bf51baf"
+          ]
+        },
+        {
+          "title": "우편",
+          "titleEn": "우편",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%9A%B0%ED%8E%B8",
+          "desc": "우편 기능에 대한 가이드입니다.",
+          "descEn": "우편 기능에 대한 가이드입니다.",
+          "content": "우편 우편 기능에 대한 가이드입니다.",
+          "contentEn": "우편 우편 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90ba74e6-d95c50f2-7143-49dc-97ca-45123eb23708",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a61266fdb-146d7df2-1093-42e4-934d-901d81397739"
+          ]
+        },
+        {
+          "title": "채팅",
+          "titleEn": "채팅",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%B1%84%ED%8C%85",
+          "desc": "채팅 기능에 대한 가이드입니다.",
+          "descEn": "채팅 기능에 대한 가이드입니다.",
+          "content": "채팅 채팅 기능에 대한 가이드입니다.",
+          "contentEn": "채팅 채팅 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90bb3965-469cca73-7e4b-4ced-b180-1e5e677f5ad8",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a6129c723-4bf59f07-3d11-41c6-9d64-e715c238bac0"
+          ]
+        },
+        {
+          "title": "감정표현",
+          "titleEn": "감정표현",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B0%90%EC%A0%95%ED%91%9C%ED%98%84",
+          "desc": "감정표현 기능에 대한 가이드입니다.",
+          "descEn": "감정표현 기능에 대한 가이드입니다.",
+          "content": "감정표현 감정표현 기능에 대한 가이드입니다.",
+          "contentEn": "감정표현 감정표현 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90bbded9-9d7fd020-fa35-4322-a896-00944f9af85c",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a6130a5cc-8e90353d-5cd1-4c80-8135-00ade79f938c"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4243",
+      "name": "Main Systems",
+      "nameEn": "Main Systems",
+      "guides": [
+        {
+          "title": "거래소",
+          "titleEn": "거래소",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B1%B0%EB%9E%98%EC%86%8C",
+          "desc": "거래소 기능에 대한 가이드입니다.",
+          "descEn": "거래소 기능에 대한 가이드입니다.",
+          "content": "거래소 거래소 기능에 대한 가이드입니다.",
+          "contentEn": "거래소 거래소 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90bd3b3c-cfd60666-8734-490a-83fe-12fc3bf1870c",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a6134ded1-560bc485-8c4e-4f64-ad14-ea3d1245f9c6"
+          ]
+        },
+        {
+          "title": "교환소",
+          "titleEn": "교환소",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B5%90%ED%99%98%EC%86%8C",
+          "desc": "교환소 기능에 대한 가이드입니다.",
+          "descEn": "교환소 기능에 대한 가이드입니다.",
+          "content": "교환소 교환소 기능에 대한 가이드입니다.",
+          "contentEn": "교환소 교환소 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90be9b01-fe44beb7-d85b-4f7e-8489-b9f2e6d7da37",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a61393e3b-6a693084-ab20-400c-ad52-f6ac8810fd66"
+          ]
+        },
+        {
+          "title": "스타일 샵",
+          "titleEn": "스타일 샵",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%8A%A4%ED%83%80%EC%9D%BC%20%EC%83%B5",
+          "desc": "스타일 샵 콘텐츠에 대한 가이드입니다.",
+          "descEn": "스타일 샵 콘텐츠에 대한 가이드입니다.",
+          "content": "스타일 샵 스타일 샵 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "스타일 샵 스타일 샵 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90c0ce5f-9e4b5196-b7a1-47c7-a82a-12b8deb52d3e",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a613cdbe5-182a5765-84f8-4223-9714-c3a6685d4939"
+          ]
+        },
+        {
+          "title": "구독 및 패스",
+          "titleEn": "구독 및 패스",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EA%B5%AC%EB%8F%85%20%EB%B0%8F%20%ED%8C%A8%EC%8A%A4",
+          "desc": "구독 및 패스 기능에 대한 가이드입니다.",
+          "descEn": "구독 및 패스 기능에 대한 가이드입니다.",
+          "content": "구독 및 패스 구독 및 패스 기능에 대한 가이드입니다.",
+          "contentEn": "구독 및 패스 구독 및 패스 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90c4dd3b-9a90b0b0-b0cb-48dc-9a7a-a1d375e3bcf4",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a613ea26b-edd66e98-bfde-446c-87d6-2023e90c9586"
+          ]
+        },
+        {
+          "title": "사망 및 부활",
+          "titleEn": "사망 및 부활",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%82%AC%EB%A7%9D%20%EB%B0%8F%20%EB%B6%80%ED%99%9C",
+          "desc": "사망 및 부활 시스템에 대한 가이드입니다.",
+          "descEn": "사망 및 부활 시스템에 대한 가이드입니다.",
+          "content": "사망 및 부활 사망 및 부활 시스템에 대한 가이드입니다.",
+          "contentEn": "사망 및 부활 사망 및 부활 시스템에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90c56cc1-76dbd01a-a36e-4d4f-b1d4-c7a1ff66dec7",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a61435a17-b0807b68-da26-4fba-984d-e980b43da589"
+          ]
+        },
+        {
+          "title": "활강 및 비행 시스템",
+          "titleEn": "활강 및 비행 시스템",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%ED%99%9C%EA%B0%95%20%EB%B0%8F%20%EB%B9%84%ED%96%89%20%EC%8B%9C%EC%8A%A4%ED%85%9C",
+          "desc": "활강 및 비행 시스템에 대한 가이드입니다.",
+          "descEn": "활강 및 비행 시스템에 대한 가이드입니다.",
+          "content": "활강 및 비행 시스템 활강 및 비행 시스템에 대한 가이드입니다.",
+          "contentEn": "활강 및 비행 시스템 활강 및 비행 시스템에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90c63af9-09ee4f83-4b46-42af-a92e-5d0b11c27755",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a61484d38-6469d5c2-71f6-4729-bae3-6bc963ba09f7"
+          ]
+        },
+        {
+          "title": "바람길 및 용오름 시스템",
+          "titleEn": "바람길 및 용오름 시스템",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%B0%94%EB%9E%8C%EA%B8%B8%20%EB%B0%8F%20%EC%9A%A9%EC%98%A4%EB%A6%84%20%EC%8B%9C%EC%8A%A4%ED%85%9C",
+          "desc": "바람길 및 용오름 시스템에 대한 가이드입니다.",
+          "descEn": "바람길 및 용오름 시스템에 대한 가이드입니다.",
+          "content": "바람길 및 용오름 시스템 바람길 및 용오름 시스템에 대한 가이드입니다.",
+          "contentEn": "바람길 및 용오름 시스템 바람길 및 용오름 시스템에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90c76c63-bb05ef29-94a0-4fed-8bc8-c29c9280c9d7",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a615c3c16-6233f987-47ff-403b-9b53-27cdedaa672f"
+          ]
+        },
+        {
+          "title": "내비게이터",
+          "titleEn": "내비게이터",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%82%B4%EB%B9%84%EA%B2%8C%EC%9D%B4%ED%84%B0",
+          "desc": "내비게이터 기능에 대한 가이드입니다.",
+          "descEn": "내비게이터 기능에 대한 가이드입니다.",
+          "content": "내비게이터 내비게이터 기능에 대한 가이드입니다.",
+          "contentEn": "내비게이터 내비게이터 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90c81e62-6cd88ac8-62c2-45ad-8d2d-b70f8860db4d",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a615f6a32-76ccea77-f7b0-459e-ab1e-b54da3fbcdea"
+          ]
+        },
+        {
+          "title": "옷장",
+          "titleEn": "옷장",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%98%B7%EC%9E%A5",
+          "desc": "옷장 시스템에 대한 가이드입니다.",
+          "descEn": "옷장 시스템에 대한 가이드입니다.",
+          "content": "옷장 옷장 시스템에 대한 가이드입니다.",
+          "contentEn": "옷장 옷장 시스템에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a908babee-340859ae-8c2c-4fbc-aacd-93a0bbd37ccb",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a52ddb6cc-4287a2ad-de8c-46d1-88e5-946e3770b4a3"
+          ]
+        },
+        {
+          "title": "랭킹",
+          "titleEn": "랭킹",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%9E%AD%ED%82%B9",
+          "desc": "랭킹 기능에 대한 가이드입니다.",
+          "descEn": "랭킹 기능에 대한 가이드입니다.",
+          "content": "랭킹 랭킹 기능에 대한 가이드입니다.",
+          "contentEn": "랭킹 랭킹 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90a86515-a481c9ef-9827-45f9-98ea-8e75217271c3",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a60fdf49d-18aefba0-3766-48a9-bed0-3c54b35a4629"
+          ]
+        },
+        {
+          "title": "보급 의뢰",
+          "titleEn": "보급 의뢰",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%B3%B4%EA%B8%89%20%EC%9D%98%EB%A2%B0",
+          "desc": "보급 의뢰 콘텐츠에 대한 가이드입니다.",
+          "descEn": "보급 의뢰 콘텐츠에 대한 가이드입니다.",
+          "content": "보급 의뢰 보급 의뢰 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "보급 의뢰 보급 의뢰 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90c8cbce-0d222f08-a19d-40e9-92b1-d885bc677245",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a61611228-5a3cc0ee-a45a-4f29-aa49-4c0d21f3c74a"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4244",
+      "name": "Gathering & Crafting",
+      "nameEn": "Gathering & Crafting",
+      "guides": [
+        {
+          "title": "정기추출",
+          "titleEn": "정기추출",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%A0%95%EA%B8%B0%EC%B6%94%EC%B6%9C",
+          "desc": "정기추출 콘텐츠에 대한 가이드입니다.",
+          "descEn": "정기추출 콘텐츠에 대한 가이드입니다.",
+          "content": "정기추출 정기추출 콘텐츠에 대한 가이드입니다.",
+          "contentEn": "정기추출 정기추출 콘텐츠에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90ca97d3-4851ce8f-090e-4369-b534-f030f6dd22d1",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a6163d515-2c159aae-74f5-475a-a52f-01d8e448bc67"
+          ]
+        },
+        {
+          "title": "제작 관리",
+          "titleEn": "제작 관리",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EC%A0%9C%EC%9E%91%20%EA%B4%80%EB%A6%AC",
+          "desc": "제작 관리 기능에 대한 가이드입니다.",
+          "descEn": "제작 관리 기능에 대한 가이드입니다.",
+          "content": "제작 관리 제작 관리 기능에 대한 가이드입니다.",
+          "contentEn": "제작 관리 제작 관리 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90cbfaa1-d033e052-12c2-4721-829e-a22e841162b3",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a616c4ad4-3e2cefef-0dec-41dd-8032-f6a35bb207a2"
+          ]
+        },
+        {
+          "title": "물질 변환",
+          "titleEn": "물질 변환",
+          "url": "https://aion2.plaync.com/ko-kr/guidebook/view?title=%EB%AC%BC%EC%A7%88%20%EB%B3%80%ED%99%98",
+          "desc": "물질 변환 기능에 대한 가이드입니다.",
+          "descEn": "물질 변환 기능에 대한 가이드입니다.",
+          "content": "물질 변환 물질 변환 기능에 대한 가이드입니다.",
+          "contentEn": "물질 변환 물질 변환 기능에 대한 가이드입니다.",
+          "images": [
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a90cd22de-5f7692b0-6112-420a-b17e-e9326b3fc559",
+            "https://fizz-download.playnccdn.com/download/v2/buckets/guidebook/files/19a616a7884-0eae68eb-b1b6-4954-a725-225bb18aa1da"
+          ]
+        }
+      ]
+    }
+  ]
+}

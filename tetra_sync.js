@@ -148,6 +148,8 @@ const CONFIG = {
     BOSS_STATE_PATH: path.join(STATE_DIR, 'boss_state.json'),
     VERIFY_PENDING_PATH: path.join(STATE_DIR, 'verify_pending.json'),
     GUIDEBOOK_STATE_PATH: path.join(STATE_DIR, 'guidebook_state.json'),
+    GUIDEBOOK_OFFICIAL_SEED_PATH: path.join(__dirname, 'guidebook_official_seed.json'),
+    GUIDEBOOK_ENABLE_SCRAPE: String(process.env.GUIDEBOOK_ENABLE_SCRAPE || 'false').toLowerCase() === 'true',
     BOSS_WARNING_MINUTES: Math.max(1, parseInt(process.env.BOSS_WARNING_MINUTES || '10', 10) || 10),
     BOSS_TICKER_MS: Math.max(10_000, parseInt(process.env.BOSS_TICKER_MS || '60000', 10) || 60_000),
     TELEGRAM_BOT_TOKEN: (process.env.TELEGRAM_BOT_TOKEN || '').trim(),
@@ -872,15 +874,15 @@ const TACTICS_DATA = {
     class: {
         label: 'Class Guide',
         items: [
-            { value: '58', label: 'Swordmaster PVE Skill Tree', file: 'inven_58_english.txt' },
-            { value: '6625', label: 'Gladiator PVE Skill Build', file: 'inven_6625_english.txt' },
+            { value: '58', label: 'Gladiator', file: 'inven_58_english.txt' },
+            { value: '6625', label: 'Templar', file: 'inven_6625_english.txt' },
             { value: '3856', label: 'Assassin PVE Guide', file: 'inven_3856_english.txt' },
             { value: '4009', label: 'Ranger PVE Setup Guide', file: 'inven_4009_english.txt' },
             { value: '116', label: 'Chanter PVE Comprehensive Guide', file: 'inven_116_english.txt' },
             { value: '657', label: 'Cleric Guide', file: 'inven_657_english.txt' },
             { value: '66', label: 'Sorcerer PVE Guide', file: 'inven_66_english.txt' },
-            { value: '2760', label: 'Spiritmaster PVE Setup and Rotation', file: 'inven_2760_english.txt' },
-            { value: '965', label: 'Spiritmaster PVP Starter Guide', file: 'inven_965_english.txt' }
+            { value: '2760', label: 'Spiritmaster (PVE)', file: 'inven_2760_english.txt' },
+            { value: '965', label: 'Spiritmaster (PVP)', file: 'inven_965_english.txt' }
         ]
     },
     fast_leveling: {
@@ -935,7 +937,7 @@ function buildTacticsCategorySelect(isPublic = false) {
             .addOptions(
                 { label: '🏰 Dungeon Guide', value: 'dungeon', description: 'Conquest, Transcendence, Ludra guides' },
                 { label: '🐾 Pet Guide', value: 'pet', description: 'Pet understanding, soul, stats' },
-                { label: '⚔️ Class Guide', value: 'class', description: 'Swordmaster, Gladiator, Assassin, Ranger, Chanter, Cleric, Sorcerer, Spiritmaster' },
+                { label: '⚔️ Class Guide', value: 'class', description: 'Gladiator, Templar, Assassin, Ranger, Chanter, Cleric, Sorcerer, Spiritmaster' },
                 { label: '🚀 Fast Leveling', value: 'fast_leveling', description: 'Core early-game leveling priorities' },
                 { label: '💰 Kinah Farming', value: 'kinah_farming', description: 'Weekly kinah and resource farming routines' },
                 { label: '⚔️ CP Boost Guide', value: 'cp_boost_guide', description: 'Strike, board, medals, and gear growth plan' },
@@ -3431,8 +3433,21 @@ client.on('interactionCreate', async (interaction) => {
             await interaction.editReply({ content: `✅ Member list updated: ${merged.count} row(s).` });
         } else if (interaction.commandName === 'guidebook_fetch') {
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
-            await interaction.editReply({ content: '⏳ Fetching PlayNC guidebook… (up to 3 min). If scraping is slow, local fallback loads automatically.' });
+            await interaction.editReply({ content: '⏳ Refreshing guidebook data…' });
             try {
+                if (!CONFIG.GUIDEBOOK_ENABLE_SCRAPE) {
+                    const local = buildLocalGuidebookFallbackState();
+                    if ((local.categories?.length || 0) > 0) {
+                        const normalized = applyGuidebookCategoryCoverage(local);
+                        const total = (normalized.categories || []).reduce((n, c) => n + (c.guides?.length || 0), 0);
+                        saveGuidebookState(normalized);
+                        await interaction.editReply({ content: `✅ Guidebook refreshed from **local data**.\n${normalized.categories.length} categories, ${total} guides.\n**\`/panel type:guidebook_plaync\`** to post.` });
+                    } else {
+                        await interaction.editReply({ content: '❌ No local guidebook seed/data found. Please check `guidebook_official_seed.json`.' });
+                    }
+                    return;
+                }
+
                 let state = await withTimeout(
                     scrapePlayncGuidebookAll(),
                     GUIDEBOOK_FETCH_TIMEOUT_MS,
@@ -3449,11 +3464,11 @@ client.on('interactionCreate', async (interaction) => {
                     } else {
                         await interaction.editReply({ content: '❌ PlayNC scrape returned no data, and no local fallback files were found.' });
                     }
-                } else {
-                    state = applyGuidebookCategoryCoverage(state);
-                    saveGuidebookState(state);
-                    await interaction.editReply({ content: `✅ Guidebook fetched. ${state.categories?.length || 0} categories, ${total} guides.\n**\`/panel type:guidebook_plaync\`** to post.` });
+                    return;
                 }
+                state = applyGuidebookCategoryCoverage(state);
+                saveGuidebookState(state);
+                await interaction.editReply({ content: `✅ Guidebook fetched. ${state.categories?.length || 0} categories, ${total} guides.\n**\`/panel type:guidebook_plaync\`** to post.` });
             } catch (err) {
                 console.error('[guidebook_fetch]', err);
                 const fallback = buildLocalGuidebookFallbackState();
@@ -4273,15 +4288,20 @@ client.on('interactionCreate', async (interaction) => {
                         .setCustomId('btn_tactics_open')
                         .setLabel('Open Tactics Guide')
                         .setEmoji('📖')
-                        .setStyle(ButtonStyle.Primary)
+                        .setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder()
+                        .setCustomId('btn_tactics_post')
+                        .setLabel('Post to Channel (public)')
+                        .setEmoji('📢')
+                        .setStyle(ButtonStyle.Success)
                 );
-                const isTacticsPanel = m => m.author?.id === client.user?.id && (m.embeds?.[0]?.title?.includes('TACTICS') || m.components?.some(c => c.components?.some(b => b.customId === 'btn_tactics_open')));
+                const isTacticsPanel = m => m.author?.id === client.user?.id && (m.embeds?.[0]?.title?.includes('TACTICS') || m.components?.some(c => c.components?.some(b => b.customId === 'btn_tactics_open' || b.customId === 'btn_tactics_post')));
                 let allTactics = (await channel.messages.fetch({ limit: 100 })).filter(isTacticsPanel);
                 for (const m of allTactics.values()) await m.delete().catch(() => {});
                 const sent = await channel.send({ embeds: [embed], components: [row] });
                 allTactics = (await channel.messages.fetch({ limit: 100 })).filter(isTacticsPanel);
                 for (const m of allTactics.values()) { if (m.id !== sent.id) await m.delete().catch(() => {}); }
-                await interaction.editReply({ content: '✅ TACTICS panel posted. Button opens guides (ephemeral to user).' });
+                await interaction.editReply({ content: '✅ TACTICS panel posted. Buttons: **Open (ephemeral)** / **Post to Channel (admin, public)**.' });
             }
             } finally {
                 await new Promise(r => setTimeout(r, 2000));
@@ -4303,6 +4323,16 @@ client.on('interactionCreate', async (interaction) => {
                     content: '**TACTICS** — Select a category.\n_Visible only to you_',
                     components: [row],
                     flags: EPHEMERAL_FLAGS
+                });
+            } else if (id === 'btn_tactics_post') {
+                if (!hasManageGuild(interaction)) {
+                    await interaction.reply({ content: '❌ Only admins can post guides publicly.', flags: EPHEMERAL_FLAGS });
+                    return;
+                }
+                const row = buildTacticsCategorySelect(true);
+                await interaction.reply({
+                    content: '**TACTICS** — Select a category.\n_Everyone will see the selected guide._',
+                    components: [row]
                 });
             } else if (id === 'btn_guidebook_open') {
                 const state = loadGuidebookState();
@@ -5151,7 +5181,28 @@ function applyGuidebookCategoryCoverage(state) {
     };
 }
 
+function loadOfficialGuidebookSeedFromFile() {
+    try {
+        if (!fs.existsSync(CONFIG.GUIDEBOOK_OFFICIAL_SEED_PATH)) return null;
+        const raw = fs.readFileSync(CONFIG.GUIDEBOOK_OFFICIAL_SEED_PATH, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.categories)) return null;
+        return applyGuidebookCategoryCoverage({
+            categories: parsed.categories,
+            fetchedAt: parsed.fetchedAt || new Date().toISOString(),
+            source: 'official_seed_file'
+        });
+    } catch (err) {
+        console.warn(`[guidebook] official seed load failed: ${err.message}`);
+        return null;
+    }
+}
+
 function buildLocalGuidebookFallbackState() {
+    const officialSeed = loadOfficialGuidebookSeedFromFile();
+    if (officialSeed && Array.isArray(officialSeed.categories) && officialSeed.categories.length > 0) {
+        return officialSeed;
+    }
     const categoryMap = Object.fromEntries(
         GUIDEBOOK_CATEGORIES.map(cat => [
             cat.id,
@@ -5196,6 +5247,11 @@ function buildLocalGuidebookFallbackState() {
 }
 
 function loadGuidebookState() {
+    const officialSeed = loadOfficialGuidebookSeedFromFile();
+    if (officialSeed && Array.isArray(officialSeed.categories) && officialSeed.categories.length > 0) {
+        return applyGuidebookCategoryCoverage(officialSeed);
+    }
+
     try {
         const raw = fs.readFileSync(CONFIG.GUIDEBOOK_STATE_PATH, 'utf8');
         const parsed = JSON.parse(raw);
