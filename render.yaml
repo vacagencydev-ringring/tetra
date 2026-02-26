@@ -2,7 +2,7 @@ services:
   - type: web
     name: tetra-sync
     env: node
-    buildCommand: npm install && npx puppeteer browsers install chrome
+    buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: NODE_ENV

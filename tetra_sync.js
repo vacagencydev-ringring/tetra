@@ -32,7 +32,16 @@ const path = require('path');
 const os = require('os');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
+
+async function getPuppeteerLaunchOptions() {
+    return {
+        args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        executablePath: await chromium.executablePath(),
+        headless: IS_RENDER_ENV ? 'shell' : true
+    };
+}
 const schedule = require('node-schedule');
 
 // ═══════════════════════════════════════════════════════════
@@ -4771,10 +4780,7 @@ async function searchPlayncByName(charName) {
 async function scrapePlayncCharacter(pageUrl) {
     let browser;
     try {
-        browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-        });
+        browser = await puppeteer.launch(await getPuppeteerLaunchOptions());
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36');
         await page.goto(pageUrl, { waitUntil: 'networkidle2', timeout: 15000 });
@@ -5061,10 +5067,7 @@ async function scrapePlayncGuidebookAll() {
     let browser;
     const results = { categories: [], fetchedAt: new Date().toISOString() };
     try {
-        browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-        });
+        browser = await puppeteer.launch(await getPuppeteerLaunchOptions());
         for (let ci = 0; ci < GUIDEBOOK_CATEGORIES.length; ci++) {
             const cat = GUIDEBOOK_CATEGORIES[ci];
             if (cat.mergeIntoClass) continue;
@@ -5233,10 +5236,7 @@ function buildItemLookupEmbed(query, displayQuery = null) {
 async function scrapeTalentbuildsDb(query, category) {
     let browser;
     try {
-        browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-        });
+        browser = await puppeteer.launch(await getPuppeteerLaunchOptions());
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0');
         const url = `https://talentbuilds.com/aion2/database/${category || 'armor'}?search=${encodeURIComponent(query)}`;
@@ -5271,10 +5271,7 @@ async function scrapeTalentbuildsDb(query, category) {
 async function scrapeTalentbuildsArmory(query) {
     let browser;
     try {
-        browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-        });
+        browser = await puppeteer.launch(await getPuppeteerLaunchOptions());
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0');
         const url = `https://talentbuilds.com/aion2/armory?search=${encodeURIComponent(query)}&region=korea`;

@@ -20,7 +20,8 @@
     "express": "^4.21.0",
     "googleapis": "^171.4.0",
     "node-schedule": "^2.1.1",
-    "puppeteer": "^24.37.5"
+    "puppeteer-core": "24.35.0",
+    "@sparticuz/chromium": "143.0.4"
   },
   "devDependencies": {
     "simple-git": "^3.32.2"
