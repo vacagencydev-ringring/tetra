@@ -4666,7 +4666,8 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 await interaction.reply({
                     content: '**Where to post this link?** ↓ Select category, then URL modal will open.',
-                    components: [buildLinkCategorySelectRow()]
+                    components: [buildLinkCategorySelectRow()],
+                    flags: EPHEMERAL_FLAGS
                 });
             } else if (id === 'btn_link_set') {
                 if (!hasManageGuild(interaction)) {
