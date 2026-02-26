@@ -6,3 +6,4 @@ payments.json
 *.log
 .DS_Store
 bot_state.json
+.cache/
