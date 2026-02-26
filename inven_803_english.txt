@@ -1,0 +1,55 @@
+# Conquest Savage Horn Cave Guide — Know the Final Boss Mechanics!
+
+*Original: https://www.inven.co.kr/board/aion2/6444/803*
+
+---
+
+## Route
+
+No trash. Run past → bomb wall → **Boss 1: Cuhafu**. Climb → break left wall → drop into cave → **Boss 2: Shining Lycan Totem**. Break totem → door opens → **Boss 3: Necromancer Duan Ka**. After Duan Ka, ride tornado to final boss.
+
+---
+
+## Boss 1: Cuhafu
+
+**"Krau Tushu!"** → boss center → floors + lightning orbs. Everyone eats orbs (mobility slows). Second howl → purple ring widens. Leftover orbs touching ring = extra explosions.
+
+---
+
+## Boss 2: Shining Lycan Totem
+
+Gimmick boss. Totem spawns adds + bomb boxes at both ends. Can’t break totem until adds dead. DPS at ends for bombs; tank gathers adds in center; healer sustains.
+
+---
+
+## Boss 3: Necromancer Duan Ka
+
+**Wand spin:** Floor explosions under each player. Don’t overlap or die.
+
+**Lycan Summon:** Green orbs appear; only orb-eater can damage spirits. Kill within 15 sec.
+
+**Soul Call:** Stagger locked. All pulled center. Lightning orbs close in; touch = stun. Run out before big explosion (~8 sec).
+
+---
+
+## Final Boss: Savage Horn Nuakum
+
+- **Debuff:** Stacks from hits → floor spawns. Place at edge or overlap.
+- **Claw combo:** Front cone — deadly. Safe behind boss; DPS from rear.
+- **Gut grab:** Hand forward → pull. Stun → claw combo. Dodge back after stun break.
+- **Clone:** "사냥감은 정해졌다!" — one player immobilized (green HP). Non-marked players eat clone hits. Then boss drops: big circle = one person tank; small = stack.
+- **Blue Light of Destruction (~30% HP):** Central energy. Green HP target gets red orb. Hit energy 3x or wipe.
+- **Red orb x2:** Similar to clone; share hits.
+
+---
+
+*Images*
+https://static.inven.co.kr/column/2025/12/15/news/i1844105579.png
+https://static.inven.co.kr/column/2025/12/15/news/i1290068595.png
+https://static.inven.co.kr/column/2025/12/15/news/i1508310163.png
+https://static.inven.co.kr/column/2025/12/15/news/i1970493634.png
+https://static.inven.co.kr/column/2025/12/15/news/i1775889236.png
+
+---
+
+*Source: AION2 Inven Tips & Know-how Board*

@@ -1,0 +1,61 @@
+# Dead Dramata's Nest Guide
+
+*Original: https://www.inven.co.kr/board/aion2/6444/1249*
+
+---
+
+## Route
+
+Simple path but two underwater sections + one poison floor section.
+
+**Underwater:** White orbs = speed; yellow = breath. Share orbs with party. After water, stick to left wall to avoid adds.
+
+**Second boss path:** Large mushroom area; gliding can help skip adds.
+
+**Poison floors:** After second boss, Dramata appears. First poison — thread between floors; second — run right edge.
+
+**Final path:** Another underwater section. Avoid glowing mist (damage + knockback).
+
+---
+
+## Mid Boss: Hatching Nayatman
+
+**Lightning wisps:** Slow but many. Dodge before explosion.
+
+**Red blood, blue shell:** Two players linked. Distance = DoT. Move apart to break link → red/blue shields. Re-stack to remove shields or get stunned.
+
+**Spear + explosion:** Spear marks → expanding explosion. Sometimes multiple.
+
+---
+
+## Mid Boss: Administrator Najium
+
+Save stamina for **Guided Blades**. "막을 수 없는 칼날이 끝까지 널 분쇄하리라" — run behind stone pillars to break blades (similar to Arcanis 1st named).
+
+---
+
+## Final Boss: Corrupt Durvati
+
+- **Poison rain:** "독의 비를 뒤집어쓰거라!" — mark per player. Rain falls 4x; aim at small/big eggs. Small = 1 hit, big = 3 hits. Break small first.
+- **Roar:** After poison rain. Not close = fear and DPS loss. Stick close after placing poison.
+- **Venomous swamp:** "독에 물든 대지가 너희의 무덤이 되리라" — 4 sec timer. Climb rocks 2+ levels high to avoid breath.
+- **Add spawn (~30% HP):** "깨어나라, 나의 아이들아!" — eggs hatch. Small eggs = mobs that break rocks; big = attack players. Kill small-egg spawns first.
+
+---
+
+## Hard Mode Differences
+
+**Venomous swamp:** One player per rock only (debuff). Last swamp = "Rising Venomous Swamp" — climb higher.
+
+---
+
+*Images*
+https://static.inven.co.kr/column/2026/01/27/news/i1217500274.png
+https://static.inven.co.kr/column/2026/01/27/news/i1251786124.png
+https://static.inven.co.kr/column/2026/01/27/news/i1655917868.png
+https://static.inven.co.kr/column/2026/01/27/news/i1911233635.png
+https://static.inven.co.kr/column/2026/01/27/news/i1501712641.png
+
+---
+
+*Source: AION2 Inven Tips & Know-how Board*

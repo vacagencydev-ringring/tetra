@@ -771,6 +771,97 @@ function hasManageGuild(interaction) {
 
 const EPHEMERAL_FLAGS = MessageFlags.Ephemeral;
 
+// ═══════════════════════════════════════════════════════════
+// [TACTICS] Dungeon & Pet guides (ephemeral, user-only)
+// ═══════════════════════════════════════════════════════════
+const TACTICS_DATA = {
+    dungeon: {
+        label: 'Dungeon Guide',
+        items: [
+            { value: '361', label: 'Stagger Gauge & Wipe Mechanics', file: 'inven_361_english.txt' },
+            { value: '249', label: 'Kaisinel (EP6 Final Boss)', file: 'inven_249_english.txt' },
+            { value: '458', label: 'Krao Cave & Draupnir', file: 'inven_458_english.txt' },
+            { value: '521', label: 'Urugugu & Barklon Sky Island', file: 'inven_521_english.txt' },
+            { value: '655', label: 'Fire Temple', file: 'inven_655_english.txt' },
+            { value: '803', label: 'Savage Horn Cave', file: 'inven_803_english.txt' },
+            { value: '1249', label: 'Dead Dramata\'s Nest', file: 'inven_1249_english.txt' },
+            { value: '695', label: 'Transcendence Stages 1–10', file: 'inven_695_english.txt' },
+            { value: '1069', label: 'Ludra 1st & 2nd Named', file: 'inven_1069_english.txt' },
+            { value: '1159', label: 'Ludra 3rd Named Tips', file: 'inven_1159_english.txt' }
+        ]
+    },
+    pet: {
+        label: 'Pet Guide',
+        items: [
+            { value: '518', label: 'Pet Understanding (펫작)', file: 'inven_pet_518_english.txt' },
+            { value: '689', label: 'Pet Soul Acquisition (DB)', file: 'inven_pet_689_english.txt' },
+            { value: '1077', label: 'Pet Stats & Understanding', file: 'inven_pet_1077_english.txt' }
+        ]
+    }
+};
+
+function buildTacticsCategorySelect() {
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId('select_tactics_category')
+            .setPlaceholder('Select category…')
+            .addOptions(
+                { label: '🏰 Dungeon Guide', value: 'dungeon', description: 'Conquest, Transcendence, Ludra guides' },
+                { label: '🐾 Pet Guide', value: 'pet', description: 'Pet understanding, soul, stats' }
+            )
+    );
+}
+
+function buildTacticsSubSelect(category) {
+    const cat = TACTICS_DATA[category];
+    if (!cat) return null;
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(`select_tactics_sub:${category}`)
+            .setPlaceholder(`Select ${cat.label}…`)
+            .addOptions(cat.items.map(i => ({
+                label: i.label.slice(0, 100),
+                value: i.value
+            })))
+    );
+}
+
+function loadTacticsContent(fileName) {
+    const p = path.join(__dirname, fileName);
+    try {
+        return fs.readFileSync(p, 'utf8').trim();
+    } catch {
+        return null;
+    }
+}
+
+function buildTacticsEmbeds(content, title) {
+    const EMBED_DESC_MAX = 3800;
+    const embeds = [];
+    let text = String(content || '').trim();
+    if (!text) return [new EmbedBuilder().setDescription('No content found.').setColor(0x5865F2)];
+
+    const parts = [];
+    while (text.length > EMBED_DESC_MAX) {
+        const chunk = text.slice(0, EMBED_DESC_MAX);
+        const lastNewline = chunk.lastIndexOf('\n');
+        const splitAt = lastNewline > EMBED_DESC_MAX * 0.5 ? lastNewline + 1 : EMBED_DESC_MAX;
+        parts.push(text.slice(0, splitAt));
+        text = text.slice(splitAt);
+    }
+    if (text) parts.push(text);
+
+    for (let i = 0; i < parts.length; i++) {
+        const emb = new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setDescription(parts[i].slice(0, 4096));
+        if (i === 0 && title) emb.setTitle(title);
+        if (i > 0) emb.setTitle(`${title || 'TACTICS'} (${i + 1}/${parts.length})`);
+        embeds.push(emb);
+    }
+    return embeds.slice(0, 10);
+}
+
 async function safeEphemeral(interaction, content) {
     if (interaction.replied) return interaction.followUp({ content, flags: EPHEMERAL_FLAGS }).catch(() => {});
     if (interaction.deferred) return interaction.editReply({ content }).catch(() => {});
@@ -1284,7 +1375,7 @@ function buildGuideEmbedsKo() {
         .addFields(
             {
                 name: '📌 패널 게시 (모든 타입)',
-                value: '**`/panel type:<종류>`** — 아래 패널을 채널에 게시 (Admin)\n• `report` 일일 리포트 | `salary` 급여 | `join_verify` 가입 인증 | `payment` 입금 | `youtube` 정보 유튜브\n• `guide_ko` 전체 가이드(한글) | `guide_en` 전체 가이드(영어)',
+                value: '**`/panel type:<종류>`** — 아래 패널을 채널에 게시 (Admin)\n• `report` 일일 리포트 | `salary` 급여 | `join_verify` 가입 인증 | `payment` 입금 | `youtube` 정보 유튜브\n• `guide_ko` 전체 가이드(한글) | `guide_en` 전체 가이드(영어)\n• `guidebook_plaync` 공식 가이드북 | `tactics` 던전/펫 가이드',
                 inline: false
             },
             {
@@ -1368,9 +1459,19 @@ function buildGuideEmbedsKo() {
         )
         .setTimestamp();
     const e5 = new EmbedBuilder()
-        .setTitle('🔧 9. 기타')
-        .setColor(0x94a3b8)
+        .setTitle('📖 9. TACTICS & 공식 가이드북')
+        .setColor(0x8b5cf6)
         .addFields(
+            {
+                name: '던전/펫 가이드',
+                value: '**`/tactics`** — 던전/펫 가이드 (인벤 번역, 나만보기)\n**패널** `tactics`: 버튼 클릭 → 카테고리·가이드 선택',
+                inline: false
+            },
+            {
+                name: '공식 가이드북',
+                value: '**`/guidebook`** — PlayNC 공식 가이드북 (나만보기)\n**`/guidebook public:true`** — 관리자만, 채널에 전체 공개\n**패널** `guidebook_plaync`: Open(나만) / **Post to Channel**(Admin, 전체)\n**`/guidebook_fetch`** — 가이드북 갱신 (Admin, 2–5분)',
+                inline: false
+            },
             {
                 name: '회원목록·프리픽스',
                 value: '**`/member_list_organize`** — Member_List_* → 회원목록정리 시트 재구성 (Admin)\n**`/myinfo_register`** Approve 시 캐릭터명이 회원목록정리 G열에 반영\n**`!char <캐릭터명>`** — 캐릭터 검색 결과 DM 전송',
@@ -1390,7 +1491,7 @@ function buildGuideEmbedsEn() {
         .addFields(
             {
                 name: '📌 Panel Types',
-                value: '**`/panel type:<type>`** — Post a panel to this channel (Admin)\n• `report` Daily report | `salary` Salary | `join_verify` Join | `payment` Payment | `youtube` Info YouTube\n• `guide_ko` Full guide (KR) | `guide_en` Full guide (EN)',
+                value: '**`/panel type:<type>`** — Post a panel to this channel (Admin)\n• `report` Daily report | `salary` Salary | `join_verify` Join | `payment` Payment | `youtube` Info YouTube\n• `guide_ko` Full guide (KR) | `guide_en` Full guide (EN)\n• `guidebook_plaync` Official Guidebook | `tactics` Dungeon & Pet guides',
                 inline: false
             },
             {
@@ -1474,9 +1575,19 @@ function buildGuideEmbedsEn() {
         )
         .setTimestamp();
     const e5 = new EmbedBuilder()
-        .setTitle('🔧 9. Other')
-        .setColor(0x94a3b8)
+        .setTitle('📖 9. TACTICS & Official Guidebook')
+        .setColor(0x8b5cf6)
         .addFields(
+            {
+                name: 'Dungeon & Pet Guides',
+                value: '**`/tactics`** — Dungeon & pet guides (Inven translated, ephemeral)\n**Panel** `tactics`: Click button → select category & guide',
+                inline: false
+            },
+            {
+                name: 'Official Guidebook',
+                value: '**`/guidebook`** — PlayNC official guidebook (ephemeral)\n**`/guidebook public:true`** — Admin only, post to channel (everyone sees)\n**Panel** `guidebook_plaync`: Open (ephemeral) / **Post to Channel** (Admin, public)\n**`/guidebook_fetch`** — Refresh guidebook (Admin, 2–5 min)',
+                inline: false
+            },
             {
                 name: 'Member List · Prefix',
                 value: '**`/member_list_organize`** — Rebuild member list from Member_List_* (Admin)\n**`/myinfo_register`** Approve adds character name to member list column G\n**`!char <name>`** — Character search results sent via DM',
@@ -1559,6 +1670,22 @@ function buildGuideEmbedsUser() {
         )
         .setTimestamp();
     const e4 = new EmbedBuilder()
+        .setTitle('📖 TACTICS & Guidebook')
+        .setColor(0x8b5cf6)
+        .addFields(
+            {
+                name: 'Dungeon & Pet Guides',
+                value: '**`/tactics`** — Inven AION2 dungeon & pet guides (ephemeral, only you)\n_Or click **Open Tactics Guide** on the panel if posted_',
+                inline: false
+            },
+            {
+                name: 'Official Guidebook',
+                value: '**`/guidebook`** — PlayNC official guidebook (ephemeral)\n_Or click **Open Guidebook** on the panel. Admin can use **Post to Channel** to share publicly._',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    const e5 = new EmbedBuilder()
         .setTitle('🔧 Prefix Command')
         .setColor(0x94a3b8)
         .addFields(
@@ -1575,7 +1702,50 @@ function buildGuideEmbedsUser() {
             })
         .setFooter({ text: 'TETRA Sync | Member Guide (All members)' })
         .setTimestamp();
-    return [e1, e2, e3, e4];
+    return [e1, e2, e3, e4, e5];
+}
+
+function buildFaqAdminEmbed(lang = 'en') {
+    if (lang === 'ko') {
+        return new EmbedBuilder()
+            .setTitle('❓ FAQ (관리자)')
+            .setDescription('서버 관리자용 자주 묻는 질문.')
+            .setColor(0xf59e0b)
+            .addFields(
+                { name: 'Q: 패널은 어떻게 게시하나요?', value: '**`/panel type:<종류>`** — report, salary, join_verify, payment, youtube, guide_ko, guide_en, **guidebook_plaync**, **tactics**. 채널에서 실행하면 해당 패널 게시. 종류별 1개.', inline: false },
+                { name: 'Q: TACTICS와 가이드북 차이?', value: '**TACTICS** — 인벤 던전/펫 가이드 (번역). **가이드북** — PlayNC 공식 (클래스·스킬). 둘 다 기본은 나만보기.\n**관리자:** `/guidebook public:true` 또는 패널 **Post to Channel**로 전체 공개. **`/guidebook_fetch`**로 갱신.', inline: false },
+                { name: 'Q: 전체 가이드 vs 멤버 가이드?', value: '**전체 가이드** (`/panel type:guide_ko`, `guide_en`) — 전체 명령어, Admin이 채널에 게시\n**멤버 가이드** (`/guide`) — 멤버용 명령어, 나만보기 (ephemeral)', inline: false },
+                { name: 'Q: 필드 보스 타이머 설정 순서?', value: '1. **`/preset mode:combined`** 또는 **`/boss_fetch`** (URL에서 로드)\n2. 처치 시: **`/cut boss_name:<이름>`**로 기록\n3. **`/boss_alert_mode mode:dm`** — DM 알림 (선택)\n4. **`/boss_event_multiplier multiplier:0.8`** — 이벤트 리스폰 배율 (선택)', inline: false },
+                { name: 'Q: MVP 스케줄 설정?', value: '**`/mvp_set day:<요일> time:HH:mm`** — 요일별 MVP 시간 (Admin)\n**`/mvp`** — 현재 스케줄 조회 (Admin)', inline: false },
+                { name: 'Q: 키나 시세 모니터링 설정?', value: '**`/kinah_watch_preset`** — ItemBay/ItemMania 프리셋. channel, poll_minutes, mention_role 설정. **`/kinah_watch_status`**로 확인, **`/kinah_watch_stop`**으로 중지.', inline: false },
+                { name: 'Q: AON 한→영 번역?', value: '**`/aon_translate_set`** — category(notice/update/event), channel 설정. **`/aon_translate_source`** — AON 봇 ID. **`/aon_translate_status`**로 라우트 확인.', inline: false },
+                { name: 'Q: 캐릭터 검증(myinfo_register) 설정?', value: '**`/join_verify`** — 검증 없음 (Role만). **`/myinfo_register`**로만 캐릭터명 추가 (스크린샷 필수).\n1. Admin: **`/verify_channel_set category:<카테고리>`**\n2. 사용자: **`/myinfo_register character_name:<이름>`** → 스크린샷 업로드\n3. 스태프: Approve → 지역 선택 → 회원목록 G열에 캐릭터 추가', inline: false },
+                { name: 'Q: 입금 통화 선택?', value: '**Submit Payment** → 통화 선택 (KRW, USD, PHP, INR, NPR, CNY, TWD) → 금액·사유 입력. Payment Log 시트: A:G (날짜, 유형, 태그, 금액, **통화**, 사유, 상태)', inline: false },
+                { name: 'Q: 검색·가이드 결과는 누가 보나요?', value: '**`/character`** **`/item`** **`/collection`** **`/build`** — 나만 (ephemeral)\n**`!char <이름>`** — 결과 DM 전송\n**`/guide`** **`/tactics`** **`/guidebook`** — 나만 (ephemeral)\n**관리자:** `/guidebook public:true` — 채널 전체 공개', inline: false },
+                { name: 'Q: 권한 오류?', value: '봇에 **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels**(인증 채널용) 권한이 있는지 확인하세요.', inline: false }
+            )
+            .setFooter({ text: 'TETRA Sync | 관리자 FAQ' })
+            .setTimestamp();
+    }
+    return new EmbedBuilder()
+        .setTitle('❓ FAQ (Admin)')
+        .setDescription('Frequently asked questions for server admins.')
+        .setColor(0xf59e0b)
+        .addFields(
+            { name: 'Q: How do I post panels?', value: '**`/panel type:<type>`** — report, salary, join_verify, payment, youtube, guide_ko, guide_en, **guidebook_plaync**, **tactics**. Run in a channel to post. One panel per type.', inline: false },
+            { name: 'Q: TACTICS vs Guidebook?', value: '**TACTICS** — Inven dungeon/pet guides (translated). **Guidebook** — PlayNC official (class, skill). Both ephemeral by default.\n**Admin:** `/guidebook public:true` or panel **Post to Channel** to share publicly. Run **`/guidebook_fetch`** to refresh guidebook.', inline: false },
+            { name: 'Q: Full guide vs member guide?', value: '**Full guide** (`/panel type:guide_ko`, `guide_en`) — All commands, Admin posts to channel\n**Member guide** (`/guide`) — Member commands, visible only to you (ephemeral)', inline: false },
+            { name: 'Q: Field boss timer setup order?', value: '1. **`/preset mode:combined`** or **`/boss_fetch`** (load from URL)\n2. On kill: **`/cut boss_name:<name>`** to record\n3. **`/boss_alert_mode mode:dm`** — DM alerts (optional)\n4. **`/boss_event_multiplier multiplier:0.8`** — Event respawn rate (optional)', inline: false },
+            { name: 'Q: How to set MVP schedule?', value: '**`/mvp_set day:<day> time:HH:mm`** — Set MVP time per day (Admin)\n**`/mvp`** — View current schedule (Admin)', inline: false },
+            { name: 'Q: Kinah rate monitoring setup?', value: '**`/kinah_watch_preset`** — ItemBay/ItemMania preset for quick setup. Set channel, poll_minutes, mention_role. **`/kinah_watch_status`** to check, **`/kinah_watch_stop`** to stop.', inline: false },
+            { name: 'Q: AON Korean→English translation?', value: '**`/aon_translate_set`** — Set category(notice/update/event), channel. **`/aon_translate_source`** — AON bot ID. **`/aon_translate_status`** to view routes.', inline: false },
+            { name: 'Q: Character verification (myinfo_register) setup?', value: '**`/join_verify`** — No verification (Role only). Character names added via **`/myinfo_register`** only (screenshot required).\n1. Admin: **`/verify_channel_set category:<category>`**\n2. User: **`/myinfo_register character_name:<name>`** → Upload screenshot\n3. Staff: Approve → Select region → Character added to member list column G', inline: false },
+            { name: 'Q: How to select payment currency?', value: '**Submit Payment** → Select currency (KRW, USD, PHP, INR, NPR, CNY, TWD) → Enter amount & reason. Payment Log sheet: A:G (Date, Type, Tag, Amount, **Currency**, Reason, Status)', inline: false },
+            { name: 'Q: Who sees search results & guides?', value: '**`/character`** **`/item`** **`/collection`** **`/build`** — Only you (ephemeral)\n**`!char <name>`** — Results sent via DM\n**`/guide`** **`/tactics`** **`/guidebook`** — Only you (ephemeral)\n**Admin:** `/guidebook public:true` — channel sees', inline: false },
+            { name: 'Q: Permission errors?', value: 'Ensure the bot has **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels** (for verification channels).', inline: false }
+        )
+        .setFooter({ text: 'TETRA Sync | Admin FAQ' })
+        .setTimestamp();
 }
 
 function buildJoinVerifyPanelPayload() {
@@ -2212,6 +2382,14 @@ const commands = [
     new SlashCommandBuilder()
         .setName('faq_admin')
         .setDescription('Admin FAQ (Admin, shown only to you)')
+        .addStringOption(o => o
+            .setName('lang')
+            .setDescription('Language / 언어')
+            .setRequired(false)
+            .addChoices(
+                { name: 'English', value: 'en' },
+                { name: '한국어', value: 'ko' }
+            ))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('guide')
@@ -2220,6 +2398,18 @@ const commands = [
     new SlashCommandBuilder()
         .setName('homework')
         .setDescription('Shows the Aion 2 Daily/Weekly Task Guide')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('tactics')
+        .setDescription('View Dungeon & Pet guides (shown only to you, ephemeral)')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('guidebook')
+        .setDescription('View AION2 Official Guidebook (PlayNC)')
+        .addBooleanOption(o => o
+            .setName('public')
+            .setDescription('Post to channel (everyone sees) — Admin only')
+            .setRequired(false))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('report_kinah')
@@ -2266,7 +2456,8 @@ const commands = [
                 { name: 'Info YouTube (Translated Links)', value: 'youtube' },
                 { name: '📖 Usage Guide (Korean)', value: 'guide_ko' },
                 { name: '📖 Usage Guide (English)', value: 'guide_en' },
-                { name: '📖 PlayNC Guidebook (공식 가이드북)', value: 'guidebook_plaync' }
+                { name: '📖 PlayNC Guidebook (공식 가이드북)', value: 'guidebook_plaync' },
+                { name: '⚔️ TACTICS (Dungeon & Pet Guides)', value: 'tactics' }
             ))
         .toJSON(),
     new SlashCommandBuilder()
@@ -2760,8 +2951,9 @@ client.on('interactionCreate', async (interaction) => {
     }
     if (interaction.isChatInputCommand()) {
         const cmd = interaction.commandName;
-        if (['panel', 'character', 'boss_fetch', 'kinah_watch_preset', 'kinah_watch_set', 'salary_confirm', 'myinfo_register', 'member_list_organize', 'join_verify_panel', 'collection', 'build', 'kinah_watch_now', 'guidebook_fetch'].includes(cmd)) {
-            await interaction.deferReply({ flags: EPHEMERAL_FLAGS }).catch(() => {});
+        if (['panel', 'character', 'boss_fetch', 'kinah_watch_preset', 'kinah_watch_set', 'salary_confirm', 'myinfo_register', 'member_list_organize', 'join_verify_panel', 'collection', 'build', 'kinah_watch_now', 'guidebook_fetch', 'tactics', 'guidebook'].includes(cmd)) {
+            const guidebookPublic = cmd === 'guidebook' && interaction.options?.getBoolean('public') && hasManageGuild(interaction);
+            await interaction.deferReply({ flags: guidebookPublic ? 0 : EPHEMERAL_FLAGS }).catch(() => {});
         }
         if (cmd === 'help') {
             const embed = new EmbedBuilder()
@@ -2776,8 +2968,9 @@ client.on('interactionCreate', async (interaction) => {
                     '**Kinah:** `/kinah_watch_now` `/kinah_watch_status`\n\n' +
                     '**Search:** `/character` `/item` `/collection` `/build` — results only you see\n' +
                     '**Search:** `!char <name>` — results via DM\n\n' +
-                    '**Other:** `/youtube_ready` `/aon_translate_status`\n\n' +
-                    '_Use **`/guide`** to view full member guide (ephemeral)_'
+                    '**Guides:** `/guide` `/tactics` `/guidebook` — ephemeral (only you)\n' +
+                    '**Admin:** `/guidebook public:true` — post guidebook to channel (everyone sees)\n\n' +
+                    '**Other:** `/youtube_ready` `/aon_translate_status`'
                 )
                 .setColor(0x5865F2)
                 .setTimestamp();
@@ -2785,6 +2978,27 @@ client.on('interactionCreate', async (interaction) => {
         } else if (interaction.commandName === 'guide') {
             const embeds = buildGuideEmbedsUser();
             await interaction.reply({ embeds, flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'tactics') {
+            const row = buildTacticsCategorySelect();
+            await interaction.reply({
+                content: '**TACTICS** — Select a category.\n_Visible only to you_',
+                components: [row],
+                flags: EPHEMERAL_FLAGS
+            });
+        } else if (interaction.commandName === 'guidebook') {
+            const isPublic = interaction.options.getBoolean('public') && hasManageGuild(interaction);
+            const state = loadGuidebookState();
+            const row = buildGuidebookCategorySelect(state, isPublic);
+            if (!row) {
+                await interaction.editReply({
+                    content: '❌ No guidebook data. Admin must run **`/guidebook_fetch`** first (takes 2–5 min).'
+                });
+                return;
+            }
+            await interaction.editReply({
+                content: isPublic ? '**📖 AION2 Official Guidebook** — Select a category.\n_Everyone will see the selected guide._' : '**📖 AION2 Official Guidebook** — Select a category.\n_Visible only to you_',
+                components: [row]
+            });
         } else if (interaction.commandName === 'homework') {
             const embed = new EmbedBuilder()
                 .setColor(0x00E5FF)
@@ -2821,64 +3035,8 @@ client.on('interactionCreate', async (interaction) => {
                 await safeEphemeral(interaction, '❌ Manage Server permission required.');
                 return;
             }
-            const embed = new EmbedBuilder()
-                .setTitle('❓ FAQ (Admin)')
-                .setDescription('Frequently asked questions for server admins.')
-                .setColor(0xf59e0b)
-                .addFields(
-                    {
-                        name: 'Q: How do I post panels?',
-                        value: '**`/panel type:<type>`** — Choose report, salary, join_verify, payment, youtube. Run in a channel to post that panel there. One panel per type is kept.',
-                        inline: false
-                    },
-                    {
-                        name: 'Q: Full guide vs member guide?',
-                        value: '**Full guide** (`/panel type:guide_ko`, `guide_en`) — All commands, Admin posts to channel\n**Member guide** (`/guide`) — Member commands, visible only to you (ephemeral)',
-                        inline: false
-                    },
-                    {
-                        name: 'Q: Field boss timer setup order?',
-                        value: '1. **`/preset mode:combined`** or **`/boss_fetch`** (load from URL)\n2. On kill: **`/cut boss_name:<name>`** to record\n3. **`/boss_alert_mode mode:dm`** — DM alerts (optional)\n4. **`/boss_event_multiplier multiplier:0.8`** — Event respawn rate (optional)',
-                        inline: false
-                    },
-                    {
-                        name: 'Q: How to set MVP schedule?',
-                        value: '**`/mvp_set day:<day> time:HH:mm`** — Set MVP time per day (Admin)\n**`/mvp`** — View current schedule (Admin)',
-                        inline: false
-                    },
-                    {
-                        name: 'Q: Kinah rate monitoring setup?',
-                        value: '**`/kinah_watch_preset`** — ItemBay/ItemMania preset for quick setup. Set channel, poll_minutes, mention_role. **`/kinah_watch_status`** to check, **`/kinah_watch_stop`** to stop.',
-                        inline: false
-                    },
-                    {
-                        name: 'Q: AON Korean→English translation?',
-                        value: '**`/aon_translate_set`** — Set category(notice/update/event), channel. **`/aon_translate_source`** — AON bot ID. **`/aon_translate_status`** to view routes.',
-                        inline: false
-                    },
-                    {
-                        name: 'Q: Character verification (myinfo_register) setup?',
-                        value: '**`/join_verify`** — No verification (Role only). Character names added via **`/myinfo_register`** only (screenshot required).\n1. Admin: **`/verify_channel_set category:<category>`**\n2. User: **`/myinfo_register character_name:<name>`** → Upload screenshot\n3. Staff: Approve → Select region → Character added to member list column G',
-                        inline: false
-                    },
-                    {
-                        name: 'Q: How to select payment currency?',
-                        value: '**Submit Payment** → Select currency (KRW, USD, PHP, INR, NPR, CNY, TWD) → Enter amount & reason. Payment Log sheet: A:G (Date, Type, Tag, Amount, **Currency**, Reason, Status)',
-                        inline: false
-                    },
-                    {
-                        name: 'Q: Who sees search results & guide?',
-                        value: '**`/character`** **`/item`** **`/collection`** **`/build`** — Only you (ephemeral)\n**`!char <name>`** — Results sent via DM\n**`/guide`** — Only you',
-                        inline: false
-                    },
-                    {
-                        name: 'Q: Permission errors?',
-                        value: 'Ensure the bot has **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels** (for verification channels).',
-                        inline: false
-                    }
-                )
-                .setFooter({ text: 'TETRA Sync | Admin FAQ' })
-                .setTimestamp();
+            const lang = interaction.options?.getString('lang') || 'en';
+            const embed = buildFaqAdminEmbed(lang);
             await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
         } else if (interaction.commandName === 'report_kinah') {
             const r = interaction.options.getString('region') || 'ph';
@@ -3849,13 +4007,55 @@ client.on('interactionCreate', async (interaction) => {
                 if (!hasManageGuild(interaction)) { await interaction.editReply({ content: '❌ Admin permission required.' }); return; }
                 const state = loadGuidebookState();
                 const embeds = buildGuidebookPlayncEmbeds(state);
-                const isGbPanel = m => m.author?.id === client.user?.id && m.embeds?.[0]?.title?.includes('Guidebook');
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('btn_guidebook_open')
+                        .setLabel('Open Guidebook (ephemeral)')
+                        .setEmoji('📖')
+                        .setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder()
+                        .setCustomId('btn_guidebook_post')
+                        .setLabel('Post to Channel (public)')
+                        .setEmoji('📢')
+                        .setStyle(ButtonStyle.Success)
+                );
+                const isGbPanel = m => m.author?.id === client.user?.id && (m.embeds?.[0]?.title?.includes('Guidebook') || m.components?.some(c => c.components?.some(b => b.customId === 'btn_guidebook_open' || b.customId === 'btn_guidebook_post')));
                 let allGb = (await channel.messages.fetch({ limit: 50 })).filter(isGbPanel);
                 for (const m of allGb.values()) await m.delete().catch(() => {});
-                const sent = await channel.send({ embeds });
+                const sent = await channel.send({ embeds, components: [row] });
                 allGb = (await channel.messages.fetch({ limit: 50 })).filter(isGbPanel);
                 for (const m of allGb.values()) { if (m.id !== sent.id) await m.delete().catch(() => {}); }
-                await interaction.editReply({ content: '✅ PlayNC Guidebook panel posted. Run **`/guidebook_fetch`** to refresh.' });
+                await interaction.editReply({ content: '✅ PlayNC Guidebook panel posted. Buttons: **ephemeral** (you only) / **Post to Channel** (admin, public). Run **`/guidebook_fetch`** to refresh.' });
+            } else if (kind === 'tactics') {
+                if (!hasManageGuild(interaction)) { await interaction.editReply({ content: '❌ Admin permission required.' }); return; }
+                const embed = new EmbedBuilder()
+                    .setTitle('⚔️ TACTICS — Dungeon & Pet Guides')
+                    .setDescription(
+                        '**Inven AION2 guides (translated) — shown only to you when opened.**\n\n' +
+                        '**Categories:**\n' +
+                        '• **Dungeon Guide** — Stagger Gauge, Kaisinel, Krao Cave, Draupnir, Urugugu, Barklon, Fire Temple, Savage Horn Cave, Dead Dramata, Transcendence, Ludra 1–2, Ludra 3\n' +
+                        '• **Pet Guide** — Pet Understanding (펫작), Pet Soul DB, Pet Stats\n\n' +
+                        '**How to use:**\n' +
+                        '• Click the button below and select category → guide\n' +
+                        '• Or use **`/tactics`** — same flow, ephemeral\n\n' +
+                        '_Results are visible only to you._'
+                    )
+                    .setColor(0x5865F2)
+                    .setTimestamp();
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('btn_tactics_open')
+                        .setLabel('Open Tactics Guide')
+                        .setEmoji('📖')
+                        .setStyle(ButtonStyle.Primary)
+                );
+                const isTacticsPanel = m => m.author?.id === client.user?.id && (m.embeds?.[0]?.title?.includes('TACTICS') || m.components?.some(c => c.components?.some(b => b.customId === 'btn_tactics_open')));
+                let allTactics = (await channel.messages.fetch({ limit: 100 })).filter(isTacticsPanel);
+                for (const m of allTactics.values()) await m.delete().catch(() => {});
+                const sent = await channel.send({ embeds: [embed], components: [row] });
+                allTactics = (await channel.messages.fetch({ limit: 100 })).filter(isTacticsPanel);
+                for (const m of allTactics.values()) { if (m.id !== sent.id) await m.delete().catch(() => {}); }
+                await interaction.editReply({ content: '✅ TACTICS panel posted. Button opens guides (ephemeral to user).' });
             }
             } finally {
                 await new Promise(r => setTimeout(r, 2000));
@@ -3871,7 +4071,47 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isButton()) {
         try {
             const id = interaction.customId;
-            if (id === 'btn_join_verify_open') {
+            if (id === 'btn_tactics_open') {
+                const row = buildTacticsCategorySelect();
+                await interaction.reply({
+                    content: '**TACTICS** — Select a category.\n_Visible only to you_',
+                    components: [row],
+                    flags: EPHEMERAL_FLAGS
+                });
+            } else if (id === 'btn_guidebook_open') {
+                const state = loadGuidebookState();
+                const row = buildGuidebookCategorySelect(state, false);
+                if (!row) {
+                    await interaction.reply({
+                        content: '❌ No guidebook data. Admin must run **`/guidebook_fetch`** first (takes 2–5 min).',
+                        flags: EPHEMERAL_FLAGS
+                    });
+                    return;
+                }
+                await interaction.reply({
+                    content: '**📖 AION2 Official Guidebook** — Select a category.\n_Visible only to you_',
+                    components: [row],
+                    flags: EPHEMERAL_FLAGS
+                });
+            } else if (id === 'btn_guidebook_post') {
+                if (!hasManageGuild(interaction)) {
+                    await interaction.reply({ content: '❌ Only admins can post guides publicly.', flags: EPHEMERAL_FLAGS });
+                    return;
+                }
+                const state = loadGuidebookState();
+                const row = buildGuidebookCategorySelect(state, true);
+                if (!row) {
+                    await interaction.reply({
+                        content: '❌ No guidebook data. Admin must run **`/guidebook_fetch`** first (takes 2–5 min).',
+                        flags: EPHEMERAL_FLAGS
+                    });
+                    return;
+                }
+                await interaction.reply({
+                    content: '**📖 AION2 Official Guidebook** — Select a category.\n_Everyone will see the selected guide._',
+                    components: [row]
+                });
+            } else if (id === 'btn_join_verify_open') {
                 await interaction.reply({
                     content: '🌍 Please select your country for join verification.',
                     components: [buildJoinCountrySelectRow()],
@@ -4045,8 +4285,90 @@ client.on('interactionCreate', async (interaction) => {
         return;
     }
 
-    // 나라 선택 / 통화 선택 드롭다운
+    // 나라 선택 / 통화 선택 / TACTICS 드롭다운
     if (interaction.isStringSelectMenu()) {
+        if (interaction.customId.startsWith('select_guidebook_category:')) {
+            const parts = interaction.customId.split(':');
+            const isPublic = parts[1] === '1';
+            const catIndex = interaction.values?.[0];
+            const state = loadGuidebookState();
+            const subRow = buildGuidebookGuideSelect(catIndex, state, isPublic);
+            if (!subRow) {
+                await interaction.update({ content: '❌ No guides in this category.', components: [] }).catch(() => {});
+                return;
+            }
+            const cat = state.categories?.[parseInt(catIndex, 10)];
+            const catName = cat?.nameEn || cat?.name || 'Guide';
+            await interaction.update({
+                content: isPublic ? `**📖 Official Guidebook** — Select guide in **${catName}**.\n_Everyone will see the selected guide._` : `**📖 Official Guidebook** — Select guide in **${catName}**.\n_Visible only to you_`,
+                components: [subRow]
+            });
+            return;
+        }
+        if (interaction.customId.startsWith('select_guidebook_guide:')) {
+            const parts = interaction.customId.split(':');
+            const catIndex = parts[1];
+            const isPublic = parts[2] === '1';
+            const guideIndex = interaction.values?.[0];
+            const state = loadGuidebookState();
+            const cat = state.categories?.[parseInt(catIndex, 10)];
+            const guide = cat?.guides?.[parseInt(guideIndex, 10)];
+            if (!guide) {
+                await interaction.update({ content: '❌ Guide not found.', components: [] }).catch(() => {});
+                return;
+            }
+            const catName = cat.nameEn || cat.name || 'Guide';
+            const embeds = buildGuidebookGuideEmbeds(guide, catName);
+            await interaction.update({
+                content: null,
+                embeds,
+                components: []
+            }).catch(() => {});
+            return;
+        }
+        if (interaction.customId === 'select_tactics_category') {
+            const category = interaction.values?.[0];
+            const cat = TACTICS_DATA[category];
+            if (!cat) {
+                await interaction.reply({ content: '❌ Invalid category.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            const subRow = buildTacticsSubSelect(category);
+            if (!subRow) {
+                await interaction.reply({ content: '❌ No sub-options.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            await interaction.update({
+                content: `**TACTICS** — Select guide for **${cat.label}**.\n_Visible only to you_`,
+                components: [subRow],
+                flags: EPHEMERAL_FLAGS
+            });
+            return;
+        }
+        if (interaction.customId.startsWith('select_tactics_sub:')) {
+            const category = interaction.customId.split(':')[1];
+            const subValue = interaction.values?.[0];
+            const cat = TACTICS_DATA[category];
+            const item = cat?.items?.find(i => i.value === subValue);
+            if (!item) {
+                await interaction.reply({ content: '❌ Guide not found.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            const content = loadTacticsContent(item.file);
+            if (!content) {
+                await interaction.update({ content: `❌ Could not load guide: ${item.file}`, components: [] }).catch(() => {});
+                return;
+            }
+            const title = item.label;
+            const embeds = buildTacticsEmbeds(content, title);
+            await interaction.update({
+                content: null,
+                embeds,
+                components: [],
+                flags: EPHEMERAL_FLAGS
+            }).catch(() => {});
+            return;
+        }
         if (interaction.customId === 'select_join_country') {
             const selected = interaction.values?.[0];
             const regionCfg = getRegionConfig(selected);
@@ -4489,10 +4811,12 @@ async function scrapePlayncCharacter(pageUrl) {
 }
 
 const GUIDEBOOK_BASE_URL = 'https://aion2.plaync.com/ko-kr/guidebook';
+const AION2_CLASS_NAMES = ['검성', '수호성', '살성', '궁성', '호법성', '치유성', '마도성', '정령성'];
+const AION2_CLASS_NAMES_EN = { '검성': 'Swordmaster', '수호성': 'Gladiator', '살성': 'Assassin', '궁성': 'Ranger', '호법성': 'Chanter', '치유성': 'Cleric', '마도성': 'Sorcerer', '정령성': 'Spiritmaster' };
 const GUIDEBOOK_CATEGORIES = [
     { id: '4227', name: '초보자 가이드', nameEn: 'Beginner\'s Guide' },
-    { id: '4234', name: '클래스', nameEn: 'Class' },
-    { id: '4235', name: '스킬', nameEn: 'Skill' },
+    { id: '4234', name: '클래스', nameEn: 'Class', mergeWithSkill: true },
+    { id: '4235', name: '스킬', nameEn: 'Skill', mergeIntoClass: true },
     { id: '4236', name: '아이템', nameEn: 'Items' },
     { id: '4237', name: '저널', nameEn: 'Journal' },
     { id: '4238', name: '지역', nameEn: 'Regions' },
@@ -4504,6 +4828,7 @@ const GUIDEBOOK_CATEGORIES = [
     { id: '4244', name: '채집과 제작', nameEn: 'Gathering & Crafting' },
 ];
 const GUIDEBOOK_MAX_GUIDES_PER_CATEGORY = 6;
+const GUIDEBOOK_MAX_CLASS_GUIDES = 8;
 const GUIDEBOOK_MAX_DETAIL_PER_CATEGORY = 4;
 const GUIDEBOOK_MAX_CONTENT_LENGTH = 3500;
 
@@ -4514,6 +4839,78 @@ function loadGuidebookState() {
         if (parsed && typeof parsed === 'object' && Array.isArray(parsed.categories)) return parsed;
     } catch (_) {}
     return { categories: [], fetchedAt: null };
+}
+
+function buildGuidebookCategorySelect(state, isPublic = false) {
+    const categories = state?.categories || [];
+    if (categories.length === 0) return null;
+    const opts = categories.slice(0, 25).map((cat, i) => ({
+        label: (cat.nameEn || cat.name || `Category ${i + 1}`).slice(0, 100),
+        value: String(i),
+        description: `${(cat.guides || []).length} guide(s)`
+    }));
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(`select_guidebook_category:${isPublic ? '1' : '0'}`)
+            .setPlaceholder('Select category…')
+            .addOptions(opts)
+    );
+}
+
+function buildGuidebookGuideSelect(catIndex, state, isPublic = false) {
+    const categories = state?.categories || [];
+    const cat = categories[parseInt(catIndex, 10)];
+    if (!cat || !cat.guides?.length) return null;
+    const opts = cat.guides.slice(0, 25).map((g, i) => ({
+        label: (g.titleEn || g.title || `Guide ${i + 1}`).slice(0, 100),
+        value: String(i)
+    }));
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(`select_guidebook_guide:${catIndex}:${isPublic ? '1' : '0'}`)
+            .setPlaceholder(`Select guide in ${cat.nameEn || cat.name}…`)
+            .addOptions(opts)
+    );
+}
+
+function buildGuidebookGuideEmbeds(guide, catName) {
+    const EMBED_DESC_MAX = 3800;
+    const maxContentLen = GUIDEBOOK_MAX_CONTENT_LENGTH;
+    const title = guide.titleEn || guide.title || 'Guide';
+    const desc = (guide.descEn || guide.desc || '').trim();
+    const content = (guide.contentEn || guide.content || '').slice(0, maxContentLen).trim();
+    let text = [desc, content].filter(Boolean).join('\n\n');
+    if (guide.url) text = `[${title}](${guide.url})\n\n` + text;
+
+    const parts = [];
+    while (text.length > EMBED_DESC_MAX) {
+        const chunk = text.slice(0, EMBED_DESC_MAX);
+        const lastNewline = chunk.lastIndexOf('\n');
+        const splitAt = lastNewline > EMBED_DESC_MAX * 0.5 ? lastNewline + 1 : EMBED_DESC_MAX;
+        parts.push(text.slice(0, splitAt));
+        text = text.slice(splitAt);
+    }
+    if (text) parts.push(text);
+
+    const embeds = parts.map((p, i) => {
+        const emb = new EmbedBuilder().setColor(0x5865F2).setDescription(p.slice(0, 4096));
+        if (i === 0) {
+            emb.setTitle(`📖 ${catName}: ${title}`);
+            if (guide.images?.[0]) emb.setThumbnail(guide.images[0]);
+        } else {
+            emb.setTitle(`${title} (${i + 1}/${parts.length})`);
+        }
+        return emb;
+    });
+    if (embeds.length === 0) {
+        const fallback = new EmbedBuilder()
+            .setTitle(`📖 ${catName}: ${title}`)
+            .setDescription(`[${title}](${guide.url})\n\n${desc || 'No content.'}`)
+            .setColor(0x5865F2);
+        if (guide.images?.[0]) fallback.setThumbnail(guide.images[0]);
+        return [fallback];
+    }
+    return embeds;
 }
 
 function saveGuidebookState(state) {
@@ -4562,7 +4959,14 @@ async function scrapePlayncGuidebookView(browser, guideUrl) {
                 .map(img => img.src)
                 .filter(src => /^https?:\/\//.test(src) && !/logo|icon|avatar|button|sprite|blank|pixel|1x1|dot/i.test(src) && src.length < 500)
                 .slice(0, 5);
-            return { title: title || null, content: content || null, images: imgs };
+            const links = [];
+            for (const a of Array.from(document.querySelectorAll('a[href*="guidebook/view"], a[href*="/guidebook/"]'))) {
+                const href = a.href || '';
+                if (!href.includes('view')) continue;
+                const text = (a.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+                links.push({ href, text });
+            }
+            return { title: title || null, content: content || null, images: imgs, links };
         });
         return data;
     } finally {
@@ -4611,6 +5015,48 @@ async function scrapePlayncGuidebookCategory(browser, categoryId) {
     }
 }
 
+function parseClassSkillTitle(title) {
+    const t = String(title || '').trim();
+    for (const c of AION2_CLASS_NAMES) {
+        if (t === `${c} 스킬` || t.startsWith(`${c} 스킬`)) return { className: c, type: '스킬' };
+    }
+    return null;
+}
+
+function findSkillLinkFromDetail(g, className) {
+    const links = g.links || [];
+    const pattern = new RegExp(className + '\\s*스킬', 'i');
+    for (const { href, text } of links) {
+        if (pattern.test(text)) return href;
+        try {
+            const u = new URL(href);
+            const title = u.searchParams.get('title') || '';
+            if (pattern.test(decodeURIComponent(title))) return href;
+        } catch (_) {}
+    }
+    return null;
+}
+
+async function fetchAndEnrichGuide(browser, g) {
+    if (!g.url || !g.url.includes('view')) return g;
+    try {
+        const detail = await scrapePlayncGuidebookView(browser, g.url);
+        g.content = detail.content || g.desc;
+        g.images = detail.images || [];
+        g.links = detail.links || [];
+        if (detail.title) g.title = detail.title;
+        if (hasHangul(g.title)) g.titleEn = await translateKoToEnLong(g.title) || g.title;
+        else g.titleEn = g.title;
+        if (g.desc && hasHangul(g.desc)) g.descEn = await translateKoToEn(g.desc) || g.desc;
+        else g.descEn = g.desc;
+        if (g.content && hasHangul(g.content)) g.contentEn = await translateKoToEnLong(g.content.slice(0, 1500)) || g.content.slice(0, 1500);
+        else g.contentEn = (g.content || '').slice(0, 1500);
+    } catch (err) {
+        console.warn(`[guidebook] view ${g.title?.slice(0, 30)} failed:`, err.message);
+    }
+    return g;
+}
+
 async function scrapePlayncGuidebookAll() {
     let browser;
     const results = { categories: [], fetchedAt: new Date().toISOString() };
@@ -4619,31 +5065,71 @@ async function scrapePlayncGuidebookAll() {
             headless: true,
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
         });
-        for (const cat of GUIDEBOOK_CATEGORIES) {
+        for (let ci = 0; ci < GUIDEBOOK_CATEGORIES.length; ci++) {
+            const cat = GUIDEBOOK_CATEGORIES[ci];
+            if (cat.mergeIntoClass) continue;
+
             try {
-                let guides = await scrapePlayncGuidebookCategory(browser, cat.id);
-                if (guides.length === 0) continue;
-                guides = guides.slice(0, GUIDEBOOK_MAX_GUIDES_PER_CATEGORY);
-                for (let i = 0; i < guides.length; i++) {
-                    const g = guides[i];
-                    if (!g.url || !g.url.includes('view')) continue;
-                    try {
-                        const detail = await scrapePlayncGuidebookView(browser, g.url);
-                        g.content = detail.content || g.desc;
-                        g.images = detail.images || [];
-                        if (detail.title) g.title = detail.title;
-                        if (hasHangul(g.title)) g.titleEn = await translateKoToEnLong(g.title) || g.title;
-                        else g.titleEn = g.title;
-                        if (g.desc && hasHangul(g.desc)) g.descEn = await translateKoToEn(g.desc) || g.desc;
-                        else g.descEn = g.desc;
-                        if (g.content && hasHangul(g.content)) g.contentEn = await translateKoToEnLong(g.content.slice(0, 1500)) || g.content.slice(0, 1500);
-                        else g.contentEn = (g.content || '').slice(0, 1500);
-                    } catch (err) {
-                        console.warn(`[guidebook] view ${g.title?.slice(0, 30)} failed:`, err.message);
+                if (cat.mergeWithSkill) {
+                    const classGuides = await scrapePlayncGuidebookCategory(browser, '4234');
+                    const skillGuides = await scrapePlayncGuidebookCategory(browser, '4235');
+                    const classMap = {};
+                    for (const g of (classGuides || []).slice(0, GUIDEBOOK_MAX_CLASS_GUIDES * 2)) {
+                        const t = (g.title || '').trim();
+                        const matched = AION2_CLASS_NAMES.find(c => t === c || t.startsWith(c + ' ') || t.startsWith(c + '('));
+                        if (matched) {
+                            classMap[matched] = classMap[matched] || {};
+                            if (!classMap[matched].basicInfo) classMap[matched].basicInfo = g;
+                        }
                     }
-                    await new Promise(r => setTimeout(r, 600));
+                    for (const g of (skillGuides || []).slice(0, GUIDEBOOK_MAX_CLASS_GUIDES * 2)) {
+                        const parsed = parseClassSkillTitle(g.title);
+                        if (parsed) {
+                            classMap[parsed.className] = classMap[parsed.className] || {};
+                            classMap[parsed.className].skillFromList = g;
+                        }
+                    }
+                    const mergedGuides = [];
+                    for (const c of AION2_CLASS_NAMES) {
+                        const entries = classMap[c] || {};
+                        if (entries.basicInfo) {
+                            const g = await fetchAndEnrichGuide(browser, entries.basicInfo);
+                            g.title = `${c} - 기본정보`;
+                            g.titleEn = `${AION2_CLASS_NAMES_EN[c] || c} - Basic Info`;
+                            mergedGuides.push(g);
+                            await new Promise(r => setTimeout(r, 600));
+
+                            const skillLink = findSkillLinkFromDetail(g, c);
+                            const skillG = skillLink
+                                ? { url: skillLink, title: `${c} 스킬`, desc: null }
+                                : entries.skillFromList;
+                            if (skillG) {
+                                const enriched = await fetchAndEnrichGuide(browser, skillG);
+                                enriched.title = `${c} - 스킬`;
+                                enriched.titleEn = `${AION2_CLASS_NAMES_EN[c] || c} - Skills`;
+                                mergedGuides.push(enriched);
+                                await new Promise(r => setTimeout(r, 600));
+                            }
+                        } else if (entries.skillFromList) {
+                            const enriched = await fetchAndEnrichGuide(browser, entries.skillFromList);
+                            enriched.title = `${c} - 스킬`;
+                            enriched.titleEn = `${AION2_CLASS_NAMES_EN[c] || c} - Skills`;
+                            mergedGuides.push(enriched);
+                            await new Promise(r => setTimeout(r, 600));
+                        }
+                    }
+                    results.categories.push({ id: cat.id, name: cat.name, nameEn: cat.nameEn || cat.name, guides: mergedGuides });
+                } else {
+                    let guides = await scrapePlayncGuidebookCategory(browser, cat.id);
+                    if (guides.length === 0) continue;
+                    guides = guides.slice(0, GUIDEBOOK_MAX_GUIDES_PER_CATEGORY);
+                    for (let i = 0; i < guides.length; i++) {
+                        const g = guides[i];
+                        await fetchAndEnrichGuide(browser, g);
+                        await new Promise(r => setTimeout(r, 600));
+                    }
+                    results.categories.push({ id: cat.id, name: cat.name, nameEn: cat.nameEn || cat.name, guides });
                 }
-                results.categories.push({ id: cat.id, name: cat.name, nameEn: cat.nameEn || cat.name, guides });
             } catch (err) {
                 console.warn(`[guidebook] category ${cat.id} failed:`, err.message);
             }

@@ -1,0 +1,63 @@
+# Conquest Urugugu Gorge & Barklon's Sky Island Guide
+
+*Original: https://www.inven.co.kr/board/aion2/6444/521*
+
+---
+
+## Urugugu Gorge — Route
+
+Forward → upper boss → back to lower boss → forward. Kill **Urugugu Wind Shaman** at end for wind path. Ride tornadoes to final boss. No trash needed; only final Obelisk required.
+
+---
+
+## Urugugu — Mid Boss: Captain Laul
+
+When Laul says **"힘을 되돌려주겠다니!"** and pauses — **counter pattern**. Stop attacking or you reflect damage. Then move out for wide AoE.
+
+---
+
+## Urugugu — Final Boss: Sacred Auldeur
+
+- **Enrage:** Yellow gauge under HP. Fail to kill in time = stronger boss.
+- **Storm Strike:** Boss disappears; red marker on one player. Everyone stack to split damage.
+- **Feather Grab:** Feathers → one player lifted and dropped. Press Space to break free.
+
+---
+
+## Barklon's Sky Island — Route
+
+Debuff stacks over time; 3 stacks = bind. **Mist Spirit Stones** clear it (rare in boss fights). Run straight → first boss → fly down → break wall → wind path → **Odd Rock Spirit** for barrier. Jump at ledge (or use right tornado). At end, collect 4 elements and place on altar for final boss.
+
+---
+
+## Barklon — Mid Boss: Tiae
+
+Don’t stand close — party proximity causes heavy DoT. **"활짝 피어라!"** → jump → burst flowers, then all stack tight. **Clock pattern:** dodge left, place poison tiles tightly. After 4 shots, jump slam — getting hit = knockback into poison = death.
+
+---
+
+## Barklon — Mid Boss: Tamon
+
+Ground spike = petrify. One petrified = boss uses raid AoE. Red body = physical absorb; purple = magic absorb. Stop DPS when wrong color.
+
+---
+
+## Barklon — Final Boss: Barklon
+
+- **Enrage:** Must kill before enrage or unwinnable.
+- **Bind:** One target; green HP bar = pre-cast. Others run in and break bind.
+- **Rock Prison:** Stagger locked; all pulled in. Destroy red rock to escape. Don’t waste Stigma during lock.
+- **Rising Spikes:** Red floor → jump for each wave. After 3rd wave, jump again or get AoE bind.
+
+---
+
+*Images*
+https://static.inven.co.kr/column/2025/11/28/news/i1342564730.png
+https://static.inven.co.kr/column/2025/11/28/news/i1920153942.png
+https://static.inven.co.kr/column/2025/11/28/news/i1581418761.png
+https://static.inven.co.kr/column/2025/11/28/news/i1624314055.png
+https://static.inven.co.kr/column/2025/11/28/news/i1760721072.png
+
+---
+
+*Source: AION2 Inven Tips & Know-how Board*

@@ -1,0 +1,43 @@
+# Kaisinel — EP6 Final Story Boss Guide
+
+*Original: https://www.inven.co.kr/board/aion2/6444/249*
+
+---
+
+## Overview
+
+Kaisinel is the EP6 story final boss — a level 45 gatekeeper. Expect many AoE floors and adds. Save dodge (Shift) for the three main dangerous patterns; for others, walk out or take hits. Bring buff consumables and use them liberally.
+
+---
+
+## Tips
+
+- Use buff items: Enhancement Scrolls, Soul Stones, Potions, Food
+- Use dodge only on the three main dangerous patterns
+- Statue-explosion pattern: walk out — no dodge needed
+- When adds spawn in late phase: create distance to make Kaisinel blink to you and avoid getting sandwiched
+
+---
+
+## Main Patterns (Dangerous Only)
+
+**1. Orb Throw** — Most painful normal attack; hard to read. If orb appears above boss, dodge.
+
+**2. Yellow Floor x5** — Common pattern; forces two dodges. When staff points at you, roll quickly.
+
+**3. Blink + Butterfly** — High damage + stun. When boss blinks, stick close immediately to avoid this.
+
+**4. Statue Spawn** — Safe spots at first; later, no gaps. Walk out slowly.
+
+**5. Add Summon** — Fire → Water → Earth, then Dark Spirit (persists and attacks). Kill the Dark Spirit or ignore and focus boss. Tip: run out so Kaisinel blinks to you; adds walk slowly.
+
+---
+
+*Images*
+https://upload3.inven.co.kr/upload/2025/11/20/bbs/i1529129184.png?MW=800
+https://upload3.inven.co.kr/upload/2025/11/20/bbs/i1939132411.png?MW=800
+https://upload3.inven.co.kr/upload/2025/11/20/bbs/i1420491137.png?MW=800
+
+---
+
+*Source: AION2 Inven Tips & Know-how Board*

@@ -1,0 +1,68 @@
+# Boss Wipe Mechanics: Why Stagger Gauge Break Matters
+
+*Author: Nirr | Original: https://www.inven.co.kr/board/aion2/6444/361*
+
+---
+
+## Why Stagger Gauge Matters
+
+Conquest dungeon bosses have a green **Stagger Gauge** under their HP bar. Depleting it puts the boss in stagger, opening a **burst window**. Move behind the boss and dump skills that only work on staggered targets.
+
+In later Conquest dungeons, failing to break the gauge in time triggers a **wipe pattern**. The key is to stagger the boss at the right moment and prevent the wipe.
+
+For example, **Verk (Complete Form)** in Krao Cave (Conquest) locks his stagger gauge until 50% HP, when it unlocks. If you don't deplete it quickly enough, the party wipes. Always bring high stagger-damage Stigma skills and save them for this window.
+
+*Green gauge under boss HP = Stagger Gauge*
+https://static.inven.co.kr/column/2025/11/22/news/i1626213476.png
+
+*When staggered, go behind and use stagger-only skills for burst (back crit)*
+https://static.inven.co.kr/column/2025/11/22/news/i1101139468.png
+
+*Example of a boss that wipes if stagger isn't broken*
+https://static.inven.co.kr/column/2025/11/22/news/i1808048318.png
+
+---
+
+## Focus on Stagger Damage
+
+Each class has skills with **Stagger Gauge damage** shown in the tooltip. Use those when the gauge is active.
+
+Generally, Stigma skills remove far more of the gauge than Mastery skills (typically 20–50). Save high-stagger Stigmas for clutch moments — their cooldowns are long.
+
+*Mastery skills have low stagger damage*
+https://static.inven.co.kr/column/2025/11/22/news/i1393572365.png
+
+*Stigma skills have high stagger damage but long cooldowns*
+https://static.inven.co.kr/column/2025/11/22/news/i1835027104.png
+
+---
+
+## Bosses with Wipe Patterns (Stagger Gauge)
+
+Currently known dungeons requiring stagger breaks:
+- **Conquest Urugugu Gorge** (1,600+)
+- **Conquest Barklon's Sky Island** (1,600+)
+- **Transcendence Shattered Arcanis** (+1,200)
+
+Recommended to study before going:
+1. [Expedition/Conquest] Krao Cave (1,000+): Complete Verk (final boss)
+2. [Expedition/Conquest] Draupnir (1,000+): Transcended Bakarma (final boss)
+3. [Transcendence] Deus Research Base (1,200+): Atiel (final boss)
+
+---
+
+## Class Stagger Skills
+
+Every class has at least one Stigma that removes 50 stagger. Bring a 50-stagger skill for dungeons; consider adding a 20-stagger one as well.
+
+**Chanter (호법성)** has only one Stigma with stagger damage ([滅化] Melt), so be sure to bring it.
+
+*Class stagger damage skills*
+https://static.inven.co.kr/column/2025/11/23/news/i1554302372.png
+
+*Stagger-state burst skills by class*
+https://static.inven.co.kr/column/2025/11/23/news/i1761539465.png
+
+---
+
+*Source: AION2 Inven Tips & Know-how Board*

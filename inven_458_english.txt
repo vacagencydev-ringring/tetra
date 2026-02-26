@@ -1,0 +1,57 @@
+# Conquest Krao Cave & Draupnir Guide (First-timers)
+
+*Original: https://www.inven.co.kr/board/aion2/6444/458*
+
+---
+
+## Why Skip Bosses? Expedition Party Types
+
+**All bosses:** Better Odd Energy Cube rewards at the end.
+
+**Final boss only:** Wings crafting materials, Hall of Gods statue achievements. Draupnir and Fire Temple give Hall items at 10 Conquest clears. Fire Temple has 32 related achievements for extra items.
+
+---
+
+## Krao Cave — Route
+
+Go left first → clear boss → cross to right → second boss → return to center, kill **Krao Seal Guardian** → wall behind Obelisk breaks → path to final boss. One fall zone; watch your step.
+
+*Route (all bosses)*
+https://static.inven.co.kr/column/2025/11/25/news/i1860289116.png
+
+---
+
+## Krao Cave — Final Boss: Complete Verk
+
+- **Swing:** Safe behind boss. Often followed by Whirlwind.
+- **Whirlwind:** Red dust → move away fast. High multi-hit damage if hit.
+- **Rage Wave:** Hide behind yellow rocks within 5 sec or instant death.
+- **Stagger (wipe):** At 50% HP, stagger gauge unlocks. Deplete in ~9 sec or wipe. Save high-stagger Stigma skills.
+
+---
+
+## Draupnir — Route
+
+Ignore trash. Activate **Abyss Gate Control** → jump into hole. Glide left to Boss 1 (don’t land near entrance). After Boss 2, use Obelisk or walk to wind-path device for final boss.
+
+For speed runs (Bakarma only): drop straight toward wind-path device (~5 min clear).
+
+---
+
+## Draupnir — Final Boss: Transcended Bakarma
+
+**Stagger pattern** at ~66% and ~33% HP. **[Wavering Wave]:** Jump like jump rope (one beat early). Second stagger has black tornadoes; avoid contact. After first stagger, boss dives → one wave; watch for it.
+
+---
+
+*Images*
+https://static.inven.co.kr/column/2025/11/25/news/i1884687173.png
+https://static.inven.co.kr/column/2025/11/25/news/i1487539333.png
+https://static.inven.co.kr/column/2025/11/25/news/i1849022330.png
+https://static.inven.co.kr/column/2025/11/25/news/i1920246173.png
+https://static.inven.co.kr/column/2025/11/25/news/i1882921108.png
+https://static.inven.co.kr/column/2025/11/25/news/i1903834780.png
+
+---
+
+*Source: AION2 Inven Tips & Know-how Board*

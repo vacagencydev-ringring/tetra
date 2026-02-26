@@ -1,0 +1,52 @@
+# Conquest Fire Temple Guide — Bring Burn Cures!
+
+*Original: https://www.inven.co.kr/board/aion2/6444/655*
+
+---
+
+## Prep
+
+Monsters use burn attacks. Buy **Burn Cure Potions** from general merchants — cheaper and more efficient than spamming HP potions.
+
+---
+
+## Route
+
+Split tasks instead of sticking together. Rush center → climb behind mobs. One player: right Obelisk. Two players: left and right **Coolant Control**. Without control, floor damage persists. Skip coolant for speed in some parties.
+
+**Rotan** (patrol boss): Avoid — no cube reward. If aggroed, hide at first boss entrance ledge; aggro resets. Use Tab (PC) to see aggro ranges.
+
+---
+
+## Mid Boss: Black Smoke Murt
+
+Arms up = floor pattern. Dodge. Foot stomp = growing floor; back off or just-dodge into melee for speed.
+
+---
+
+## Mid Boss: Crimson Flame Ignus
+
+**Don’t stack.** Arms up = floor under each player. **"Poop" pattern:** Green HP bar → 3 sec → permanent floor under you. Run back and drop it where others won’t step.
+
+---
+
+## Final Boss: Chromede's Desire
+
+- **Basic attacks:** Wide cone — stay behind boss.
+- **Clone attack:** Boss moves center → clone per player, 2 hits each. Spread out.
+- **Bow down:** Bow aimed at floor → massive fire burst. Back off or use invuln.
+- **Fire wall:** Sidestep advancing walls. At low HP, adds projectiles. After pattern, attack diamond landing spot for extra DPS.
+
+---
+
+*Images*
+https://static.inven.co.kr/column/2025/12/05/news/i1293464677.png
+https://static.inven.co.kr/column/2025/12/05/news/i1334854648.png
+https://static.inven.co.kr/column/2025/12/05/news/i1259465966.png
+https://static.inven.co.kr/column/2025/12/05/news/i1926550656.png
+https://static.inven.co.kr/column/2025/12/05/news/i1918426706.png
+https://static.inven.co.kr/column/2025/12/05/news/i1682035970.png
+
+---
+
+*Source: AION2 Inven Tips & Know-how Board*

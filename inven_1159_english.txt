@@ -1,0 +1,58 @@
+# Ludra 3rd Named — Pattern Tips
+
+*Original: https://www.inven.co.kr/board/aion2/6444/1159*
+
+---
+
+## Phase 1
+
+**1. Tail swipe** — Hard to see from behind; hit from side. Use break stun + burn cure for bleed.
+
+**2. Jump rope** — Aggro holder moving suddenly can turn Ludra’s head; melee can get hit. Melee can pre- retreat. Jump side varies; sometimes double jump or jump + glide.
+
+**3. Orbs** — Red orbs: only classes with block/parry (Sword, Chanter, Assassin, Gladiator) use skill then eat. Otherwise they pop. Red spawns at Ludra’s head.
+
+**4. Cross pattern** — Same stand-up as orbs but no voice; purple circles spread. Melee back off or prepare block. Fast and strong.
+
+**5. Purple zone + orbs + tornado** — Zone appears, Ludra flies, tornado from center. Step back or block. Can one-shot frail melee without damage resist.
+
+**6. Zone breath** — Green HP target gets frontal breath. Go to side with no party.
+
+**7. Slam + floor** — Slam then floor under each player. Block classes (especially Assassin) hold still. Don’t dodge into others. After: [orb/tornado + breath] once, then zone-wide AoE — leave zone.
+
+**8. Ludra’s Trial (Bingo)** — Bingo board; floors drop on players. One square = invuln safe zone, appears only when that square gets hit. Melee from center, ranged from edges. Wait for floor lock then dodge. At ~10.5 sec, Ludra cross-breath. Can leave board to dodge. After pattern, Ludra staggers 10 sec.
+
+---
+
+## Phase 2
+
+Spawn at 12 o’clock. Stay in map or take DoT.
+
+**1. Zikel pattern** — Ludra flies up. Like Zikel: line explodes, then enter. Horizontal → right diagonal → left diagonal.
+
+**2. Jump rope** — Hand floor markers. Left hand → right hand. Easier to dodge from right (jump + glide vs double jump).
+
+**3. Orb + jump rope** — Melee front orb, ranged back orb. Block skill then eat red. Red-eater dodge rope first if possible.
+
+**4. Wing slap x2** — Blockable.
+
+**5. Head shake + lightning x2** — Ludra turns head left; very strong. Easy to avoid if aware.
+
+**6. Left-red, right-blue** — Ludra merges blue+red orbs. Players get red or blue effect. Different colors = DoT. Same color stack one side. Coordinate. Don’t panic in next Zikel pattern.
+
+**7. Ludra’s Trial (Phase 2)** — Same as P1 but Ludra uses jump rope during bingo. Keep Ludra in view.
+
+**8. Thunder zone** — "존재의 소멸을 느끼거라" — red/blue zones. Enter zone matching your body color at **1 sec remaining** (not too early). One person per zone. If overlapping with healer, don’t steal — just die.
+
+---
+
+*Images*
+https://upload3.inven.co.kr/upload/2026/01/19/bbs/i0284882147.webp
+https://upload3.inven.co.kr/upload/2026/01/19/bbs/i1400419578.png?MW=800
+https://upload3.inven.co.kr/upload/2026/01/19/bbs/i1840887164.png?MW=800
+https://upload3.inven.co.kr/upload/2026/01/19/bbs/i1864166841.png?MW=800
+https://upload3.inven.co.kr/upload/2026/01/19/bbs/i1915466174.png?MW=800
+
+---
+
+*Source: AION2 Inven Tips & Know-how Board*

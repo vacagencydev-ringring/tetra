@@ -1,0 +1,47 @@
+# Abyss Refining: Ludra — 1st & 2nd Named Guide
+
+*Original: https://www.inven.co.kr/board/aion2/6444/1069*
+
+---
+
+## Overview
+
+Sanctuary Ludra — Season 1 end content. Requires **Combat Power 2,700+**. 1st and 2nd named drop **Abyss Chests** (Hero gear, Unique bracelets) even if Ludra isn’t killed. Worth running repeatedly.
+
+**Central Abyss Fusion Furnace** must be destroyed first. During fight, **Auxiliary Furnaces** spawn (left/center/right) — optional but speeds up. Watch entrance traps when re-entering.
+
+**4 attempts/week, 2 reward counts.** Reward count consumed only when **Ludra** dies. To max Abyss Chests: clear 1st+2nd named 3 times each before killing Ludra twice (up to 8 chests/week).
+
+---
+
+## 1st Named: Rahu (Separated)
+
+- **Gap in the Net:** Narrow safe zone. One player gets red marker. Reposition marker away from safe zone, then dodge in.
+- **Bomb pass:** One player gets bomb (purple ring timer). At expiry, pass by standing near another (same role = easier). 3 black hole floors = wipe.
+- **Circle overlap:** Red circles on all. Purple AoE outside circles. Stack to create overlap safe zone.
+- **Ring of Agony:** "고통의 굴레 안에서 맴돌아라!" — all at map edges. Run to Rahu, stack on marked player. After, floor markers; spread to drop "poop."
+- **Quadrant:** Map split; Rahu charges one. Then "poop" pattern. Don’t fall. Survive in small area.
+- **Feast Time:** Rahu center. 4 Abyss Predators spawn. Rahu marks one player; hit predator with attack. Fail = black hole floor.
+
+---
+
+## 2nd Named: Ketu (Abyss Wing)
+
+- **Slam + jump rope:** Red marker = charge target. Then jump rope. Block with defense skill = no rope.
+- **Abyss Gaze:** "심연과의 숨바꼭질이다!" — adds spawn. 6 o’clock = strong laser; dodge first. Split 2 left, 2 right for adds. White AoE shrinks; stack center when safe. Then run to symbol, healer sustains.
+- **Orb eat:** "소리 없이 내려앉아 소멸해라!" — 2 orbs. Two players eat before ground hit.
+- **Ketu’s Scythe:** Follows players; destroy with attacks.
+- **Blue/red orbs (~50% HP):** Blue = don’t look; red = face orb.
+- **Power Surge:** Red fan AoE per player + **Mortal Soul Stones** spawn. Overlap fans. At ~5 sec remaining, move out. At ~3.5 sec, stones in range break. At 0 sec, 6 sec unavoidable DoT. Breaking a stone = 4 sec invuln. Prioritize healer.
+
+---
+
+*Images*
+https://static.inven.co.kr/column/2026/01/08/news/i1281422435.png
+https://static.inven.co.kr/column/2026/01/08/news/i1435902782.png
+https://static.inven.co.kr/column/2026/01/08/news/i1156682841.png
+https://static.inven.co.kr/column/2026/01/08/news/i1932518975.png
+
+---
+
+*Source: AION2 Inven Tips & Know-how Board*
