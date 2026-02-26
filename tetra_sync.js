@@ -6098,12 +6098,16 @@ const LINK_EMBED_DESC_MAX = 4096;
 function buildLinkEmbeds(data) {
     const text = data.summary || 'No content';
     const embeds = [];
-    let remaining = text;
+    let offset = 0;
     let part = 0;
-    while (remaining && embeds.length < 10) {
-        const chunk = remaining.length <= LINK_EMBED_DESC_MAX
-            ? remaining
-            : remaining.slice(0, LINK_EMBED_DESC_MAX).replace(/\n[^\n]*$/, '');
+    while (offset < text.length && embeds.length < 10) {
+        let chunk = text.slice(offset, offset + LINK_EMBED_DESC_MAX);
+        if (chunk.length < text.length - offset) {
+            const lastNewline = chunk.lastIndexOf('\n');
+            chunk = lastNewline > LINK_EMBED_DESC_MAX * 0.3 ? chunk.slice(0, lastNewline + 1) : chunk;
+        }
+        if (!chunk) break;
+        offset += chunk.length;
         const embed = new EmbedBuilder()
             .setTitle(embeds.length === 0 ? (data.titleEn || data.title) : `${data.titleEn || data.title} (${part + 1})`)
             .setURL(data.url)
@@ -6113,7 +6117,6 @@ function buildLinkEmbeds(data) {
             .setTimestamp();
         if (embeds.length === 0 && data.images?.[0] && isValidEmbedUrl(data.images[0])) embed.setThumbnail(data.images[0]);
         embeds.push(embed);
-        remaining = remaining.slice(chunk.length).trim();
         part++;
     }
     return embeds;
