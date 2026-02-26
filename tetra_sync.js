@@ -3106,6 +3106,25 @@ function buildLinkCategorySelectRow() {
     );
 }
 
+function slugFromClassLabel(label) {
+    return String(label || '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+}
+
+function buildLinkClassSubSelectRow() {
+    const cat = TACTICS_DATA.class;
+    if (!cat?.items?.length) return null;
+    const options = [
+        { label: '⚔️ Class Guide (general)', value: 'class', description: 'Post to general class channel' },
+        ...cat.items.map(i => ({ label: i.label, value: `class_${slugFromClassLabel(i.label)}` }))
+    ];
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId('select_link_class_sub')
+            .setPlaceholder('Select class (Gladiator, Templar, Assassin…)')
+            .addOptions(options)
+    );
+}
+
 function buildLinkSetSelectRow() {
     return new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
@@ -4815,6 +4834,23 @@ client.on('interactionCreate', async (interaction) => {
         }
         if (interaction.customId === 'select_link_category') {
             const category = interaction.values?.[0] || 'current';
+            if (category === 'class') {
+                const subRow = buildLinkClassSubSelectRow();
+                if (!subRow) {
+                    await interaction.update({ content: '❌ Class Guide sub-categories not found.', components: [] }).catch(() => {});
+                    return;
+                }
+                await interaction.update({
+                    content: '**⚔️ Class Guide** — Which class channel?',
+                    components: [subRow]
+                }).catch(() => {});
+            } else {
+                await interaction.showModal(createLinkAddModal(category));
+            }
+            return;
+        }
+        if (interaction.customId === 'select_link_class_sub') {
+            const category = interaction.values?.[0] || 'current';
             await interaction.showModal(createLinkAddModal(category));
             return;
         }
@@ -6046,6 +6082,15 @@ const TACTICS_CATEGORY_SEARCH_KEYS = {
     dungeon: ['dungeon', '던전'],
     pet: ['pet', '펫'],
     class: ['class', '클래스'],
+    class_gladiator: ['gladiator', '검성'],
+    class_templar: ['templar', '탬플러'],
+    class_assassin: ['assassin', '어쌔신'],
+    class_ranger: ['ranger', '레인저'],
+    class_chanter: ['chanter', '찬터'],
+    class_cleric: ['cleric', '클레릭'],
+    class_sorcerer: ['sorcerer', '소서러'],
+    class_spiritmaster_pve: ['spiritmaster-pve', 'spiritmaster_pve', 'spirit-pve'],
+    class_spiritmaster_pvp: ['spiritmaster-pvp', 'spiritmaster_pvp', 'spirit-pvp'],
     fast_leveling: ['leveling', '레벨', 'fast'],
     kinah_farming: ['kinah', '키나'],
     cp_boost_guide: ['cp', 'boost'],
