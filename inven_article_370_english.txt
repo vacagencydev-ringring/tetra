@@ -1,0 +1,165 @@
+# AION2 - Daily & Weekly Task Guide (Complete Summary)
+
+*Author: Aliin | Original: https://www.inven.co.kr/board/aion2/6444/370*
+
+---
+
+## 🔴 Don’t Forget to Check Daily! Essential Daily Tasks
+
+### Mission Quests
+- Available **5 times per day**
+- Check rewards and use resets to aim for what you want
+- **Wanted Quests** (수배령) have a chance for Unique-grade gear — don’t skip these
+- Highly recommended as a must-do daily
+
+### Supply Request (보급 의뢰)
+- Types: Emergency (daily), Weekly, Season: Crafting, Season: Boss
+- **Emergency** resets every day
+- Turn in gear matching conditions to earn Abyss Points
+- Abyss Point amount varies by material/equipment grade
+- Optional in early game, but do when you can
+
+### Black Cloud Trading Company (검은 구름 무역단)
+- Refreshes hourly
+- Buy Kinah equipment skins, pets, etc.
+- Some pets are only available via Shugo Shop and Black Cloud Trading — prioritize these
+- Pet bonus effects improve with comprehension; buy when you have spare Kinah
+- Tradeable items can be bought, but market prices are high — approach with caution
+
+*Don't miss Mission — it's a must-do daily task*
+https://static.inven.co.kr/column/2025/11/23/news/i1169393249.jpg
+
+*Tradeable items can be purchased, but market prices are high — approach with caution*
+https://static.inven.co.kr/column/2025/11/23/news/i1584316548.jpg
+
+---
+
+## 📦 Spec Up First? Entrance Ticket / Daily Content to Stack
+
+Content that charges entries or rewards daily, but can be done slowly depending on your situation. If not geared yet, tackling these after improving specs helps.
+
+Still, if tickets stack too much, it gets tedious and you may lose value, so do them whenever you have time.
+
+### Expedition Dungeon (원정 던전)
+- Modes: Exploration, Conquest
+- **Conquest** rewards charge 3 times daily (05:00, 13:00, 21:00)
+- Can get Unique and Hero gear
+- Need **Odd Energy** for guaranteed expedition rewards — check before entering
+- Conquest: reward count shared across all dungeons
+- Exploration: per-dungeon reward count (some dungeons currently have temporary limit removal)
+
+### Transcendence (초월)
+- 4-player upper raid; each dungeon has stages; S-rank unlocks next stage
+- Suggested Combat Power: 1,200 (recommended: 1,400–1,500)
+- Main rewards: Arcanas that help increase combat power
+- Season rewards based on seasonal ranking
+
+### Nightmare (악몽)
+- Fight specific enemies for rewards; **5 tickets charge daily at 5:00**
+- Exchange shop: Clash Rune Box, Devanion Crystal: Ariel, Wisdom Stone, etc.
+- First-clear and repeat rewards
+- Requires recommended combat power and has ranking; avoid ticket overflow
+
+### Shugo Festa (슈고 페스타)
+- Runs at **:15** and **:45** every hour
+- Keys charge at **5:00 daily**; Membership doubles key charge and cube selection
+- Simple minigame but solid **Unique gear drop chance**
+- Exchange shop: Wisdom Stone, Devanion Crystals, etc.
+
+### Dimension Invasion (차원 침공)
+- Held at fixed times; many players clear summoned enemies
+- Similar to Shugo Festa rewards (except Famous Painting Shards)
+
+*Start with Exploration, then aim for Conquest*
+https://static.inven.co.kr/column/2025/11/23/news/i1976916831.jpg
+
+*Shugo Festa offers minigame fun and better-than-expected rewards*
+https://static.inven.co.kr/column/2025/11/23/news/i1214489450.jpg
+
+---
+
+## 📅 Wednesday 5:00 AM Reset — Weekly Tasks
+
+### Daily Dungeon (일일 던전)
+- **7 times per week** (despite the name)
+- Main source of enhancement stones
+- Amount varies by final score — gear up and avoid letting tickets overflow
+
+### Awakening Battle (각성전)
+- Solo boss content: **7 → 3 times per week**
+- Combat Power 1,000+ for Easy
+- Drops: Sillentium, Advanced Awakening Inscription Box, Ariel’s Trace, etc.
+- Ariel’s Trace can be converted to Ariel Crystals via Material Conversion
+
+### Subjugation Battle (토벌전)
+- 4-player party: **7 → 3 times per week**
+- Combat Power 1,000+ for Easy
+- Enhancement stones, Breakthrough Stone fragments, etc.
+
+### Abyss
+- Base **7 hours per week**; Membership: **14 hours**
+- Combat Power 1,000+ required
+- Can wait until last — do all other spec-up content before focusing here (except Draupnir Dungeon)
+
+### Season Weekly Rewards
+- Points from Abyss, Arena, Transcendence, Nightmare, Challenge, etc.
+- Rewards at specific point thresholds
+- **Stage 3+**: includes Revival Stone; **8,000 points**: also gives Odd Energy — aim for these
+
+### Battlefield (전장)
+- 8v8; rules per content; Elyos vs Asmodians
+- Can take time, but **Victory reward = 2,000 Abyss Points**
+- Victory rewards up to **10 wins per week**
+
+### Sanctuary (성역)
+- End-game; 8 players in 2 parties
+- **2 challenge chances per week**; **1 reward per week**
+- Currently hard to participate (attempts ongoing toward late December)
+
+### Odd Energy Crafting
+- Added in Nov 22 update
+- **7 Odd Energy crafts per week** (total 280 Odd Energy)
+- Requires Odd (from Gathering, Expedition, etc.)
+
+### Supply Request (보급 의뢰)
+- **Weekly** type resets once per week
+- Same structure as daily — turn in gear for Abyss Points
+
+### Order Shop — Verteron, Altgard (지령서 상점)
+- **12 orders per week**
+- Buy from main town Order Shop, complete via monster hunting
+- Abyss Points, Ariel’s Trace Shards, Small Odd Energy, etc.
+
+### Abyss Order Shop (어비스 지령서 상점)
+- Separate from above; **5 per grade, 25 total**
+- Mainly hunt monsters in Abyss areas
+- Abyss Points and various rewards
+- Check mission area when accepting — avoid missions near enemy faction
+
+*Daily Dungeon: defeat monsters that spawn at set times*
+https://static.inven.co.kr/column/2025/11/23/news/i1506352785.jpg
+
+*Use all Awakening Battle and Subjugation tickets before reset*
+https://static.inven.co.kr/column/2025/11/23/news/i1641237688.jpg
+
+---
+
+## ⚠️ Sunday Reset! Zephyr Breeze Trading Association Special Items
+
+With Membership, **Zephyr Breeze Trading Association** sells items that reset weekly.  
+In the **Special** category you can buy with Kinah:
+- Revival Spirit Stone
+- Odd Energy
+- Abyss Rift Stone
+- Daily Dungeon ticket (Bio Research Base)
+- Soul Crystals
+- etc.
+
+⚠️ **Important:** Unlike Wednesday 5:00 resets, these special items reset at **Sunday midnight → Monday** (not Wednesday early morning).
+
+*Zephyr Breeze special items reset at Sunday midnight, not Wednesday 5:00 AM*
+https://static.inven.co.kr/column/2025/12/22/news/i1812159048.jpg
+
+---
+
+*Source: AION2 Inven Tips & Know-how Board*

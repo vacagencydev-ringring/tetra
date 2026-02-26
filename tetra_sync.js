@@ -33,6 +33,7 @@ const os = require('os');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer');
+const schedule = require('node-schedule');
 
 // ═══════════════════════════════════════════════════════════
 // [1] 설정
@@ -119,6 +120,7 @@ if (IS_RENDER_ENV && !STATE_DIR.startsWith(RENDER_PERSISTENT_STATE_DIR)) {
 }
 
 const CONFIG = {
+    HOMEWORK_RESET_CHANNEL: process.env.HOMEWORK_RESET_CHANNEL || '1475500753089990746',
     REPORT_CHANNEL: process.env.REPORT_CHANNEL || '1475500753089990746',
     SALARY_CHANNEL: process.env.SALARY_CHANNEL || '1475449233757966438',
     SHEET_ID: process.env.SHEET_ID || '1-SscA750TuYUd6BcGQF-hXXO_5HI5HxpGkmYo_JXnR8',
@@ -136,8 +138,11 @@ const CONFIG = {
     MVP_SCHEDULE_PATH: path.join(STATE_DIR, 'mvp_schedule.json'),
     BOSS_STATE_PATH: path.join(STATE_DIR, 'boss_state.json'),
     VERIFY_PENDING_PATH: path.join(STATE_DIR, 'verify_pending.json'),
+    GUIDEBOOK_STATE_PATH: path.join(STATE_DIR, 'guidebook_state.json'),
     BOSS_WARNING_MINUTES: Math.max(1, parseInt(process.env.BOSS_WARNING_MINUTES || '10', 10) || 10),
     BOSS_TICKER_MS: Math.max(10_000, parseInt(process.env.BOSS_TICKER_MS || '60000', 10) || 60_000),
+    TELEGRAM_BOT_TOKEN: (process.env.TELEGRAM_BOT_TOKEN || '').trim(),
+    TELEGRAM_CHAT_ID: (process.env.TELEGRAM_CHAT_ID || '').trim(),
 };
 
 const RUNTIME_STATE_SHEET_NAME = process.env.RUNTIME_STATE_SHEET_NAME || 'Bot_Runtime_State';
@@ -510,6 +515,13 @@ async function fetchBossListFromUrl(url) {
     return parsed;
 }
 const BOSS_FETCH_DEFAULT_URL = 'https://raw.githubusercontent.com/vacagencydev-ringring/tetra/main/boss_presets.json';
+const BOSS_THUMBNAIL_DEFAULT = 'https://i.imgur.com/8fXU89V.png';
+
+function getBossImageUrl(boss) {
+    if (boss?.image) return boss.image;
+    const seed = 'aion2-' + String(boss?.name || '').toLowerCase().replace(/\s+/g, '-').replace(/[^\w가-힣-]/g, '') || 'boss';
+    return `https://picsum.photos/seed/${encodeURIComponent(seed)}/128/128`;
+}
 function getBossEventMultiplier(guildState) {
     const value = Number(guildState?.bossSettings?.eventMultiplier ?? 1);
     if (!Number.isFinite(value) || value <= 0) return 1;
@@ -532,16 +544,20 @@ function buildBossListEmbed(guildState) {
             ? `${boss.respawnMinutes}m`
             : `${boss.respawnMinutes}m -> ${effective}m`;
         let line = `- **${boss.name}** (${respawnLabel}) -> ${statusForBoss(boss, now)} | Next: ${next}`;
+        if (boss.level) line += ` | ${boss.level}`;
         if (boss.location) line += ` | 📍 ${boss.location}`;
         if (boss.faction) line += ` | ${boss.faction === 'asmodian' ? 'Asmodian' : 'Elyos'}`;
         return line;
     });
-    return new EmbedBuilder()
+    const thumb = sorted.length ? getBossImageUrl(sorted[0]) : BOSS_THUMBNAIL_DEFAULT;
+    const embed = new EmbedBuilder()
         .setTitle('Field Boss Board')
         .setDescription(lines.join('\n').slice(0, 3600) || 'No bosses configured.')
         .addFields({ name: 'Event multiplier', value: `${multiplier}x`, inline: true })
         .setColor(0x2563eb)
+        .setThumbnail(thumb)
         .setTimestamp();
+    return embed;
 }
 function buildSingleBossEmbed(guildState, boss) {
     const next = boss.nextSpawnAt ? toDiscordTime(boss.nextSpawnAt) : 'N/A';
@@ -565,7 +581,7 @@ function buildSingleBossEmbed(guildState, boss) {
         .setDescription(parts.join('\n').slice(0, 4000))
         .setColor(0x1d4ed8)
         .setTimestamp();
-    if (boss.image) embed.setThumbnail(boss.image);
+    embed.setThumbnail(getBossImageUrl(boss));
     return embed;
 }
 function parseHHmm(input) {
@@ -1133,6 +1149,27 @@ function getRegionChoices() {
     return REGION_CONFIGS.map(region => ({ name: `${region.label} (${region.code})`, value: region.value }));
 }
 
+function escapeHtml(str) {
+    if (typeof str !== 'string') return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function sendTelegramNotification(text) {
+    const token = CONFIG.TELEGRAM_BOT_TOKEN;
+    const chatId = CONFIG.TELEGRAM_CHAT_ID;
+    if (!token || !chatId) return;
+    try {
+        await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+            chat_id: chatId,
+            text: text,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+        }, { timeout: 5000 });
+    } catch (err) {
+        console.warn('[telegram] send failed:', err.message);
+    }
+}
+
 function makeLocalTimestamp(timeZone) {
     return new Date().toLocaleString('sv-SE', { timeZone }).slice(0, 16);
 }
@@ -1619,28 +1656,18 @@ async function upsertJoinVerifyPanel(channel) {
     }
 }
 
-function createVerifyApproveModal(channelId) {
-    return new ModalBuilder()
-        .setCustomId(`modal_verify_approve_${channelId}`)
-        .setTitle('Approve Verification')
-        .addComponents(
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                    .setCustomId('region')
-                    .setLabel('Region (required)')
-                    .setPlaceholder(`e.g. ph, in, np, ch, tw`)
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(true)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder()
-                    .setCustomId('role_note')
-                    .setLabel('Role/Note (optional)')
-                    .setPlaceholder('Optional')
-                    .setStyle(TextInputStyle.Short)
-                    .setRequired(false)
-            ),
+function buildVerifyApproveRegionSelect(channelId) {
+    const menu = new StringSelectMenuBuilder()
+        .setCustomId(`select_verify_approve_region_${channelId}`)
+        .setPlaceholder('Select region')
+        .addOptions(
+            REGION_CONFIGS.map(region => ({
+                label: `${region.label} (${region.code})`,
+                value: region.value,
+                emoji: region.emoji,
+            }))
         );
+    return new ActionRowBuilder().addComponents(menu);
 }
 
 function createJoinVerifyModal(region) {
@@ -2191,6 +2218,10 @@ const commands = [
         .setDescription('View member guide (shown only to you, ephemeral)')
         .toJSON(),
     new SlashCommandBuilder()
+        .setName('homework')
+        .setDescription('Shows the Aion 2 Daily/Weekly Task Guide')
+        .toJSON(),
+    new SlashCommandBuilder()
         .setName('report_kinah')
         .setDescription('Submit Kinah Team daily report')
         .addStringOption(o => o
@@ -2227,11 +2258,15 @@ const commands = [
             .addChoices(
                 { name: 'Daily Report', value: 'report' },
                 { name: 'Salary Confirm', value: 'salary' },
+                { name: 'Kinah Rate', value: 'kinah' },
                 { name: 'Join Verification', value: 'join_verify' },
                 { name: 'Payment Confirm', value: 'payment' },
+                { name: 'Field Boss & MVP', value: 'boss' },
+                { name: 'AION2 Search (Item/Character/Build/Collection)', value: 'search' },
                 { name: 'Info YouTube (Translated Links)', value: 'youtube' },
                 { name: '📖 Usage Guide (Korean)', value: 'guide_ko' },
-                { name: '📖 Usage Guide (English)', value: 'guide_en' }
+                { name: '📖 Usage Guide (English)', value: 'guide_en' },
+                { name: '📖 PlayNC Guidebook (공식 가이드북)', value: 'guidebook_plaync' }
             ))
         .toJSON(),
     new SlashCommandBuilder()
@@ -2270,12 +2305,24 @@ const commands = [
             .addChannelTypes(ChannelType.GuildText))
         .toJSON(),
     new SlashCommandBuilder()
+        .setName('welcome_send')
+        .setDescription('Send welcome message to a user manually (Admin)')
+        .addUserOption(o => o
+            .setName('user')
+            .setDescription('User to send welcome message')
+            .setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
         .setName('join_verify_panel')
         .setDescription('Post join verification panel button to this channel (Admin)')
         .toJSON(),
     new SlashCommandBuilder()
         .setName('member_list_organize')
         .setDescription('Rebuild member list sheet from Member_List_* sheets (Admin)')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('guidebook_fetch')
+        .setDescription('Fetch AION2 PlayNC guidebook and cache (Admin)')
         .toJSON(),
     new SlashCommandBuilder()
         .setName('preset')
@@ -2639,6 +2686,19 @@ client.once('ready', async () => {
         runBossTicker(client).catch(err => console.error('[boss-ticker]', err.message));
     }, CONFIG.BOSS_TICKER_MS);
     runBossTicker(client).catch(() => {});
+
+    // Homework reset alerts (Wed 5 AM, Sun midnight)
+    if (CONFIG.HOMEWORK_RESET_CHANNEL) {
+        schedule.scheduleJob('0 5 * * 3', async () => {
+            const ch = client.channels.cache.get(CONFIG.HOMEWORK_RESET_CHANNEL);
+            if (ch) await ch.send('🔔 **Weekly Reset** — Pilots, all weekly dungeons and limits have been reset! Happy grinding!').catch(() => {});
+        });
+        schedule.scheduleJob('0 0 * * 0', async () => {
+            const ch = client.channels.cache.get(CONFIG.HOMEWORK_RESET_CHANNEL);
+            if (ch) await ch.send('🛒 **Shop Reset** — The Zephyr Shop (Membership) has just reset. Don\'t forget to buy your weekly materials!').catch(() => {});
+        });
+        console.log('   Homework reset alerts enabled (Wed 5AM, Sun midnight)');
+    }
 });
 
 client.on('guildCreate', async (guild) => {
@@ -2700,7 +2760,7 @@ client.on('interactionCreate', async (interaction) => {
     }
     if (interaction.isChatInputCommand()) {
         const cmd = interaction.commandName;
-        if (['panel', 'character', 'boss_fetch', 'kinah_watch_preset', 'kinah_watch_set', 'salary_confirm', 'myinfo_register', 'member_list_organize', 'join_verify_panel', 'collection', 'build', 'kinah_watch_now'].includes(cmd)) {
+        if (['panel', 'character', 'boss_fetch', 'kinah_watch_preset', 'kinah_watch_set', 'salary_confirm', 'myinfo_register', 'member_list_organize', 'join_verify_panel', 'collection', 'build', 'kinah_watch_now', 'guidebook_fetch'].includes(cmd)) {
             await interaction.deferReply({ flags: EPHEMERAL_FLAGS }).catch(() => {});
         }
         if (cmd === 'help') {
@@ -2725,6 +2785,37 @@ client.on('interactionCreate', async (interaction) => {
         } else if (interaction.commandName === 'guide') {
             const embeds = buildGuideEmbedsUser();
             await interaction.reply({ embeds, flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'homework') {
+            const embed = new EmbedBuilder()
+                .setColor(0x00E5FF)
+                .setTitle('📚 Aion 2 Daily & Weekly Checklist')
+                .setDescription('Attention Pilots! Keep track of your grinding schedule.')
+                .setThumbnail('https://static.inven.co.kr/column/2025/11/23/news/i1169393249.jpg')
+                .addFields(
+                    {
+                        name: '🔥 Daily Tasks',
+                        value: '• **Mission Quests** (5×/day) — Wanted Quests have Unique gear chance\n• **Emergency Supply Request** — Turn in gear for Abyss Points\n• **Black Cloud Traders** (hourly refresh) — Pets, skins via Kinah',
+                        inline: false
+                    },
+                    {
+                        name: '📦 Entrance Ticket Content (daily charge)',
+                        value: '• **Expedition** (Exploration → Conquest, 3×/day)\n• **Transcendence** (CP 1,400+)\n• **Nightmare** (5 tickets/day at 5:00)\n• **Shugo Festa** (:15, :45 each hour)\n• **Dimension Invasion**',
+                        inline: false
+                    },
+                    {
+                        name: '📅 Weekly Tasks (Wed 5:00 AM reset)',
+                        value: '• **Daily Dungeon** (7×/week) — Enhancement stones\n• **Awakening / Subjugation** (3×/week each)\n• **Odd Energy Crafting** (7×/week, 280 total)\n• **Abyss** (7h base, 14h with Membership)\n• **Battlefield** (up to 10 wins)\n• **Order Shop** (12 Verteron/Altgard, 25 Abyss)',
+                        inline: false
+                    },
+                    {
+                        name: '⚠️ Sunday Midnight Reset',
+                        value: '• **Zephyr Breeze Shop** (Membership) — Revival Stone, Odd Energy, Abyss Rift Stone, Bio Research Base ticket, Soul Crystals — reset **Sunday midnight**, not Wednesday!',
+                        inline: false
+                    }
+                )
+                .setFooter({ text: 'Source: Inven AION2 Tips | TETRA AION2' })
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed] });
         } else if (interaction.commandName === 'faq_admin') {
             if (!hasManageGuild(interaction)) {
                 await safeEphemeral(interaction, '❌ Manage Server permission required.');
@@ -2933,6 +3024,39 @@ client.on('interactionCreate', async (interaction) => {
                 ? `✅ Welcome **DM first**, fallback to <#${fallbackCh.id}> if DM disabled. Links to **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** <#${announceCh.id}>.`
                 : `✅ Welcome via **DM**. Links to **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** <#${announceCh.id}>. (No fallback channel — users with DMs disabled won't receive it.)`;
             await safeEphemeral(interaction, msg);
+        } else if (interaction.commandName === 'welcome_send') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const targetUser = interaction.options.getUser('user', true);
+            const state = loadPanelState();
+            const cfg = state.welcomeConfig && state.welcomeConfig[interaction.guildId];
+            if (!cfg?.announcementsChannelId) {
+                await safeEphemeral(interaction, '❌ Welcome not configured. Run `/welcome_set announcements_channel:<channel>` first.');
+                return;
+            }
+            const guild = interaction.guild;
+            const embed = new EmbedBuilder()
+                .setTitle('👋 Welcome!')
+                .setDescription(
+                    `Welcome to **${guild.name}**!\n\n` +
+                    `📢 **𝗔𝗻𝗻𝗼𝘂𝗻𝗰𝗲𝗺𝗲𝗻𝘁𝘀** — Please check <#${cfg.announcementsChannelId}> for server announcements.\n\n` +
+                    `📖 **Command Guide** — Use \`/guide\` to view available commands and how to use them.\n\n` +
+                    `⚠️ You must complete **member registration** before you can start activities.`
+                )
+                .setColor(0x5865F2)
+                .setTimestamp();
+            try {
+                await targetUser.send({ embeds: [embed] });
+                await safeEphemeral(interaction, `✅ Welcome message sent to ${targetUser}.`);
+            } catch (dmErr) {
+                const fallbackCh = cfg.welcomeChannelId ? guild.channels.cache.get(cfg.welcomeChannelId) : null;
+                if (fallbackCh) {
+                    await fallbackCh.send({ content: `${targetUser}`, embeds: [embed] });
+                    await safeEphemeral(interaction, `✅ Welcome sent to <#${fallbackCh.id}> (DM disabled for ${targetUser}).`);
+                } else {
+                    await safeEphemeral(interaction, `❌ Could not send to ${targetUser} (DM disabled, no fallback channel). Run \`/welcome_set\` with fallback_channel.`);
+                }
+            }
         } else if (interaction.commandName === 'join_verify_panel') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
@@ -2954,6 +3078,18 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             await interaction.editReply({ content: `✅ Member list updated: ${merged.count} row(s).` });
+        } else if (interaction.commandName === 'guidebook_fetch') {
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            await interaction.editReply({ content: '⏳ Fetching PlayNC guidebook… (2–5 min, scraping + translation)' });
+            try {
+                const state = await scrapePlayncGuidebookAll();
+                saveGuidebookState(state);
+                const total = (state.categories || []).reduce((n, c) => n + (c.guides?.length || 0), 0);
+                await interaction.editReply({ content: `✅ Guidebook fetched. ${state.categories?.length || 0} categories, ${total} guides.\n**\`/panel type:guidebook_plaync\`** to post.` });
+            } catch (err) {
+                console.error('[guidebook_fetch]', err);
+                await interaction.editReply({ content: `❌ Failed: ${err.message}` }).catch(() => {});
+            }
         } else if (['preset','boss','cut','server_open','boss_add','boss_remove','boss_alert_mode','boss_event_multiplier','boss_fetch'].includes(interaction.commandName)) {
             const guildId = interaction.guildId;
             if (!guildId) { await safeEphemeral(interaction, 'This command can only be used in a guild.'); return; }
@@ -3040,11 +3176,20 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.reply({ content: `Boss removed: **${resolved.boss.name}**.`, flags: EPHEMERAL_FLAGS });
             } else if (interaction.commandName === 'boss_fetch') {
                 if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
-                const url = interaction.options.getString('url') || BOSS_FETCH_DEFAULT_URL;
+                const urlInput = interaction.options.getString('url') || '';
+                const url = urlInput === 'local' || (!urlInput && fs.existsSync(path.join(__dirname, 'boss_presets.json')))
+                    ? null
+                    : (urlInput || BOSS_FETCH_DEFAULT_URL);
                 const mode = interaction.options.getString('mode') || 'combined';
                 let parsed = null;
                 try {
-                    parsed = await fetchBossListFromUrl(url);
+                    if (url) {
+                        parsed = await fetchBossListFromUrl(url);
+                    } else {
+                        const localPath = path.join(__dirname, 'boss_presets.json');
+                        const raw = fs.readFileSync(localPath, 'utf8');
+                        parsed = parseBossListFromJson(JSON.parse(raw));
+                    }
                 } catch (err) {
                     await interaction.editReply({ content: `❌ Fetch failed: ${err.message}\n\nUse a JSON URL with format: \`{ "elyos": [{ "name": "...", "respawnMinutes": 360 }], "asmodian": [...] }\`` }).catch(() => {});
                     return;
@@ -3495,6 +3640,87 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 savePanelState({ ...state, reportMsgId: sent.id, reportChannelId: channel.id });
                 await interaction.editReply({ content: '✅ Daily Report panel updated (1 only).' });
+            } else if (kind === 'kinah') {
+                const embed = new EmbedBuilder()
+                    .setTitle('💰 Kinah Rate')
+                    .setDescription(
+                        '**AION2 Kinah Exchange Rate**\n\n' +
+                        '• Real-time rate from ItemBay / ItemMania (configurable)\n' +
+                        '• Auto-posts to this channel when rate changes (if crawler enabled)\n\n' +
+                        '**How to use:**\n' +
+                        '• Click **Fetch Kinah Rate** below — instant rate check (result only you see)\n' +
+                        '• Or use `/kinah_watch_now` — same as button\n' +
+                        '• `/kinah_watch_status` — View crawler config & last value\n\n' +
+                        '_Admin: Configure crawler with `/kinah_watch_preset` to enable auto-updates._'
+                    )
+                    .setColor(0x14b8a6)
+                    .setTimestamp();
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('btn_kinah_rate_fetch')
+                        .setLabel('Fetch Kinah Rate')
+                        .setEmoji('💰')
+                        .setStyle(ButtonStyle.Primary)
+                );
+                const isKinahPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('Kinah Rate') || m.components?.some(c => c.components?.some(b => b.customId === 'btn_kinah_rate_fetch')));
+                let allKinahPanels = (await channel.messages.fetch({ limit: 100 })).filter(isKinahPanel);
+                for (const m of allKinahPanels.values()) await m.delete().catch(() => {});
+                const sent = await channel.send({ embeds: [embed], components: [row] });
+                allKinahPanels = (await channel.messages.fetch({ limit: 100 })).filter(isKinahPanel);
+                for (const m of allKinahPanels.values()) {
+                    if (m.id !== sent.id) await m.delete().catch(() => {});
+                }
+                const state = loadPanelState();
+                savePanelState({ ...state, kinahMsgId: sent.id, kinahChannelId: channel.id });
+                await interaction.editReply({ content: '✅ Kinah Rate panel updated (1 only).' });
+            } else if (kind === 'boss') {
+                const embed = new EmbedBuilder()
+                    .setTitle('⚔️ Field Boss & MVP')
+                    .setDescription(
+                        '**Track field boss spawns and MVP schedule.**\n\n' +
+                        '**Commands:**\n' +
+                        '• **`/boss`** — Full boss board\n' +
+                        '• **`/boss boss_name:<name>`** — Specific boss status (autocomplete)\n' +
+                        '• **`/cut boss_name:<name>`** — Record kill (uses current time)\n' +
+                        '• **`/cut boss_name:<name> killed_at:14:30`** — Record with custom time\n' +
+                        '• **`/mvp`** — View MVP schedule\n' +
+                        '• **`/boss_alert_mode mode:dm`** — Receive alerts via DM\n\n' +
+                        '_Admin: `/preset mode:combined` or `/boss_fetch` to load boss list._'
+                    )
+                    .setColor(0xef4444)
+                    .setTimestamp();
+                const isBossPanel = m => m.author?.id === client.user?.id && m.embeds[0]?.title?.includes('Field Boss');
+                let allBoss = (await channel.messages.fetch({ limit: 100 })).filter(isBossPanel);
+                for (const m of allBoss.values()) await m.delete().catch(() => {});
+                const sent = await channel.send({ embeds: [embed] });
+                allBoss = (await channel.messages.fetch({ limit: 100 })).filter(isBossPanel);
+                for (const m of allBoss.values()) {
+                    if (m.id !== sent.id) await m.delete().catch(() => {});
+                }
+                await interaction.editReply({ content: '✅ Field Boss & MVP panel updated (1 only).' });
+            } else if (kind === 'search') {
+                const embed = new EmbedBuilder()
+                    .setTitle('🔍 AION2 Search (Item · Character · Build · Collection)')
+                    .setDescription(
+                        '**Lookup AION2 info — results visible only to you (ephemeral).**\n\n' +
+                        '**Commands:**\n' +
+                        '• **`/character <name>`** — Character lookup by name or profile URL\n' +
+                        '• **`/item <keyword>`** — Item lookup\n' +
+                        '• **`/collection <stat>`** — Find equipment by stat (e.g. crit, accuracy)\n' +
+                        '• **`/build <class>`** — Find recommended builds & skill trees\n\n' +
+                        '**`!char <name>`** — Same as `/character`, results sent to your DM (channel stays clean)'
+                    )
+                    .setColor(0x3b82f6)
+                    .setTimestamp();
+                const isSearchPanel = m => m.author?.id === client.user?.id && m.embeds[0]?.title?.includes('AION2 Search');
+                let allSearch = (await channel.messages.fetch({ limit: 100 })).filter(isSearchPanel);
+                for (const m of allSearch.values()) await m.delete().catch(() => {});
+                const sent = await channel.send({ embeds: [embed] });
+                allSearch = (await channel.messages.fetch({ limit: 100 })).filter(isSearchPanel);
+                for (const m of allSearch.values()) {
+                    if (m.id !== sent.id) await m.delete().catch(() => {});
+                }
+                await interaction.editReply({ content: '✅ AION2 Search panel updated (1 only).' });
             } else if (kind === 'salary') {
                 const embed = new EmbedBuilder()
                     .setTitle('💰 Salary Verification Notice')
@@ -3619,6 +3845,17 @@ client.on('interactionCreate', async (interaction) => {
                     if (m.id !== sent.id) await m.delete().catch(() => {});
                 }
                 await interaction.editReply({ content: kind === 'guide_ko' ? '✅ Korean guide panel posted.' : '✅ English usage guide panel posted.' });
+            } else if (kind === 'guidebook_plaync') {
+                if (!hasManageGuild(interaction)) { await interaction.editReply({ content: '❌ Admin permission required.' }); return; }
+                const state = loadGuidebookState();
+                const embeds = buildGuidebookPlayncEmbeds(state);
+                const isGbPanel = m => m.author?.id === client.user?.id && m.embeds?.[0]?.title?.includes('Guidebook');
+                let allGb = (await channel.messages.fetch({ limit: 50 })).filter(isGbPanel);
+                for (const m of allGb.values()) await m.delete().catch(() => {});
+                const sent = await channel.send({ embeds });
+                allGb = (await channel.messages.fetch({ limit: 50 })).filter(isGbPanel);
+                for (const m of allGb.values()) { if (m.id !== sent.id) await m.delete().catch(() => {}); }
+                await interaction.editReply({ content: '✅ PlayNC Guidebook panel posted. Run **`/guidebook_fetch`** to refresh.' });
             }
             } finally {
                 await new Promise(r => setTimeout(r, 2000));
@@ -3671,6 +3908,50 @@ client.on('interactionCreate', async (interaction) => {
                     return;
                 }
                 await interaction.showModal(createLevelUpModal(cfg.value));
+            } else if (id === 'btn_kinah_rate_fetch') {
+                if (interaction.user.bot) return;
+                const guildId = interaction.guildId;
+                if (!guildId) return;
+                await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+                const guildState = ensureKinahGuildState(guildId);
+                const watch = createDefaultKinahWatch(guildState.kinah);
+                if (!watch.sourceUrl) {
+                    await interaction.editReply({
+                        content: '❌ Kinah crawler not configured. Admin: run `/kinah_watch_preset` first.',
+                        flags: EPHEMERAL_FLAGS
+                    }).catch(() => {});
+                    return;
+                }
+                try {
+                    const snapshot = await fetchKinahRateSnapshot(watch);
+                    const previousRate = watch.lastRate;
+                    const stable = applyKinahStability(watch, snapshot.numeric);
+                    watch.lastRate = stable;
+                    watch.stableRate = stable;
+                    watch.lastRawText = snapshot.token;
+                    watch.lastSourceSummary = snapshot.sourceSummary || snapshot.sourceName || snapshot.sourceUrl || null;
+                    watch.lastCheckedAt = Date.now();
+                    watch.lastError = null;
+                    guildState.kinah = watch;
+                    saveKinahState();
+                    const stableSnapshot = {
+                        ...snapshot,
+                        rawToken: snapshot.token,
+                        rawNumeric: snapshot.numeric,
+                        token: formatKrw(stable),
+                        numeric: stable,
+                    };
+                    const embed = buildKinahRateEmbed(stableSnapshot, previousRate);
+                    await interaction.editReply({ embeds: [embed], flags: EPHEMERAL_FLAGS }).catch(() => {});
+                } catch (err) {
+                    watch.lastError = err.message || 'Fetch failed';
+                    guildState.kinah = watch;
+                    saveKinahState();
+                    await interaction.editReply({
+                        content: `❌ Failed to fetch kinah rate: ${err.message}`,
+                        flags: EPHEMERAL_FLAGS
+                    }).catch(() => {});
+                }
             }
             else if (id === 'btn_salary') {
                 await interaction.reply({
@@ -3716,7 +3997,11 @@ client.on('interactionCreate', async (interaction) => {
                     await safeEphemeral(interaction, 'Verification session expired or already processed.');
                     return;
                 }
-                await interaction.showModal(createVerifyApproveModal(channelId));
+                await interaction.reply({
+                    content: `Select region for **${pending.characterName}**:`,
+                    components: [buildVerifyApproveRegionSelect(channelId)],
+                    flags: EPHEMERAL_FLAGS
+                });
             } else if (id.startsWith('verify_reject_')) {
                 if (!hasManageGuild(interaction)) {
                     await safeEphemeral(interaction, 'Manage Server permission required to reject.');
@@ -3775,6 +4060,69 @@ client.on('interactionCreate', async (interaction) => {
         if (interaction.customId === 'select_payment_currency') {
             const currency = interaction.values?.[0] || 'KRW';
             await interaction.showModal(createPaymentConfirmModal(currency));
+            return;
+        }
+        if (interaction.customId.startsWith('select_verify_approve_region_')) {
+            if (!hasManageGuild(interaction)) {
+                await interaction.reply({ content: '❌ Manage Server permission required.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            const channelId = interaction.customId.replace(/^select_verify_approve_region_/, '');
+            const region = interaction.values?.[0] || '';
+            const regionCfg = getRegionConfig(region);
+            if (!regionCfg) {
+                await interaction.reply({ content: `❌ Invalid region.`, flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            const verifyState = loadVerifyPendingState();
+            const pending = verifyState.pending[channelId];
+            if (!pending) {
+                await interaction.reply({ content: '❌ Verification session expired or already processed.', flags: EPHEMERAL_FLAGS });
+                return;
+            }
+            await interaction.deferUpdate();
+            try {
+                const targetUser = await client.users.fetch(pending.userId).catch(() => null);
+                const member = interaction.guild?.members.fetch(pending.userId).catch(() => null);
+                const displayName = member?.displayName || targetUser?.globalName || targetUser?.username || 'Unknown';
+                const row = [
+                    pending.userId,
+                    targetUser ? (targetUser.tag || targetUser.username) : 'Unknown',
+                    displayName,
+                    regionCfg.code,
+                    'N/A',
+                    makeLocalTimestamp(regionCfg.timeZone),
+                    pending.characterName,
+                ];
+                const appendRes = await appendToSheet(regionCfg.memberSheetRange, row);
+                const saved = appendRes.ok;
+                if (!saved) {
+                    await interaction.followUp({ content: `❌ Failed to save to Member_List_${regionCfg.code}. Create the sheet with columns A:G.`, flags: EPHEMERAL_FLAGS }).catch(() => {});
+                    return;
+                }
+                const tgMsg = [
+                    '👤 <b>신규 회원 (캐릭터 검증)</b>',
+                    `Region: ${regionCfg.code}`,
+                    `User: ${escapeHtml(displayName)}`,
+                    `Character: ${escapeHtml(pending.characterName)}`,
+                ].join('\n');
+                sendTelegramNotification(tgMsg).catch(() => {});
+                delete verifyState.pending[channelId];
+                saveVerifyPendingState(verifyState);
+                const merged = await rebuildMemberOrganizedSheet();
+                const mergedMsg = merged.ok ? `\n📚 Member list refreshed: ${merged.count} rows` : '';
+                try {
+                    const ch = await client.channels.fetch(channelId).catch(() => null);
+                    if (ch) {
+                        await ch.send({ content: `✅ Verification **approved** by ${interaction.user}! Character **${pending.characterName}** added to member list. You can register more characters anytime with /myinfo_register or the panel button.` });
+                        await ch.delete().catch(() => {});
+                    }
+                } catch (_) {}
+                await interaction.followUp({ content: `✅ Approved. Character **${pending.characterName}** added to Member_List_${regionCfg.code}${mergedMsg}`, flags: EPHEMERAL_FLAGS }).catch(() => {});
+            } catch (err) {
+                console.error('[verify_approve]', err);
+                await interaction.followUp({ content: `❌ Error: ${err.message}`, flags: EPHEMERAL_FLAGS }).catch(() => {});
+            }
             return;
         }
     }
@@ -3867,64 +4215,6 @@ client.on('interactionCreate', async (interaction) => {
             return;
         }
 
-        if (customId.startsWith('modal_verify_approve_')) {
-            if (!hasManageGuild(interaction)) {
-                await interaction.reply({ content: '❌ Manage Server permission required.', flags: EPHEMERAL_FLAGS });
-                return;
-            }
-            const channelId = customId.replace(/^modal_verify_approve_/, '');
-            const region = (interaction.fields.getTextInputValue('region') || '').trim().toLowerCase();
-            const roleNote = (interaction.fields.getTextInputValue('role_note') || '').trim();
-            const regionCfg = getRegionConfig(region);
-            if (!regionCfg) {
-                await interaction.reply({ content: `❌ Invalid region. Use: ${SUPPORTED_REGION_CODES}`, flags: EPHEMERAL_FLAGS });
-                return;
-            }
-            const verifyState = loadVerifyPendingState();
-            const pending = verifyState.pending[channelId];
-            if (!pending) {
-                await interaction.reply({ content: '❌ Verification session expired.', flags: EPHEMERAL_FLAGS });
-                return;
-            }
-            await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
-            try {
-                const targetUser = await client.users.fetch(pending.userId).catch(() => null);
-                const member = interaction.guild?.members.fetch(pending.userId).catch(() => null);
-                const displayName = member?.displayName || targetUser?.globalName || targetUser?.username || 'Unknown';
-                const row = [
-                    pending.userId,
-                    targetUser ? (targetUser.tag || targetUser.username) : 'Unknown',
-                    displayName,
-                    regionCfg.code,
-                    roleNote || 'N/A',
-                    makeLocalTimestamp(regionCfg.timeZone),
-                    pending.characterName,
-                ];
-                const appendRes = await appendToSheet(regionCfg.memberSheetRange, row);
-                const saved = appendRes.ok;
-                if (!saved) {
-                    await interaction.editReply({ content: `❌ Failed to save to Member_List_${regionCfg.code}. Create the sheet with columns A:G.` });
-                    return;
-                }
-                delete verifyState.pending[channelId];
-                saveVerifyPendingState(verifyState);
-                const merged = await rebuildMemberOrganizedSheet();
-                const mergedMsg = merged.ok ? `\n📚 Member list refreshed: ${merged.count} rows` : '';
-                try {
-                    const ch = await client.channels.fetch(channelId).catch(() => null);
-                    if (ch) {
-                        await ch.send({ content: `✅ Verification **approved** by ${interaction.user}! Character **${pending.characterName}** added to member list. You can register more characters anytime with /myinfo_register or the panel button.` });
-                        await ch.delete().catch(() => {});
-                    }
-                } catch (_) {}
-                await interaction.editReply({ content: `✅ Approved. Character **${pending.characterName}** added to Member_List_${regionCfg.code}${mergedMsg}` });
-            } catch (err) {
-                console.error('[verify_approve]', err);
-                await interaction.editReply({ content: `❌ Error: ${err.message}` }).catch(() => {});
-            }
-            return;
-        }
-
         if (customId.startsWith('modal_payment_confirm_')) {
             const currency = customId.replace('modal_payment_confirm_', '') || 'KRW';
             const amount = interaction.fields.getTextInputValue('amount')?.trim();
@@ -4005,6 +4295,18 @@ client.on('interactionCreate', async (interaction) => {
             const profit = interaction.fields.getTextInputValue('profit');
             const data = [timestamp, worker, 'Kinah', login, logout, profit, ''];
             const res = await appendToSheet(regionCfg.sheetRange, data);
+            if (res.ok) {
+                const msg = [
+                    '📋 <b>Daily Log — Kinah</b>',
+                    `Region: ${regionCfg.code} | ${timestamp}`,
+                    `Worker: ${escapeHtml(worker)}`,
+                    '',
+                    `Login: ${escapeHtml(login)}`,
+                    `Logout: ${escapeHtml(logout)}`,
+                    `Profit: ${escapeHtml(profit)}`,
+                ].join('\n');
+                sendTelegramNotification(msg).catch(() => {});
+            }
             await interaction.editReply({ content: res.ok ? `✅ Kinah report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.` });
         } else if (modalType === 'levelup') {
             const login = interaction.fields.getTextInputValue('login');
@@ -4014,6 +4316,18 @@ client.on('interactionCreate', async (interaction) => {
             const progress = `${level} / ${cp}`;
             const data = [timestamp, worker, 'LevelUp', login, logout, progress, ''];
             const res = await appendToSheet(regionCfg.sheetRange, data);
+            if (res.ok) {
+                const msg = [
+                    '📋 <b>Daily Log — Level-Up</b>',
+                    `Region: ${regionCfg.code} | ${timestamp}`,
+                    `Worker: ${escapeHtml(worker)}`,
+                    '',
+                    `Login: ${escapeHtml(login)}`,
+                    `Logout: ${escapeHtml(logout)}`,
+                    `Level: ${escapeHtml(level)} | CP: ${escapeHtml(cp)}`,
+                ].join('\n');
+                sendTelegramNotification(msg).catch(() => {});
+            }
             await interaction.editReply({ content: res.ok ? `✅ Level-Up report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.` });
         } else if (modalType === 'join_verify') {
             const roleNote = (interaction.fields.getTextInputValue('role_note') || '').trim();
@@ -4022,6 +4336,13 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.editReply({ content: `❌ Join verification save failed (${regionCfg.code}). Create **Member_List_${regionCfg.code}** sheet in Google Sheets.` });
                 return;
             }
+            const tgMsg = [
+                '👤 <b>신규 회원 (가입 인증)</b>',
+                `Region: ${regionCfg.code}`,
+                `User: ${escapeHtml(worker)}`,
+                roleNote ? `Role/Note: ${escapeHtml(roleNote)}` : '',
+            ].filter(Boolean).join('\n');
+            sendTelegramNotification(tgMsg).catch(() => {});
             const merged = await rebuildMemberOrganizedSheet();
             const mergedMsg = merged.ok
                 ? `\n📚 Organized member sheet refreshed: ${merged.count} row(s)`
@@ -4167,6 +4488,224 @@ async function scrapePlayncCharacter(pageUrl) {
     }
 }
 
+const GUIDEBOOK_BASE_URL = 'https://aion2.plaync.com/ko-kr/guidebook';
+const GUIDEBOOK_CATEGORIES = [
+    { id: '4227', name: '초보자 가이드', nameEn: 'Beginner\'s Guide' },
+    { id: '4234', name: '클래스', nameEn: 'Class' },
+    { id: '4235', name: '스킬', nameEn: 'Skill' },
+    { id: '4236', name: '아이템', nameEn: 'Items' },
+    { id: '4237', name: '저널', nameEn: 'Journal' },
+    { id: '4238', name: '지역', nameEn: 'Regions' },
+    { id: '4239', name: '성장과 수집', nameEn: 'Growth & Collection' },
+    { id: '4240', name: 'PK 및 결투', nameEn: 'PK & Duel' },
+    { id: '4241', name: '몬스터와 던전', nameEn: 'Monsters & Dungeons' },
+    { id: '4242', name: '커뮤니티', nameEn: 'Community' },
+    { id: '4243', name: '주요 시스템', nameEn: 'Main Systems' },
+    { id: '4244', name: '채집과 제작', nameEn: 'Gathering & Crafting' },
+];
+const GUIDEBOOK_MAX_GUIDES_PER_CATEGORY = 6;
+const GUIDEBOOK_MAX_DETAIL_PER_CATEGORY = 4;
+const GUIDEBOOK_MAX_CONTENT_LENGTH = 3500;
+
+function loadGuidebookState() {
+    try {
+        const raw = fs.readFileSync(CONFIG.GUIDEBOOK_STATE_PATH, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.categories)) return parsed;
+    } catch (_) {}
+    return { categories: [], fetchedAt: null };
+}
+
+function saveGuidebookState(state) {
+    ensureDirectory(path.dirname(CONFIG.GUIDEBOOK_STATE_PATH));
+    fs.writeFileSync(CONFIG.GUIDEBOOK_STATE_PATH, JSON.stringify(state, null, 2));
+}
+
+async function scrapePlayncGuidebookView(browser, guideUrl) {
+    const page = await browser.newPage();
+    try {
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0');
+        await page.goto(guideUrl, { waitUntil: 'networkidle2', timeout: 20000 });
+        await new Promise(r => setTimeout(r, 2500));
+        const data = await page.evaluate(() => {
+            const titleEl = document.querySelector('h1, [class*="title"], h2, .tit');
+            const title = (titleEl?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 150);
+            const selectors = ['[class*="content"]', '[class*="body"]', 'article', 'main', '[class*="view"]', '.guide-view'];
+            let contentEl = null;
+            for (const sel of selectors) {
+                contentEl = document.querySelector(sel);
+                if (contentEl && (contentEl.textContent || '').length > 100) break;
+            }
+            let content = '';
+            if (contentEl) {
+                const parts = [];
+                const skipTags = new Set(['SCRIPT', 'STYLE', 'NAV', 'HEADER', 'FOOTER']);
+                const walk = (el) => {
+                    if (!el || skipTags.has(el.tagName)) return;
+                    if (['P', 'LI', 'H2', 'H3', 'H4', 'DIV', 'SPAN'].includes(el.tagName)) {
+                        if (el.children.length === 0 || el.tagName === 'P' || el.tagName === 'LI') {
+                            const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+                            if (t && t.length > 15 && t.length < 1000) parts.push(t);
+                        }
+                    }
+                    for (const c of el.children || []) walk(c);
+                };
+                walk(contentEl);
+                content = [...new Set(parts)].join('\n\n').slice(0, 5000);
+            }
+            if (!content || content.length < 50) {
+                const allText = (document.body?.innerText || '').replace(/\s+/g, ' ').trim();
+                const lines = allText.split('\n').filter(l => l.length > 25 && l.length < 600);
+                content = lines.slice(0, 35).join('\n\n').slice(0, 5000);
+            }
+            const imgs = Array.from(document.querySelectorAll('img[src]'))
+                .map(img => img.src)
+                .filter(src => /^https?:\/\//.test(src) && !/logo|icon|avatar|button|sprite|blank|pixel|1x1|dot/i.test(src) && src.length < 500)
+                .slice(0, 5);
+            return { title: title || null, content: content || null, images: imgs };
+        });
+        return data;
+    } finally {
+        await page.close().catch(() => {});
+    }
+}
+
+async function scrapePlayncGuidebookCategory(browser, categoryId) {
+    const page = await browser.newPage();
+    try {
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0');
+        await page.goto(`${GUIDEBOOK_BASE_URL}/list?categoryId=${categoryId}`, { waitUntil: 'networkidle2', timeout: 20000 });
+        await new Promise(r => setTimeout(r, 3500));
+        const data = await page.evaluate(() => {
+            const out = [];
+            const cards = document.querySelectorAll('a[href*="/guidebook/view"], a[href*="/guidebook/"]');
+            const seen = new Set();
+            for (const a of Array.from(cards)) {
+                const href = a.href || '';
+                if (!href.includes('view') && !/\/guidebook\/\d+$/.test(href)) continue;
+                const titleEl = a.querySelector('h3, h4, [class*="title"], strong') || a;
+                const descEl = a.querySelector('p, [class*="desc"], span');
+                const title = (titleEl?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+                const desc = (descEl?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+                if (!title || title.length < 2) continue;
+                const key = title + href;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push({ title, desc: desc || null, url: href });
+            }
+            const fallbackLinks = document.querySelectorAll('a[href*="guidebook/view"]');
+            if (out.length === 0 && fallbackLinks.length) {
+                for (const a of Array.from(fallbackLinks)) {
+                    const text = (a.textContent || '').replace(/\s+/g, ' ').trim();
+                    const parts = text.split(/\s{2,}/);
+                    const title = (parts[0] || text).slice(0, 120);
+                    if (title.length >= 2) out.push({ title, desc: parts[1] || null, url: a.href });
+                    if (out.length >= 30) break;
+                }
+            }
+            return out;
+        });
+        return data;
+    } finally {
+        await page.close().catch(() => {});
+    }
+}
+
+async function scrapePlayncGuidebookAll() {
+    let browser;
+    const results = { categories: [], fetchedAt: new Date().toISOString() };
+    try {
+        browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+        for (const cat of GUIDEBOOK_CATEGORIES) {
+            try {
+                let guides = await scrapePlayncGuidebookCategory(browser, cat.id);
+                if (guides.length === 0) continue;
+                guides = guides.slice(0, GUIDEBOOK_MAX_GUIDES_PER_CATEGORY);
+                for (let i = 0; i < guides.length; i++) {
+                    const g = guides[i];
+                    if (!g.url || !g.url.includes('view')) continue;
+                    try {
+                        const detail = await scrapePlayncGuidebookView(browser, g.url);
+                        g.content = detail.content || g.desc;
+                        g.images = detail.images || [];
+                        if (detail.title) g.title = detail.title;
+                        if (hasHangul(g.title)) g.titleEn = await translateKoToEnLong(g.title) || g.title;
+                        else g.titleEn = g.title;
+                        if (g.desc && hasHangul(g.desc)) g.descEn = await translateKoToEn(g.desc) || g.desc;
+                        else g.descEn = g.desc;
+                        if (g.content && hasHangul(g.content)) g.contentEn = await translateKoToEnLong(g.content.slice(0, 1500)) || g.content.slice(0, 1500);
+                        else g.contentEn = (g.content || '').slice(0, 1500);
+                    } catch (err) {
+                        console.warn(`[guidebook] view ${g.title?.slice(0, 30)} failed:`, err.message);
+                    }
+                    await new Promise(r => setTimeout(r, 600));
+                }
+                results.categories.push({ id: cat.id, name: cat.name, nameEn: cat.nameEn || cat.name, guides });
+            } catch (err) {
+                console.warn(`[guidebook] category ${cat.id} failed:`, err.message);
+            }
+            await new Promise(r => setTimeout(r, 800));
+        }
+        return results;
+    } finally {
+        if (browser) await browser.close().catch(() => {});
+    }
+}
+
+function buildGuidebookPlayncEmbeds(state) {
+    const categories = state?.categories || [];
+    if (categories.length === 0) {
+        return [new EmbedBuilder()
+            .setTitle('📖 AION2 Official Guidebook')
+            .setDescription('No guide data. Admin run **`/guidebook_fetch`** to fetch latest guides.')
+            .setColor(0x5865F2)
+            .addFields({ name: '🔗 Link', value: `[AION2 Guidebook](${GUIDEBOOK_BASE_URL}/list)`, inline: false })
+            .setTimestamp()];
+    }
+    const embeds = [];
+    const maxDetailPerCat = GUIDEBOOK_MAX_DETAIL_PER_CATEGORY;
+    const maxContentLen = GUIDEBOOK_MAX_CONTENT_LENGTH;
+    const listLines = categories.map(cat => {
+        const guides = cat.guides || [];
+        const catName = cat.nameEn || cat.name;
+        const links = guides.slice(0, 5).map(g => `• [${g.titleEn || g.title}](${g.url})`).join('\n');
+        return `**${catName}** (${guides.length})\n${links || '-'}`;
+    });
+    embeds.push(new EmbedBuilder()
+        .setTitle('📖 AION2 Official Guidebook (PlayNC)')
+        .setDescription(`[🔗 Full Guidebook](${GUIDEBOOK_BASE_URL}/list)\n\n${listLines.join('\n\n').slice(0, 3800)}`)
+        .setColor(0x5865F2)
+        .setFooter({ text: state.fetchedAt ? `Fetched: ${state.fetchedAt.slice(0, 10)}` : 'Run /guidebook_fetch to refresh' })
+        .setTimestamp());
+    for (const cat of categories) {
+        const catName = cat.nameEn || cat.name;
+        const guides = cat.guides || [];
+        if (guides.length === 0) continue;
+        for (let i = 0; i < Math.min(guides.length, maxDetailPerCat); i++) {
+            const g = guides[i];
+            const title = g.titleEn || g.title;
+            const desc = (g.descEn || g.desc || '').slice(0, 150);
+            const content = (g.contentEn || g.content || '').slice(0, maxContentLen);
+            const thumb = g.images?.[0] || null;
+            let body = `[${title}](${g.url})${desc ? `\n${desc}` : ''}`;
+            if (content) body += `\n\n${content}${(g.contentEn || g.content || '').length > maxContentLen ? '…' : ''}`;
+            const embed = new EmbedBuilder()
+                .setTitle(`📖 ${catName}: ${title}`)
+                .setDescription(body.slice(0, 3900))
+                .setColor(0x5865F2)
+                .setTimestamp();
+            if (thumb) embed.setThumbnail(thumb);
+            embeds.push(embed);
+            if (embeds.length >= 10) break;
+        }
+        if (embeds.length >= 10) break;
+    }
+    return embeds.slice(0, 10);
+}
+
 function buildLinkFallbackEmbed(charName, addUrlHint = false, displayQuery = null) {
     const encoded = encodeURIComponent(charName);
     const titleName = displayQuery != null ? displayQuery : charName;
@@ -4186,6 +4725,8 @@ function buildLinkFallbackEmbed(charName, addUrlHint = false, displayQuery = nul
         .setTimestamp();
 }
 
+const SEARCH_THUMBNAIL_DEFAULT = 'https://i.imgur.com/8fXU89V.png';
+
 function buildItemLookupEmbed(query, displayQuery = null) {
     const encoded = encodeURIComponent(query);
     const titleQuery = displayQuery != null ? displayQuery : query;
@@ -4199,6 +4740,7 @@ function buildItemLookupEmbed(query, displayQuery = null) {
             `🔗 [Google site search](https://www.google.com/search?q=site%3Aaion2.plaync.com+${encoded})`,
         ].join('\n'))
         .setColor(0x16a34a)
+        .setThumbnail(SEARCH_THUMBNAIL_DEFAULT)
         .setTimestamp();
 }
 
@@ -4225,7 +4767,8 @@ async function scrapeTalentbuildsDb(query, category) {
                 if (/^(weapons|armor|accessories|pets|wings|arcana|all)$/i.test(text)) continue;
                 if (seen.has(text)) continue;
                 seen.add(text);
-                out.push({ name: text, url: href });
+                const img = a.querySelector('img')?.src || a.querySelector('[style*="background-image"]')?.style?.backgroundImage?.match(/url\(["']?([^"')]+)/)?.[1] || '';
+                out.push({ name: text, url: href, img: img || null });
                 if (out.length >= 10) break;
             }
             return out;
@@ -4264,7 +4807,8 @@ async function scrapeTalentbuildsArmory(query) {
                 const key = text.slice(0, 50);
                 if (seen.has(key)) continue;
                 seen.add(key);
-                out.push({ name: text.slice(0, 60), url: link });
+                const img = (a || el).querySelector?.('img')?.src || el.querySelector?.('img')?.src || '';
+                out.push({ name: text.slice(0, 60), url: link, img: img || null });
                 if (out.length >= 8) break;
             }
             if (out.length === 0) {
@@ -4273,7 +4817,8 @@ async function scrapeTalentbuildsArmory(query) {
                     const t = (a.textContent || '').trim();
                     if (t && t.length >= 2 && t.length <= 40 && !seen.has(t)) {
                         seen.add(t);
-                        out.push({ name: t, url: a.href });
+                        const img = a.querySelector?.('img')?.src || '';
+                        out.push({ name: t, url: a.href, img: img || null });
                         if (out.length >= 8) break;
                     }
                 }
@@ -4307,11 +4852,14 @@ function buildCollectionLookupEmbed(query, scraped = null, displayQuery = null) 
             `🔗 [Google (collection)](https://www.google.com/search?q=site%3Aaion2.plaync.com+${encoded}+collection)`,
         ].join('\n');
     }
-    return new EmbedBuilder()
+    const embed = new EmbedBuilder()
         .setTitle(`📦 Collection: ${titleQuery}`)
         .setDescription(desc.slice(0, 4000))
         .setColor(0x0891b2)
         .setTimestamp();
+    const thumb = scraped?.items?.[0]?.img || SEARCH_THUMBNAIL_DEFAULT;
+    embed.setThumbnail(thumb);
+    return embed;
 }
 
 function buildBuildLookupEmbed(query, scraped = null, displayQuery = null) {
@@ -4333,11 +4881,14 @@ function buildBuildLookupEmbed(query, scraped = null, displayQuery = null) {
             `🔗 [YouTube Build Search](${ytUrl})`,
         ].join('\n');
     }
-    return new EmbedBuilder()
+    const embed = new EmbedBuilder()
         .setTitle(`⚔️ Build: ${titleQuery}`)
         .setDescription(desc.slice(0, 4000))
         .setColor(0xdc2626)
         .setTimestamp();
+    const thumb = scraped?.items?.[0]?.img || SEARCH_THUMBNAIL_DEFAULT;
+    embed.setThumbnail(thumb);
+    return embed;
 }
 
 async function translateItemNamesToEn(items) {
@@ -4398,6 +4949,14 @@ async function handleAonBotNewsTranslation(message) {
 
     const sent = await message.channel.send({ embeds: [out] }).catch(() => null);
     if (!sent) return;
+
+    const msg = [
+        '🌐 <b>AION Bot 번역 완료</b>',
+        `Category: ${String(category).toUpperCase()}`,
+        `Title: ${escapeHtml((translatedTitle || sourceTitle || '').slice(0, 80))}${(translatedTitle || sourceTitle || '').length > 80 ? '...' : ''}`,
+        `Link: ${message.url}`,
+    ].join('\n');
+    sendTelegramNotification(msg).catch(() => {});
 
     guildCfg.translatedMessageIds.push(message.id);
     guildCfg.translatedMessageIds = guildCfg.translatedMessageIds.slice(-1000);
