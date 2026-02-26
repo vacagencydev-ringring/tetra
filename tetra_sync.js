@@ -6116,13 +6116,32 @@ async function translateQueryForDisplay(query) {
 const INVEN_URL_PATTERN = /https?:\/\/(?:www\.)?inven\.co\.kr\/board\/aion2\/\d+\/\d+|https?:\/\/(?:www\.)?inven\.co\.kr\/webzine\/news\/\?news=\d+/i;
 
 const LINK_EMBED_DESC_MAX = 4096;
+const LINE_WRAP_AT = 95; // 긴 줄만 줄바꿈 (내용 잘림 완화)
+
+function wrapLongLines(text, maxLen = LINE_WRAP_AT) {
+    return text.split('\n').map(line => {
+        if (line.length <= maxLen) return line;
+        const parts = [];
+        let rest = line;
+        while (rest.length > maxLen) {
+            const chunk = rest.slice(0, maxLen);
+            const lastSpace = chunk.lastIndexOf(' ');
+            const cut = lastSpace > maxLen * 0.5 ? lastSpace : maxLen;
+            parts.push(rest.slice(0, cut).trim());
+            rest = rest.slice(cut).trim();
+        }
+        if (rest) parts.push(rest);
+        return parts.join('\n');
+    }).join('\n');
+}
 
 function buildLinkEmbeds(data) {
-    const text = data.summary || 'No content';
+    const raw = data.summary || 'No content';
+    const text = wrapLongLines(raw);
     const embeds = [];
     let offset = 0;
     let part = 0;
-    while (offset < text.length && embeds.length < 10) {
+    while (offset < text.length && embeds.length < 15) {
         let chunk = text.slice(offset, offset + LINK_EMBED_DESC_MAX);
         if (chunk.length < text.length - offset) {
             const lastNewline = chunk.lastIndexOf('\n');
@@ -6275,7 +6294,7 @@ function extractTableRowsFromInvenContent($, content) {
         }
     }
     if (rows.length < 2) return null;
-    const maxRows = 150;
+    const maxRows = 200;
     return rows.slice(0, maxRows)
         .map((r, i) => `**${i + 1}.** ${r.name} — ${r.source}`)
         .join('\n');
@@ -6302,11 +6321,11 @@ async function fetchInvenArticle(url) {
             .replace(/\n{3,}/g, '\n\n')
             .replace(/[ \t]+/g, ' ')
             .trim();
-        const SUMMARY_MAX = 3500;
+        const SUMMARY_MAX = 7000;
         summary = rawText.slice(0, SUMMARY_MAX).trim();
         const last = summary.lastIndexOf('\n');
         if (last > SUMMARY_MAX * 0.5) summary = summary.slice(0, last).trim();
-        else if (summary.length >= SUMMARY_MAX) summary = summary.slice(0, 3200).trim() + '\n\n…';
+        else if (summary.length >= SUMMARY_MAX) summary = summary.slice(0, 6500).trim() + '\n\n…';
     }
     const imgs = [
         ...new Set(
