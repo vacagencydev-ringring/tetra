@@ -243,18 +243,43 @@ async function loadRuntimeStateFromSheet() {
     }
 }
 
+function buildRuntimeStateRowsWithMerge(loaded) {
+    const our = loadPanelState();
+    const base = loaded?.panel && typeof loaded.panel === 'object' ? loaded.panel : {};
+    const mergedPanel = { ...base, ...our };
+    mergedPanel.welcomeConfig = { ...(base.welcomeConfig || {}), ...(our.welcomeConfig || {}) };
+    mergedPanel.verifyCategoryIdByGuild = { ...(base.verifyCategoryIdByGuild || {}), ...(our.verifyCategoryIdByGuild || {}) };
+
+    const mergedKinah = { guilds: { ...(loaded?.kinah?.guilds || {}) } };
+    for (const [gid, d] of Object.entries(kinahState.guilds || {})) mergedKinah.guilds[gid] = d;
+
+    const mergedAon = { guilds: { ...(loaded?.aonTranslate?.guilds || {}) } };
+    for (const [gid, d] of Object.entries(aonTranslateState.guilds || {})) mergedAon.guilds[gid] = d;
+
+    const mergedBoss = { guilds: { ...(loaded?.boss?.guilds || {}) } };
+    for (const [gid, d] of Object.entries(bossState.guilds || {})) mergedBoss.guilds[gid] = d;
+
+    const mergedMvp = { guilds: { ...(loaded?.mvp?.guilds || {}) } };
+    for (const [gid, d] of Object.entries(mvpScheduleState.guilds || {})) mergedMvp.guilds[gid] = d;
+
+    return [
+        ['panel_state_json', JSON.stringify(mergedPanel)],
+        ['kinah_state_json', JSON.stringify(mergedKinah)],
+        ['aon_translate_state_json', JSON.stringify(mergedAon)],
+        ['boss_state_json', JSON.stringify(mergedBoss)],
+        ['mvp_schedule_state_json', JSON.stringify(mergedMvp)],
+        ['updated_at', String(Date.now())],
+    ];
+}
+
 async function flushRuntimeStateToSheet(force = false) {
     if (!runtimeStatePersistenceActive || !ENABLE_SHEETS_STATE) return false;
     if (runtimeStateFlushInFlight) return false;
     runtimeStateFlushInFlight = true;
     try {
-        const payloadHash = JSON.stringify({
-            panel: loadPanelState(),
-            kinah: kinahState,
-            aonTranslate: aonTranslateState,
-            boss: bossState,
-            mvp: mvpScheduleState,
-        });
+        const loaded = await loadRuntimeStateFromSheet();
+        const rows = buildRuntimeStateRowsWithMerge(loaded);
+        const payloadHash = JSON.stringify(rows);
         if (!force && payloadHash === runtimeStateLastPayloadHash) return true;
         const ready = await ensureRuntimeStateSheet();
         if (!ready) return false;
@@ -263,7 +288,7 @@ async function flushRuntimeStateToSheet(force = false) {
             spreadsheetId: CONFIG.SHEET_ID,
             range: `${RUNTIME_STATE_SHEET_NAME}!A2:B7`,
             valueInputOption: 'RAW',
-            requestBody: { values: buildRuntimeStateRows() },
+            requestBody: { values: rows },
         });
         runtimeStateLastPayloadHash = payloadHash;
         console.log('[state] runtime state synced to Google Sheet.');
@@ -297,26 +322,63 @@ async function hydrateRuntimeStateFromSheet() {
     let hydrated = false;
 
     if (loaded?.kinah && typeof loaded.kinah === 'object') {
-        kinahState.guilds = loaded.kinah.guilds && typeof loaded.kinah.guilds === 'object' ? loaded.kinah.guilds : {};
+        const sheetGuilds = loaded.kinah.guilds && typeof loaded.kinah.guilds === 'object' ? loaded.kinah.guilds : {};
+        const localGuilds = kinahState.guilds || {};
+        const merged = { ...sheetGuilds };
+        for (const guild of (client.guilds?.cache?.values() || [])) {
+            const gid = guild.id;
+            const fromSheet = sheetGuilds[gid];
+            const fromLocal = localGuilds[gid];
+            merged[gid] = fromSheet
+                ? { ...fromLocal, ...fromSheet, kinah: createDefaultKinahWatch(fromSheet.kinah || fromSheet) }
+                : (fromLocal ? { ...fromLocal, kinah: createDefaultKinahWatch(fromLocal.kinah || fromLocal) } : { kinah: createDefaultKinahWatch() });
+        }
+        kinahState.guilds = merged;
         hydrated = true;
     }
     if (loaded?.panel && typeof loaded.panel === 'object') {
-        saveJsonState(CONFIG.PANEL_STATE_PATH, loaded.panel);
+        const local = loadPanelState();
+        const sheet = loaded.panel;
+        const merged = { ...sheet, ...local };
+        merged.welcomeConfig = { ...(sheet.welcomeConfig || {}), ...(local.welcomeConfig || {}) };
+        merged.verifyCategoryIdByGuild = { ...(sheet.verifyCategoryIdByGuild || {}), ...(local.verifyCategoryIdByGuild || {}) };
+        merged.verifyCategoryId = local.verifyCategoryId || sheet.verifyCategoryId;
+        saveJsonState(CONFIG.PANEL_STATE_PATH, merged);
         hydrated = true;
     }
     if (loaded?.aonTranslate && typeof loaded.aonTranslate === 'object') {
-        aonTranslateState.guilds = loaded.aonTranslate.guilds && typeof loaded.aonTranslate.guilds === 'object'
-            ? loaded.aonTranslate.guilds
-            : {};
+        const sheetG = loaded.aonTranslate.guilds && typeof loaded.aonTranslate.guilds === 'object' ? loaded.aonTranslate.guilds : {};
+        const merged = { ...sheetG };
+        for (const guild of (client.guilds?.cache?.values() || [])) {
+            const gid = guild.id;
+            const fromSheet = sheetG[gid];
+            const fromLocal = aonTranslateState.guilds?.[gid];
+            merged[gid] = fromSheet ? { ...fromLocal, ...fromSheet } : (fromLocal || { enabled: false, sourceBotId: CONFIG.AON_SOURCE_BOT_ID, routes: createAonRouteMap(), translatedMessageIds: [] });
+        }
+        aonTranslateState.guilds = merged;
         hydrated = true;
     }
     if (loaded?.boss && typeof loaded.boss === 'object' && loaded.boss.guilds) {
-        bossState.guilds = loaded.boss.guilds;
+        const sheetG = loaded.boss.guilds;
+        const merged = { ...sheetG };
+        for (const guild of (client.guilds?.cache?.values() || [])) {
+            const gid = guild.id;
+            if (!merged[gid] && bossState.guilds?.[gid]) merged[gid] = bossState.guilds[gid];
+            else if (sheetG[gid]) merged[gid] = sheetG[gid];
+        }
+        bossState.guilds = merged;
         saveBossState();
         hydrated = true;
     }
     if (loaded?.mvp && typeof loaded.mvp === 'object' && loaded.mvp.guilds) {
-        mvpScheduleState.guilds = loaded.mvp.guilds;
+        const sheetG = loaded.mvp.guilds;
+        const merged = { ...sheetG };
+        for (const guild of (client.guilds?.cache?.values() || [])) {
+            const gid = guild.id;
+            if (!merged[gid] && mvpScheduleState.guilds?.[gid]) merged[gid] = mvpScheduleState.guilds[gid];
+            else if (sheetG[gid]) merged[gid] = sheetG[gid];
+        }
+        mvpScheduleState.guilds = merged;
         saveMvpScheduleState();
         hydrated = true;
     }
@@ -806,6 +868,20 @@ const TACTICS_DATA = {
             { value: '689', label: 'Pet Soul Acquisition (DB)', file: 'inven_pet_689_english.txt' },
             { value: '1077', label: 'Pet Stats & Understanding', file: 'inven_pet_1077_english.txt' }
         ]
+    },
+    class: {
+        label: 'Class Guide',
+        items: [
+            { value: '58', label: '검성 PVE 스킬트리', file: 'inven_58_english.txt' },
+            { value: '6625', label: '수호성 PVE 스킬 정리', file: 'inven_6625_english.txt' },
+            { value: '3856', label: '살성 PVE 가이드', file: 'inven_3856_english.txt' },
+            { value: '4009', label: '궁성 PVE 세팅 가이드', file: 'inven_4009_english.txt' },
+            { value: '116', label: '호법성 PVE 종합 가이드', file: 'inven_116_english.txt' },
+            { value: '657', label: '치유성 가이드', file: 'inven_657_english.txt' },
+            { value: '66', label: '마도성 PVE 공략', file: 'inven_66_english.txt' },
+            { value: '2760', label: '정령성 PVE 세팅·딜싸이클', file: 'inven_2760_english.txt' },
+            { value: '965', label: '정령성 PVP 입문 가이드', file: 'inven_965_english.txt' }
+        ]
     }
 };
 
@@ -816,7 +892,8 @@ function buildTacticsCategorySelect() {
             .setPlaceholder('Select category…')
             .addOptions(
                 { label: '🏰 Dungeon Guide', value: 'dungeon', description: 'Conquest, Transcendence, Ludra guides' },
-                { label: '🐾 Pet Guide', value: 'pet', description: 'Pet understanding, soul, stats' }
+                { label: '🐾 Pet Guide', value: 'pet', description: 'Pet understanding, soul, stats' },
+                { label: '⚔️ 클래스 가이드', value: 'class', description: '검성·수호성·살성·궁성·호법·치유·마도·정령' }
             )
     );
 }
@@ -3085,7 +3162,7 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             const state = loadPanelState();
-            const categoryId = state.verifyCategoryId;
+            const categoryId = state.verifyCategoryIdByGuild?.[interaction.guildId] || state.verifyCategoryId;
             if (!categoryId) {
                 await safeEphemeral(interaction, '❌ Verification not configured. Ask an admin to run **`/verify_channel_set category:<category>`** first.');
                 return;
@@ -3173,7 +3250,9 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             const state = loadPanelState();
-            savePanelState({ ...state, verifyCategoryId: category.id }, true);
+            const byGuild = state.verifyCategoryIdByGuild && typeof state.verifyCategoryIdByGuild === 'object' ? { ...state.verifyCategoryIdByGuild } : {};
+            byGuild[interaction.guildId] = category.id;
+            savePanelState({ ...state, verifyCategoryId: category.id, verifyCategoryIdByGuild: byGuild }, true);
             await safeEphemeral(interaction, `✅ Verification channels will be created in **${category.name}**.\n\n_(Settings saved to Bot_Runtime_State sheet — persisted across redeploys.)_`);
         } else if (interaction.commandName === 'welcome_set') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
@@ -4130,7 +4209,8 @@ client.on('interactionCreate', async (interaction) => {
                 // defer first to avoid 3-sec timeout (modal requires instant response; bot cold start fails)
                 await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
                 const state = loadPanelState();
-                if (!state.verifyCategoryId) {
+                const verifyCatId = state.verifyCategoryIdByGuild?.[interaction.guildId] || state.verifyCategoryId;
+                if (!verifyCatId) {
                     await interaction.editReply({
                         content: '❌ Character verification is not configured. Ask an admin to run **`/verify_channel_set category:<category>`** first.\n\nOr use **`/myinfo_register character_name:<name>`** (same function).',
                         flags: EPHEMERAL_FLAGS
@@ -4475,7 +4555,7 @@ client.on('interactionCreate', async (interaction) => {
                 return;
             }
             const state = loadPanelState();
-            const categoryId = state.verifyCategoryId;
+            const categoryId = state.verifyCategoryIdByGuild?.[interaction.guildId] || state.verifyCategoryId;
             if (!categoryId) {
                 await interaction.reply({ content: '❌ Verification not configured. Ask an admin to run `/verify_channel_set category:<category>` first.', flags: EPHEMERAL_FLAGS });
                 return;
