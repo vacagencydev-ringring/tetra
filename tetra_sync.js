@@ -6099,6 +6099,15 @@ async function translateQueryForDisplay(query) {
 
 const INVEN_URL_PATTERN = /https?:\/\/(?:www\.)?inven\.co\.kr\/board\/aion2\/\d+\/\d+|https?:\/\/(?:www\.)?inven\.co\.kr\/webzine\/news\/\?news=\d+/i;
 
+function formatLinkSummaryForReadability(text) {
+    if (!text || typeof text !== 'string') return text;
+    return text
+        .replace(/(\d{1,2})[.)]\s+/g, '\n**$1.** ')
+        .replace(/\n{2,}/g, '\n\n')
+        .replace(/^[\s\n]+|[\s\n]+$/g, '')
+        .trim();
+}
+
 const TACTICS_CATEGORY_SEARCH_KEYS = {
     dungeon: ['dungeon', '던전'],
     pet: ['pet', '펫'],
@@ -6181,14 +6190,15 @@ async function fetchInvenArticle(url) {
                 .filter(s => s.startsWith('http') && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(s))
         )
     ].slice(0, 5);
-    const SUMMARY_MAX = 600;
+    const SUMMARY_MAX = 900;
     let summary = rawText.slice(0, SUMMARY_MAX).trim();
     const last = summary.lastIndexOf('\n');
     if (last > SUMMARY_MAX * 0.5) summary = summary.slice(0, last).trim();
-    else if (summary.length >= SUMMARY_MAX) summary = summary.slice(0, 500).trim() + '…';
+    else if (summary.length >= SUMMARY_MAX) summary = summary.slice(0, 750).trim() + '…';
     const titleEn = hasHangul(title) ? (await translateKoToEn(title) || title) : title;
-    const summaryEn = summary ? (await translateKoToEnLong(summary) || summary) : '';
-    return { url, title, titleEn, summary: summaryEn || summary, images: imgs };
+    let summaryEn = summary ? (await translateKoToEnLong(summary) || summary) : '';
+    summaryEn = formatLinkSummaryForReadability(summaryEn || summary);
+    return { url, title, titleEn, summary: summaryEn, images: imgs };
 }
 
 async function handleAonBotNewsTranslation(message) {
