@@ -115,6 +115,7 @@ See `.env.example`:
 - `NOTICE_TICKER_MS`
 - `KINAH_TICKER_MS`
 - `NOTICE_SOURCES_JSON` (optional custom source list)
+- `ENABLE_WELCOME_DM` (optional, default false: only controls DM fallback when welcome channel is missing)
 
 ## Run
 
@@ -127,3 +128,4 @@ npm start
 
 - Runtime state is persisted to `bot_state.json`.
 - Command registration is guild-scoped for immediate updates.
+- New-member welcome requires **Server Members Intent** enabled in Discord Developer Portal.

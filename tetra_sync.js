@@ -1718,7 +1718,8 @@ const ENABLE_WELCOME_DM = String(process.env.ENABLE_WELCOME_DM || 'false').toLow
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        ...(ENABLE_WELCOME_DM ? [GatewayIntentBits.GuildMembers] : []),
+        // Required for guildMemberAdd welcome flow (channel welcome + optional DM fallback)
+        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
     ]
@@ -4082,7 +4083,10 @@ async function registerGuildSlashCommands(rest, guild) {
 // ═══════════════════════════════════════════════════════════
 client.once('ready', async () => {
     console.log(`🚀 TETRA Sync 봇 가동: ${client.user.tag}`);
-    if (!ENABLE_WELCOME_DM) console.log('   ℹ️ Welcome DM off (set ENABLE_WELCOME_DM=true + Server Members Intent in Discord Dev Portal to enable)');
+    if (!ENABLE_WELCOME_DM) {
+        console.log('   ℹ️ Welcome fallback DM off (channel welcome still active).');
+    }
+    console.log('   ℹ️ Ensure "Server Members Intent" is enabled in Discord Dev Portal for new-member welcome events.');
     try {
         await hydrateRuntimeStateFromSheet().catch(err => {
             console.warn(`[state] runtime state hydrate skipped: ${err.message}`);
