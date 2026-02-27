@@ -1856,6 +1856,71 @@ async function ensureDailyLogSheetForm(regionCode, force = false) {
     return res;
 }
 
+async function recoverKinahStartFromSheet(regionCfg, worker) {
+    try {
+        const baseRange = regionCfg.sheetRange || '';
+        const range = baseRange.replace('!A:G', '!A2:G');
+        const read = await readSheetRows(range);
+        if (!read.ok || !Array.isArray(read.values)) return null;
+        const targetWorker = String(worker || '').trim();
+        for (let i = read.values.length - 1; i >= 0; i--) {
+            const row = read.values[i] || [];
+            const rowWorker = String(row[1] || '').trim();
+            const rowType = String(row[2] || '').trim();
+            if (!rowWorker || rowWorker !== targetWorker) continue;
+            if (rowType !== 'KinahStart') continue;
+            const loginAt = row[3] || row[0] || 'N/A';
+            const metric = String(row[6] || row[5] || '').trim();
+            const m = metric.match(/StartKinah:([\d,]+)/);
+            if (!m) continue;
+            const raw = m[1].replace(/,/g, '');
+            if (!raw) continue;
+            return {
+                loginAt,
+                startKinah: raw,
+                startMemo: null,
+            };
+        }
+        return null;
+    } catch (_) {
+        return null;
+    }
+}
+
+async function recoverLevelUpStartFromSheet(regionCfg, worker) {
+    try {
+        const baseRange = regionCfg.sheetRange || '';
+        const range = baseRange.replace('!A:G', '!A2:G');
+        const read = await readSheetRows(range);
+        if (!read.ok || !Array.isArray(read.values)) return null;
+        const targetWorker = String(worker || '').trim();
+        for (let i = read.values.length - 1; i >= 0; i--) {
+            const row = read.values[i] || [];
+            const rowWorker = String(row[1] || '').trim();
+            const rowType = String(row[2] || '').trim();
+            if (!rowWorker || rowWorker !== targetWorker) continue;
+            if (rowType !== 'LevelUpStart') continue;
+            const loginAt = row[3] || row[0] || 'N/A';
+            const metric = String(row[6] || row[5] || '').trim();
+            const mLevel = metric.match(/StartLevel:(-?\d+)/);
+            const mCp = metric.match(/StartCP:(-?\d+)/);
+            if (!mLevel || !mCp) continue;
+            const startLevel = Number(mLevel[1]);
+            const startCp = Number(mCp[1]);
+            if (!Number.isFinite(startLevel) || !Number.isFinite(startCp)) continue;
+            return {
+                loginAt,
+                startLevel,
+                startCp,
+                startMemo: null,
+            };
+        }
+        return null;
+    } catch (_) {
+        return null;
+    }
+}
+
 async function clearSheetRows(range) {
     try {
         const auth = new google.auth.GoogleAuth({
@@ -6784,7 +6849,7 @@ client.on('interactionCreate', async (interaction) => {
                 const memo = (interaction.fields.getTextInputValue('memo') || '').trim();
                 const startKinah = parseNonNegativeBigIntInput(startKinahRaw);
                 if (startKinah == null) {
-                    await interaction.editReply({ content: '❌ 시작 키나는 숫자만 입력해주세요.' });
+                    await interaction.editReply({ content: '❌ Start Kinah must be a number.' });
                     return;
                 }
                 sessions[sessionKey] = {
@@ -6823,19 +6888,36 @@ client.on('interactionCreate', async (interaction) => {
                 const endKinah = parseNonNegativeBigIntInput(endKinahRaw);
                 const spentKinah = parseNonNegativeBigIntInput(spentKinahRaw);
                 if (endKinah == null || spentKinah == null) {
-                    await interaction.editReply({ content: '❌ 종료 키나/소비 키나는 숫자만 입력해주세요.' });
+                    await interaction.editReply({ content: '❌ End / Spent Kinah must be numbers.' });
                     return;
                 }
-                const startSession = sessions[sessionKey];
+                let startSession = sessions[sessionKey];
                 if (!startSession) {
-                    await interaction.editReply({ content: '❌ 먼저 **Start Kinah Team** 보고를 제출해주세요.' });
+                    const recovered = await recoverKinahStartFromSheet(regionCfg, worker);
+                    if (recovered) {
+                        startSession = {
+                            userId: interaction.user.id,
+                            worker,
+                            team: 'kinah',
+                            region: regionCfg.value,
+                            startedAt: Date.now(),
+                            loginAt: recovered.loginAt,
+                            startKinah: recovered.startKinah,
+                            startMemo: recovered.startMemo,
+                        };
+                        sessions[sessionKey] = startSession;
+                        savePanelState(state, true);
+                    }
+                }
+                if (!startSession) {
+                    await interaction.editReply({ content: '❌ Please submit **Start Kinah Team** report first.' });
                     return;
                 }
                 const startKinah = parseNonNegativeBigIntInput(startSession.startKinah);
                 if (startKinah == null) {
                     delete sessions[sessionKey];
                     savePanelState(state, true);
-                    await interaction.editReply({ content: '❌ 시작 데이터가 손상되었습니다. Start 보고를 다시 제출해주세요.' });
+                    await interaction.editReply({ content: '❌ Start data is corrupted. Please submit the Start report again.' });
                     return;
                 }
                 const onHandDelta = endKinah - startKinah;
@@ -6883,7 +6965,7 @@ client.on('interactionCreate', async (interaction) => {
                 const startLevel = parseNonNegativeIntInput(startLevelRaw);
                 const startCp = parseNonNegativeIntInput(startCpRaw);
                 if (startLevel == null || startCp == null) {
-                    await interaction.editReply({ content: '❌ 시작 레벨/전투력은 숫자만 입력해주세요.' });
+                    await interaction.editReply({ content: '❌ Start level / CP must be numbers.' });
                     return;
                 }
                 sessions[sessionKey] = {
@@ -6923,12 +7005,30 @@ client.on('interactionCreate', async (interaction) => {
                 const endLevel = parseNonNegativeIntInput(endLevelRaw);
                 const endCp = parseNonNegativeIntInput(endCpRaw);
                 if (endLevel == null || endCp == null) {
-                    await interaction.editReply({ content: '❌ 종료 레벨/전투력은 숫자만 입력해주세요.' });
+                    await interaction.editReply({ content: '❌ End level / CP must be numbers.' });
                     return;
                 }
-                const startSession = sessions[sessionKey];
+                let startSession = sessions[sessionKey];
                 if (!startSession) {
-                    await interaction.editReply({ content: '❌ 먼저 **Start Level-Up Team** 보고를 제출해주세요.' });
+                    const recovered = await recoverLevelUpStartFromSheet(regionCfg, worker);
+                    if (recovered) {
+                        startSession = {
+                            userId: interaction.user.id,
+                            worker,
+                            team: 'levelup',
+                            region: regionCfg.value,
+                            startedAt: Date.now(),
+                            loginAt: recovered.loginAt,
+                            startLevel: recovered.startLevel,
+                            startCp: recovered.startCp,
+                            startMemo: recovered.startMemo,
+                        };
+                        sessions[sessionKey] = startSession;
+                        savePanelState(state, true);
+                    }
+                }
+                if (!startSession) {
+                    await interaction.editReply({ content: '❌ Please submit **Start Level-Up Team** report first.' });
                     return;
                 }
                 const startLevel = parseNonNegativeIntInput(startSession.startLevel);
@@ -6936,7 +7036,7 @@ client.on('interactionCreate', async (interaction) => {
                 if (startLevel == null || startCp == null) {
                     delete sessions[sessionKey];
                     savePanelState(state, true);
-                    await interaction.editReply({ content: '❌ 시작 데이터가 손상되었습니다. Start 보고를 다시 제출해주세요.' });
+                    await interaction.editReply({ content: '❌ Start data is corrupted. Please submit the Start report again.' });
                     return;
                 }
                 const levelGain = endLevel - startLevel;
