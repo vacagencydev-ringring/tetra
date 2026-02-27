@@ -1974,7 +1974,7 @@ function buildGuideEmbedsKo() {
         .addFields(
             {
                 name: '📌 패널 게시 (모든 타입)',
-                value: '**`/panel type:<종류>`** — 아래 패널을 채널에 게시 (Admin)\n• `report` 일일 리포트 | `salary` 급여 | `join_verify` 가입 인증 | `payment` 입금 | `youtube` 정보 유튜브 | `link` 링크 요약·번역\n• `guide_ko` 전체 가이드(한글) | `guide_en` 전체 가이드(영어)\n• `guidebook_plaync` 공식 가이드북 | `tactics` 던전/펫 가이드',
+                value: '**`/panel type:<종류>`** — 아래 패널을 채널에 게시 (Admin)\n• `report` 일일 리포트 | `salary` 급여 | `join_verify` 가입 인증 | `payment` 입금 | `kinah` 키나 시세 | `boss` 필드 보스 | `search` AION2 검색 | `market` 글로벌 마켓 | `youtube` 정보 유튜브 | `link` 링크 요약·번역\n• `guide_ko` 전체 가이드(한글) | `guide_en` 전체 가이드(영어)\n• `guidebook_plaync` 공식 가이드북 | `tactics` 던전/펫 가이드',
                 inline: false
             },
             {
@@ -2094,7 +2094,33 @@ function buildGuideEmbedsKo() {
         )
         .setFooter({ text: 'TETRA Sync | 문의: 관리자' })
         .setTimestamp();
-    return [e1, e2, e3, e4, e5];
+    const e6 = new EmbedBuilder()
+        .setTitle('💱 11. 글로벌 마켓 & Trust (Admin)')
+        .setColor(0x0ea5e9)
+        .addFields(
+            {
+                name: '마켓 기본 설정',
+                value: '**`/market_setup market_channel:<채널> ticket_category:<카테고리> admin_role:<역할>`**\n• `market_channel` — `/wts` `/wtb` 게시물이 올라갈 채널\n• `ticket_category` — 에스크로 티켓(3자 대화방)이 생성될 카테고리\n• `admin_role` — 에스크로 관리자 역할 (Hold/Complete 처리 권한)',
+                inline: false
+            },
+            {
+                name: '거래 플로우 (에스크로)',
+                value: '**1) 판매 등록** — `/wts amount:<키나> price:<금액> currency:<통화>`\n**2) 구매 요청** — 마켓 Embed의 `🤝 Purchase Request` 버튼 → 3자 비공개 티켓 생성 (구매자/판매자/관리자)\n**3) 진행 순서**\n   - 관리자: 인게임에서 판매자로부터 키나 확보 → `1) Hold Confirmed` 버튼\n   - 판매자: 실금 입금 확인 후 `2) Payment Confirmed`\n   - 관리자: 키나를 구매자에게 전달 후 `3) Complete + Trust` 로 신뢰도 반영 및 티켓 종료',
+                inline: false
+            },
+            {
+                name: '신뢰도(Trust) 시스템',
+                value: '**`/trust user:<유저>`** — 현재 Trust 점수/등급 조회\n**`/trust_add user:<유저> points:<±포인트> reason:<사유>`** — 관리자용 점수 조정\n**`/trust_role_set tier:<티어> role:<역할>`** — Trust 티어별 자동 역할 매핑\n• 거래가 정상 종료될 때마다 관리자 재량으로 `/trust_add` 로 +1~+N 부여',
+                inline: false
+            },
+            {
+                name: '모니터링',
+                value: '**`/market_status`** — 현재 마켓 채널/티켓 카테고리/수수료/오픈 티켓 상태 요약\n• 문제가 생긴 티켓은 관리자만 `market_*` 버튼으로 강제 종료 가능',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    return [e1, e2, e3, e4, e5, e6];
 }
 
 function buildGuideEmbedsEn() {
@@ -2105,7 +2131,7 @@ function buildGuideEmbedsEn() {
         .addFields(
             {
                 name: '📌 Panel Types',
-                value: '**`/panel type:<type>`** — Post a panel to this channel (Admin)\n• `report` Daily report | `salary` Salary | `join_verify` Join | `payment` Payment | `youtube` Info YouTube | `link` Link summarize & translate\n• `guide_ko` Full guide (KR) | `guide_en` Full guide (EN)\n• `guidebook_plaync` Official Guidebook | `tactics` Dungeon & Pet guides',
+                value: '**`/panel type:<type>`** — Post a panel to this channel (Admin)\n• `report` Daily report | `salary` Salary | `join_verify` Join | `payment` Payment | `kinah` Kinah rate | `boss` Field boss | `search` AION2 search | `market` Global Market | `youtube` Info YouTube | `link` Link summarize & translate\n• `guide_ko` Full guide (KR) | `guide_en` Full guide (EN)\n• `guidebook_plaync` Official Guidebook | `tactics` Dungeon & Pet guides',
                 inline: false
             },
             {
@@ -2225,7 +2251,33 @@ function buildGuideEmbedsEn() {
         )
         .setFooter({ text: 'TETRA Sync | Contact: Admin' })
         .setTimestamp();
-    return [e1, e2, e3, e4, e5];
+    const e6 = new EmbedBuilder()
+        .setTitle('💱 11. Global Market & Trust (Admin)')
+        .setColor(0x0ea5e9)
+        .addFields(
+            {
+                name: 'Market Setup',
+                value: '**`/market_setup market_channel:<channel> ticket_category:<category> admin_role:<role>`**\n• `market_channel` — Where `/wts` and `/wtb` listings are posted\n• `ticket_category` — Category for escrow trade tickets (3-party rooms)\n• `admin_role` — Escrow admin role (allowed to confirm hold/complete)',
+                inline: false
+            },
+            {
+                name: 'Escrow Trade Flow',
+                value: '**1) Listing** — `/wts amount:<kinah> price:<amount> currency:<code>`\n**2) Request** — Buyer clicks `🤝 Purchase Request` on the listing → private ticket with Buyer/Seller/Admin\n**3) Steps**\n   - Admin: Receive Kinah in-game from seller → click `1) Hold Confirmed`\n   - Seller: Confirm real-world payment → click `2) Payment Confirmed`\n   - Admin: Deliver Kinah to buyer → click `3) Complete + Trust` to apply trust and close ticket',
+                inline: false
+            },
+            {
+                name: 'Trust Rating System',
+                value: '**`/trust user:<user>`** — Show trust score and tier\n**`/trust_add user:<user> points:<±points> reason:<text>`** — Adjust trust (Admin)\n**`/trust_role_set tier:<tier> role:<role>`** — Bind trust tier to Discord role\n• After successful trades, admins grant +1~N via `/trust_add` to build long-term reputation.',
+                inline: false
+            },
+            {
+                name: 'Monitoring & Status',
+                value: '**`/market_status`** — Show current market channel, ticket category, fee, and open tickets\n• Problematic tickets can be force-closed with `market_*` buttons by admins only.',
+                inline: false
+            }
+        )
+        .setTimestamp();
+    return [e1, e2, e3, e4, e5, e6];
 }
 
 function buildGuideEmbedsUser() {
@@ -2351,7 +2403,7 @@ function buildFaqAdminEmbed(lang = 'en') {
             .setDescription('서버 관리자용 자주 묻는 질문.')
             .setColor(0xf59e0b)
             .addFields(
-                { name: 'Q: 패널은 어떻게 게시하나요?', value: '**`/panel type:<종류>`** — report, salary, join_verify, payment, youtube, **link**, guide_ko, guide_en, **guidebook_plaync**, **tactics**. 채널에서 실행하면 해당 패널 게시. 종류별 1개.', inline: false },
+                { name: 'Q: 패널은 어떻게 게시하나요?', value: '**`/panel type:<종류>`** — report, salary, kinah, boss, search, market, join_verify, payment, youtube, **link**, guide_ko, guide_en, **guidebook_plaync**, **tactics**. 채널에서 실행하면 해당 패널 게시. 종류별 1개.', inline: false },
                 { name: 'Q: TACTICS와 가이드북 차이?', value: '**TACTICS** — 인벤 던전/펫 가이드. **가이드북** — PlayNC 공식 (클래스·스킬).\n둘 다 기본은 나만보기.\n**관리자 공개:** `/tactics public:true`, `/guidebook public:true` 또는 패널 Post to Channel.\n**가이드북:** `/guidebook_fetch` 갱신, 실패/빈 데이터 시 로컬 fallback 자동 사용.', inline: false },
                 { name: 'Q: 신규 멤버 안내 순서는?', value: '**Announcements 확인** → **`/join_verify`** 가입 진행 → **`/help`**로 명령어 확인.\n환영 문구 채널/공지 채널은 **`/welcome_set announcements_channel:<채널> welcome_channel:<채널>`**로 설정.', inline: false },
                 { name: 'Q: 오늘 Daily Report 업데이트 핵심?', value: '**나라별 패널:** `/panel type:report region:ph|in|np|ch|tw|all`\n**Start/End 분리:** `/report_kinah` `/report_levelup` + `phase:start|end`\n**자동시간:** Start=로그인, End=로그아웃\n**키나 종료:** 소비키나 포함 계산\n**시트폼 자동동기화:** Daily_Log A1:G1 헤더 자동 갱신', inline: false },
@@ -2374,7 +2426,7 @@ function buildFaqAdminEmbed(lang = 'en') {
         .setDescription('Frequently asked questions for server admins.')
         .setColor(0xf59e0b)
         .addFields(
-            { name: 'Q: How do I post panels?', value: '**`/panel type:<type>`** — report, salary, join_verify, payment, youtube, **link**, guide_ko, guide_en, **guidebook_plaync**, **tactics**. Run in a channel to post. One panel per type.', inline: false },
+            { name: 'Q: How do I post panels?', value: '**`/panel type:<type>`** — report, salary, kinah, boss, search, market, join_verify, payment, youtube, **link**, guide_ko, guide_en, **guidebook_plaync**, **tactics**. Run in a channel to post. One panel per type.', inline: false },
             { name: 'Q: TACTICS vs Guidebook?', value: '**TACTICS** — Inven dungeon/pet guides. **Guidebook** — PlayNC official (class, skill).\nBoth are ephemeral by default.\n**Admin public share:** `/tactics public:true`, `/guidebook public:true`, or panel Post to Channel.\n**Guidebook:** run **`/guidebook_fetch`**; if scrape fails/empty, local fallback loads automatically.', inline: false },
             { name: 'Q: What is the onboarding order for new members?', value: '**Announcements** → **`/join_verify`** → **`/help`**.\nSet channels with **`/welcome_set announcements_channel:<channel> welcome_channel:<channel>`**.', inline: false },
             { name: 'Q: What changed in Daily Report today?', value: '**Country panels:** `/panel type:report region:ph|in|np|ch|tw|all`\n**Start/End split:** `/report_kinah` `/report_levelup` + `phase:start|end`\n**Auto timestamps:** Start=login, End=logout\n**Kinah End includes spent kinah**\n**Sheet form auto-sync:** Daily_Log header A1:G1 updated automatically\n**Manual force sync (Admin):** `/dailylog_header_sync region:all|ph|in|np|ch|tw`', inline: false },
@@ -3122,6 +3174,7 @@ const commands = [
                 { name: 'Payment Confirm', value: 'payment' },
                 { name: 'Field Boss & MVP', value: 'boss' },
                 { name: 'AION2 Search (Item/Character/Build/Collection)', value: 'search' },
+                { name: '🌐 Global Market (Escrow)', value: 'market' },
                 { name: 'Info YouTube (Translated Links)', value: 'youtube' },
                 { name: '📰 Link (Summarize & Translate)', value: 'link' },
                 { name: '📖 Usage Guide (Korean)', value: 'guide_ko' },
@@ -5513,6 +5566,33 @@ client.on('interactionCreate', async (interaction) => {
                 const state = loadPanelState();
                 savePanelState({ ...state, kinahMsgId: sent.id, kinahChannelId: channel.id });
                 await interaction.editReply({ content: '✅ Kinah Rate panel updated (1 only).' });
+            } else if (kind === 'market') {
+                const embed = new EmbedBuilder()
+                    .setTitle('🌐 Global Market — Escrow Trade')
+                    .setDescription(
+                        '**Anti-scam escrow trading for Kinah.**\n\n' +
+                        '**Commands:**\n' +
+                        '• **`/market_setup`** — Configure market channel, ticket category, admin role, fee\n' +
+                        '• **`/wts amount:<kinah> price:<amount> currency:<code>`** — Create WTS listing (posts to market channel)\n' +
+                        '• **`/wtb amount:<kinah> price:<amount> currency:<code>`** — Create WTB listing (posts to market channel)\n' +
+                        '• **`/market_status`** — Check config, fee, open listings & tickets\n\n' +
+                        '**How escrow works:**\n' +
+                        '1) Seller runs `/wts` → listing is posted in the global market channel.\n' +
+                        '2) Buyer clicks **Purchase Request** on the listing → private 3-party ticket (Buyer/Seller/Admin).\n' +
+                        '3) Admin holds Kinah in-game from seller → Seller confirms real-world payment → Admin delivers Kinah to buyer and closes ticket with Trust.\n\n' +
+                        '_Admins: Run `/market_setup` before first use, and ask members to always use escrow instead of direct trades._'
+                    )
+                    .setColor(0x22c55e)
+                    .setTimestamp();
+                const isMarketPanel = m => m.author?.id === client.user?.id && m.embeds[0]?.title?.includes('Global Market');
+                let allMarket = (await channel.messages.fetch({ limit: 100 })).filter(isMarketPanel);
+                for (const m of allMarket.values()) await m.delete().catch(() => {});
+                const sent = await channel.send({ embeds: [embed] });
+                allMarket = (await channel.messages.fetch({ limit: 100 })).filter(isMarketPanel);
+                for (const m of allMarket.values()) {
+                    if (m.id !== sent.id) await m.delete().catch(() => {});
+                }
+                await interaction.editReply({ content: '✅ Global Market panel updated (1 only).' });
             } else if (kind === 'boss') {
                 const embed = new EmbedBuilder()
                     .setTitle('⚔️ Field Boss & MVP')
