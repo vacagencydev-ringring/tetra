@@ -272,6 +272,10 @@ function buildRuntimeStateRowsWithMerge(loaded) {
     for (const [gid, tickets] of Object.entries(our.marketOpenTicketsByGuild || {})) {
         mergedPanel.marketOpenTicketsByGuild[gid] = { ...(mergedPanel.marketOpenTicketsByGuild[gid] || {}), ...(tickets || {}) };
     }
+    mergedPanel.reportSessionsByGuild = { ...(base.reportSessionsByGuild || {}) };
+    for (const [gid, sessions] of Object.entries(our.reportSessionsByGuild || {})) {
+        mergedPanel.reportSessionsByGuild[gid] = { ...(mergedPanel.reportSessionsByGuild[gid] || {}), ...(sessions || {}) };
+    }
 
     const mergedKinah = { guilds: { ...(loaded?.kinah?.guilds || {}) } };
     for (const [gid, d] of Object.entries(kinahState.guilds || {})) mergedKinah.guilds[gid] = d;
@@ -380,6 +384,10 @@ async function hydrateRuntimeStateFromSheet() {
         merged.marketOpenTicketsByGuild = { ...(sheet.marketOpenTicketsByGuild || {}) };
         for (const [gid, tickets] of Object.entries(local.marketOpenTicketsByGuild || {})) {
             merged.marketOpenTicketsByGuild[gid] = { ...(merged.marketOpenTicketsByGuild[gid] || {}), ...(tickets || {}) };
+        }
+        merged.reportSessionsByGuild = { ...(sheet.reportSessionsByGuild || {}) };
+        for (const [gid, sessions] of Object.entries(local.reportSessionsByGuild || {})) {
+            merged.reportSessionsByGuild[gid] = { ...(merged.reportSessionsByGuild[gid] || {}), ...(sessions || {}) };
         }
         merged.verifyCategoryId = local.verifyCategoryId || sheet.verifyCategoryId;
         saveJsonState(CONFIG.PANEL_STATE_PATH, merged);
@@ -1897,7 +1905,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '📋 1. 일일 리포트',
-                value: '**`/report_kinah region:<지역>`** — 키나 팀: 접속/종료, 당일 수익\n**`/report_levelup region:<지역>`** — 레벨업 팀: 접속/종료, 레벨·CP 진행',
+                value: '**`/report_kinah region:<지역> phase:start|end`** — 키나팀 시작/종료 보고\n**`/report_levelup region:<지역> phase:start|end`** — 레벨업팀 시작/종료 보고',
                 inline: false
             },
             {
@@ -2028,7 +2036,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: '📋 1. Daily Report',
-                value: '**`/report_kinah region:<region>`** — Kinah team: Login/Logout, profit\n**`/report_levelup region:<region>`** — Level-Up team: Login/Logout, Level/CP',
+                value: '**`/report_kinah region:<region> phase:start|end`** — Kinah team start/end report\n**`/report_levelup region:<region> phase:start|end`** — Level-Up team start/end report',
                 inline: false
             },
             {
@@ -2154,7 +2162,7 @@ function buildGuideEmbedsUser() {
             },
             {
                 name: '📋 Daily Report',
-                value: '**`/report_kinah region:<region>`** — Kinah team: Login, Logout, today\'s profit\n**`/report_levelup region:<region>`** — Level-Up team: Login, Logout, Level & CP progress\n_Or use the Daily Report panel buttons (Kinah / Level-Up) if posted by staff._',
+                value: '**`/report_kinah region:<region> phase:start|end`** — Kinah team start/end (End includes spent kinah)\n**`/report_levelup region:<region> phase:start|end`** — Level-Up team start/end (Level & CP gains)\n_Or use the Daily Report panel Submit button if posted by staff._',
                 inline: false
             },
             {
@@ -2975,21 +2983,37 @@ const commands = [
         .toJSON(),
     new SlashCommandBuilder()
         .setName('report_kinah')
-        .setDescription('Submit Kinah Team daily report')
+        .setDescription('Submit Kinah Team start/end report')
         .addStringOption(o => o
             .setName('region')
             .setDescription('Your region')
             .setRequired(true)
             .addChoices(...getRegionChoices()))
+        .addStringOption(o => o
+            .setName('phase')
+            .setDescription('Start or end report')
+            .setRequired(false)
+            .addChoices(
+                { name: 'Start', value: 'start' },
+                { name: 'End', value: 'end' }
+            ))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('report_levelup')
-        .setDescription('Submit Level-Up Team daily report')
+        .setDescription('Submit Level-Up Team start/end report')
         .addStringOption(o => o
             .setName('region')
             .setDescription('Your region')
             .setRequired(true)
             .addChoices(...getRegionChoices()))
+        .addStringOption(o => o
+            .setName('phase')
+            .setDescription('Start or end report')
+            .setRequired(false)
+            .addChoices(
+                { name: 'Start', value: 'start' },
+                { name: 'End', value: 'end' }
+            ))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('salary_confirm')
@@ -3436,10 +3460,10 @@ const commands = [
 // ═══════════════════════════════════════════════════════════
 // [4] 모달 (버튼 클릭 시)
 // ═══════════════════════════════════════════════════════════
-function createKinahModal(region) {
+function createKinahStartModal(region) {
     return new ModalBuilder()
-        .setCustomId(`modal_kinah_${region}`)
-        .setTitle('Kinah Team Daily Report')
+        .setCustomId(`modal_kinah_start_${region}`)
+        .setTitle('Start — Kinah Team')
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
@@ -3451,6 +3475,22 @@ function createKinahModal(region) {
             ),
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
+                    .setCustomId('memo')
+                    .setLabel('Memo')
+                    .setPlaceholder('e.g. Today target: 30m')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+            ),
+        );
+}
+
+function createKinahEndModal(region) {
+    return new ModalBuilder()
+        .setCustomId(`modal_kinah_end_${region}`)
+        .setTitle('End — Kinah Team')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
                     .setCustomId('end_kinah')
                     .setLabel('End Kinah (numbers only)')
                     .setPlaceholder('e.g. 14750000')
@@ -3460,14 +3500,14 @@ function createKinahModal(region) {
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
                     .setCustomId('spent_kinah')
-                    .setLabel('Spent Kinah (Gear-up expense)')
+                    .setLabel('Spent Kinah (numbers only)')
                     .setPlaceholder('e.g. 10000000')
                     .setStyle(TextInputStyle.Short)
                     .setRequired(true)
             ),
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
-                    .setCustomId('note')
+                    .setCustomId('memo')
                     .setLabel('Memo')
                     .setPlaceholder('e.g. Some kinah used to gear up')
                     .setStyle(TextInputStyle.Short)
@@ -3476,10 +3516,10 @@ function createKinahModal(region) {
         );
 }
 
-function createLevelUpModal(region) {
+function createLevelUpStartModal(region) {
     return new ModalBuilder()
-        .setCustomId(`modal_levelup_${region}`)
-        .setTitle('Level-Up Team Daily Report')
+        .setCustomId(`modal_levelup_start_${region}`)
+        .setTitle('Start — Level-Up Team')
         .addComponents(
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
@@ -3491,6 +3531,30 @@ function createLevelUpModal(region) {
             ),
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
+                    .setCustomId('start_cp')
+                    .setLabel('Start Combat Power (numbers only)')
+                    .setPlaceholder('e.g. 1800')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('memo')
+                    .setLabel('Memo')
+                    .setPlaceholder('e.g. Goal: Lv +2 / CP +150')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+            ),
+        );
+}
+
+function createLevelUpEndModal(region) {
+    return new ModalBuilder()
+        .setCustomId(`modal_levelup_end_${region}`)
+        .setTitle('End — Level-Up Team')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
                     .setCustomId('end_level')
                     .setLabel('End Level (numbers only)')
                     .setPlaceholder('e.g. 45')
@@ -3499,19 +3563,19 @@ function createLevelUpModal(region) {
             ),
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
-                    .setCustomId('start_cp')
-                    .setLabel('Start CP (numbers only)')
-                    .setPlaceholder('e.g. 1800')
+                    .setCustomId('end_cp')
+                    .setLabel('End Combat Power (numbers only)')
+                    .setPlaceholder('e.g. 2100')
                     .setStyle(TextInputStyle.Short)
                     .setRequired(true)
             ),
             new ActionRowBuilder().addComponents(
                 new TextInputBuilder()
-                    .setCustomId('end_cp')
-                    .setLabel('End CP (numbers only)')
-                    .setPlaceholder('e.g. 2100')
+                    .setCustomId('memo')
+                    .setLabel('Memo')
+                    .setPlaceholder('e.g. Rune upgrade + dungeon clear')
                     .setStyle(TextInputStyle.Short)
-                    .setRequired(true)
+                    .setRequired(false)
             ),
         );
 }
@@ -3555,24 +3619,59 @@ function buildDailySubmitTargetSelectRow() {
     const options = [];
     for (const region of REGION_CONFIGS) {
         options.push({
-            label: `${region.code} • Kinah Team`,
-            value: `kinah:${region.value}`,
+            label: `${region.code} • Start Kinah Team`,
+            value: `kinah_start:${region.value}`,
             emoji: region.emoji,
-            description: `${region.label} kinah report`,
+            description: `${region.label} start report`,
         });
         options.push({
-            label: `${region.code} • Level-Up Team`,
-            value: `levelup:${region.value}`,
+            label: `${region.code} • End Kinah Team`,
+            value: `kinah_end:${region.value}`,
             emoji: region.emoji,
-            description: `${region.label} level-up report`,
+            description: `${region.label} end report (+spent)`,
+        });
+        options.push({
+            label: `${region.code} • Start Level-Up Team`,
+            value: `levelup_start:${region.value}`,
+            emoji: region.emoji,
+            description: `${region.label} start level/cp`,
+        });
+        options.push({
+            label: `${region.code} • End Level-Up Team`,
+            value: `levelup_end:${region.value}`,
+            emoji: region.emoji,
+            description: `${region.label} end level/cp`,
         });
     }
     return new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
             .setCustomId('select_daily_submit_target')
-            .setPlaceholder('Select team + region')
+            .setPlaceholder('Select start/end + team + region')
             .addOptions(options.slice(0, 25))
     );
+}
+
+function ensureReportSessionsForGuild(state, guildId) {
+    if (!state.reportSessionsByGuild || typeof state.reportSessionsByGuild !== 'object') {
+        state.reportSessionsByGuild = {};
+    }
+    if (!state.reportSessionsByGuild[guildId] || typeof state.reportSessionsByGuild[guildId] !== 'object') {
+        state.reportSessionsByGuild[guildId] = {};
+    }
+    return state.reportSessionsByGuild[guildId];
+}
+
+function buildReportSessionKey(userId, team, region) {
+    return `${team}:${region}:${userId}`;
+}
+
+function pruneOldReportSessions(sessionMap, nowTs = Date.now()) {
+    if (!sessionMap || typeof sessionMap !== 'object') return;
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+    for (const [key, session] of Object.entries(sessionMap)) {
+        const startedAt = Number(session?.startedAt || 0);
+        if (!startedAt || nowTs - startedAt > maxAgeMs) delete sessionMap[key];
+    }
 }
 
 const PAYMENT_CURRENCIES = [
@@ -4157,10 +4256,14 @@ client.on('interactionCreate', async (interaction) => {
             await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
         } else if (interaction.commandName === 'report_kinah') {
             const r = interaction.options.getString('region') || 'ph';
-            await interaction.showModal(createKinahModal(r));
+            const phase = (interaction.options.getString('phase') || 'start').toLowerCase();
+            if (phase === 'start') await interaction.showModal(createKinahStartModal(r));
+            else await interaction.showModal(createKinahEndModal(r));
         } else if (interaction.commandName === 'report_levelup') {
             const r = interaction.options.getString('region') || 'ph';
-            await interaction.showModal(createLevelUpModal(r));
+            const phase = (interaction.options.getString('phase') || 'start').toLowerCase();
+            if (phase === 'start') await interaction.showModal(createLevelUpStartModal(r));
+            else await interaction.showModal(createLevelUpEndModal(r));
         } else if (interaction.commandName === 'salary_confirm') {
             if (interaction.user.bot) return;
             const regionOpt = interaction.options.getString('region');
@@ -5186,15 +5289,17 @@ client.on('interactionCreate', async (interaction) => {
                     .setTitle('📋 DAILY WORK LOG')
                     .setDescription(
                         '**Operational Excellence: TETRA Management**\n\n' +
-                        'Click **📊 Submit Report** and choose your team/region.\n\n' +
-                        '• **Kinah Team (4 fields)**: Start Kinah, End Kinah, Spent Kinah, Memo\n' +
-                        '  - Calculated automatically:\n' +
+                        'Click **📊 Submit Report** -> choose Start/End + Team + Region.\n\n' +
+                        '• **Start Kinah**: Login time(auto), Start Kinah, Memo\n' +
+                        '• **End Kinah**: Logout time(auto), End Kinah, Spent Kinah, Memo\n' +
+                        '  - Uses saved start record for calculation:\n' +
                         '    - `Net Profit = End - Start - Spent`\n' +
                         '    - `On-hand Delta = End - Start`\n' +
-                        '    - `Gross Farmed = On-hand Delta + Spent`\n' +
-                        '• **Level-Up Team (4 fields)**: Start Level, End Level, Start CP, End CP\n' +
-                        '  - Level Gain / CP Gain auto-calculated\n\n' +
-                        `**Rules:** Numbers only, and choose one of ${SUPPORTED_REGION_CODES}.\n` +
+                        '    - `Gross Farmed = Delta + Spent`\n' +
+                        '• **Start Level-Up**: Login time(auto), Start Level, Start CP, Memo\n' +
+                        '• **End Level-Up**: Logout time(auto), End Level, End CP, Memo\n' +
+                        '  - `Level Gain` / `CP Gain` auto-calculated from start record\n\n' +
+                        `**Rules:** Numbers only, choose one of ${SUPPORTED_REGION_CODES}, submit Start before End.\n` +
                         '_Data syncs to management database automatically._'
                     )
                     .setColor(0x5865F2);
@@ -5942,7 +6047,7 @@ client.on('interactionCreate', async (interaction) => {
                     await interaction.reply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES}.`, flags: EPHEMERAL_FLAGS });
                     return;
                 }
-                await interaction.showModal(createKinahModal(cfg.value));
+                await interaction.showModal(createKinahEndModal(cfg.value));
             } else if (id.startsWith('btn_levelup_')) {
                 const region = parseRegionFromCustomId(id, 'btn_levelup');
                 const cfg = getRegionConfig(region);
@@ -5950,7 +6055,7 @@ client.on('interactionCreate', async (interaction) => {
                     await interaction.reply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES}.`, flags: EPHEMERAL_FLAGS });
                     return;
                 }
-                await interaction.showModal(createLevelUpModal(cfg.value));
+                await interaction.showModal(createLevelUpEndModal(cfg.value));
             } else if (id === 'btn_kinah_rate_fetch') {
                 if (interaction.user.bot) return;
                 const guildId = interaction.guildId;
@@ -6210,16 +6315,23 @@ client.on('interactionCreate', async (interaction) => {
         }
         if (interaction.customId === 'select_daily_submit_target') {
             const selected = String(interaction.values?.[0] || '');
-            const [team, region] = selected.split(':');
+            const [target, region] = selected.split(':');
+            const parts = String(target || '').split('_');
+            const team = parts[0] || '';
+            const phase = parts[1] || '';
             const regionCfg = getRegionConfig(region);
-            if (!regionCfg || !['kinah', 'levelup'].includes(team)) {
+            if (!regionCfg || !['kinah', 'levelup'].includes(team) || !['start', 'end'].includes(phase)) {
                 await interaction.update({ content: '❌ Invalid selection. Try again.', components: [] }).catch(() => {});
                 return;
             }
-            if (team === 'kinah') {
-                await interaction.showModal(createKinahModal(regionCfg.value));
+            if (team === 'kinah' && phase === 'start') {
+                await interaction.showModal(createKinahStartModal(regionCfg.value));
+            } else if (team === 'kinah' && phase === 'end') {
+                await interaction.showModal(createKinahEndModal(regionCfg.value));
+            } else if (team === 'levelup' && phase === 'start') {
+                await interaction.showModal(createLevelUpStartModal(regionCfg.value));
             } else {
-                await interaction.showModal(createLevelUpModal(regionCfg.value));
+                await interaction.showModal(createLevelUpEndModal(regionCfg.value));
             }
             return;
         }
@@ -6529,13 +6641,15 @@ client.on('interactionCreate', async (interaction) => {
             return;
         }
 
-        const match = String(customId || '').match(/^modal_(kinah|levelup|join_verify)_([a-z]{2})$/i);
-        if (!match) {
+        const reportMatch = String(customId || '').match(/^modal_(kinah|levelup)_(start|end)_([a-z]{2})$/i);
+        const joinMatch = String(customId || '').match(/^modal_join_verify_([a-z]{2})$/i);
+        if (!reportMatch && !joinMatch) {
             await interaction.reply({ content: '❌ Unknown modal request.', flags: EPHEMERAL_FLAGS });
             return;
         }
-        const modalType = match[1].toLowerCase();
-        const region = match[2].toLowerCase();
+        const modalType = reportMatch ? reportMatch[1].toLowerCase() : 'join_verify';
+        const phase = reportMatch ? reportMatch[2].toLowerCase() : null;
+        const region = (reportMatch ? reportMatch[3] : joinMatch[1]).toLowerCase();
         const worker = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
         const regionCfg = getRegionConfig(region);
         if (!regionCfg) {
@@ -6544,103 +6658,206 @@ client.on('interactionCreate', async (interaction) => {
         }
         await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
         const timestamp = makeLocalTimestamp(regionCfg.timeZone);
-        if (modalType === 'kinah') {
-            const startKinahRaw = interaction.fields.getTextInputValue('start_kinah');
-            const endKinahRaw = interaction.fields.getTextInputValue('end_kinah');
-            const spentKinahRaw = interaction.fields.getTextInputValue('spent_kinah');
-            const note = (interaction.fields.getTextInputValue('note') || '').trim();
+        if (modalType === 'kinah' || modalType === 'levelup') {
+            const state = loadPanelState();
+            const sessions = ensureReportSessionsForGuild(state, interaction.guildId);
+            pruneOldReportSessions(sessions, Date.now());
+            const sessionKey = buildReportSessionKey(interaction.user.id, modalType, regionCfg.value);
 
-            const startKinah = parseNonNegativeBigIntInput(startKinahRaw);
-            const endKinah = parseNonNegativeBigIntInput(endKinahRaw);
-            const spentKinah = parseNonNegativeBigIntInput(spentKinahRaw);
-            if (startKinah == null || endKinah == null || spentKinah == null) {
+            if (modalType === 'kinah' && phase === 'start') {
+                const startKinahRaw = interaction.fields.getTextInputValue('start_kinah');
+                const memo = (interaction.fields.getTextInputValue('memo') || '').trim();
+                const startKinah = parseNonNegativeBigIntInput(startKinahRaw);
+                if (startKinah == null) {
+                    await interaction.editReply({ content: '❌ 시작 키나는 숫자만 입력해주세요.' });
+                    return;
+                }
+                sessions[sessionKey] = {
+                    userId: interaction.user.id,
+                    worker,
+                    team: 'kinah',
+                    region: regionCfg.value,
+                    startedAt: Date.now(),
+                    loginAt: timestamp,
+                    startKinah: startKinah.toString(),
+                    startMemo: memo,
+                };
+                savePanelState(state, true);
+                const data = [
+                    timestamp,
+                    worker,
+                    'KinahStart',
+                    timestamp,
+                    '-',
+                    '-',
+                    `StartKinah:${formatBigIntWithCommas(startKinah)}${memo ? ` | Memo:${memo}` : ''}`,
+                ];
+                const res = await appendToSheet(regionCfg.sheetRange, data);
                 await interaction.editReply({
-                    content: '❌ 숫자만 입력해주세요. (예: 12000000 또는 12,000,000)'
+                    content: res.ok
+                        ? `✅ Start Kinah saved (${worker}) → ${regionCfg.code}\n• Login: **${timestamp}**\n• Start Kinah: **${formatBigIntWithCommas(startKinah)}**`
+                        : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
                 });
                 return;
             }
 
-            const onHandDelta = endKinah - startKinah;
-            const netProfit = endKinah - startKinah - spentKinah; // requested formula: end - start - spent
-            const grossFarmed = onHandDelta + spentKinah; // contribution metric: on-hand delta + reinvestment
-            const data = [
-                timestamp,
-                worker,
-                'Kinah',
-                formatBigIntWithCommas(startKinah),
-                formatBigIntWithCommas(endKinah),
-                formatBigIntWithCommas(netProfit),
-                `Spent:${formatBigIntWithCommas(spentKinah)} | Delta:${formatBigIntWithCommas(onHandDelta)} | Gross:${formatBigIntWithCommas(grossFarmed)}${note ? ` | Memo:${note}` : ''}`,
-            ];
-            const res = await appendToSheet(regionCfg.sheetRange, data);
-            if (res.ok) {
-                const msg = [
-                    '📋 <b>Daily Log — Kinah</b>',
-                    `Region: ${regionCfg.code} | ${timestamp}`,
-                    `Worker: ${escapeHtml(worker)}`,
-                    '',
-                    `Start: ${escapeHtml(formatBigIntWithCommas(startKinah))}`,
-                    `End: ${escapeHtml(formatBigIntWithCommas(endKinah))}`,
-                    `Spent: ${escapeHtml(formatBigIntWithCommas(spentKinah))}`,
-                    `Net (End-Start-Spent): ${escapeHtml(formatBigIntWithCommas(netProfit))}`,
-                    `Gross (Delta+Spent): ${escapeHtml(formatBigIntWithCommas(grossFarmed))}`,
-                    note ? `Memo: ${escapeHtml(note)}` : '',
-                ].join('\n');
-                sendTelegramNotification(msg).catch(() => {});
-            }
-            await interaction.editReply({
-                content: res.ok
-                    ? `✅ Kinah report submitted (${worker}) → ${regionCfg.code}\n` +
-                      `• Net (End-Start-Spent): **${formatBigIntWithCommas(netProfit)}**\n` +
-                      `• Gross Contribution (Delta+Spent): **${formatBigIntWithCommas(grossFarmed)}**`
-                    : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
-            });
-        } else if (modalType === 'levelup') {
-            const startLevelRaw = interaction.fields.getTextInputValue('start_level');
-            const endLevelRaw = interaction.fields.getTextInputValue('end_level');
-            const startCpRaw = interaction.fields.getTextInputValue('start_cp');
-            const endCpRaw = interaction.fields.getTextInputValue('end_cp');
-
-            const startLevel = parseNonNegativeIntInput(startLevelRaw);
-            const endLevel = parseNonNegativeIntInput(endLevelRaw);
-            const startCp = parseNonNegativeIntInput(startCpRaw);
-            const endCp = parseNonNegativeIntInput(endCpRaw);
-            if ([startLevel, endLevel, startCp, endCp].some(v => v == null)) {
+            if (modalType === 'kinah' && phase === 'end') {
+                const endKinahRaw = interaction.fields.getTextInputValue('end_kinah');
+                const spentKinahRaw = interaction.fields.getTextInputValue('spent_kinah');
+                const memo = (interaction.fields.getTextInputValue('memo') || '').trim();
+                const endKinah = parseNonNegativeBigIntInput(endKinahRaw);
+                const spentKinah = parseNonNegativeBigIntInput(spentKinahRaw);
+                if (endKinah == null || spentKinah == null) {
+                    await interaction.editReply({ content: '❌ 종료 키나/소비 키나는 숫자만 입력해주세요.' });
+                    return;
+                }
+                const startSession = sessions[sessionKey];
+                if (!startSession) {
+                    await interaction.editReply({ content: '❌ 먼저 **Start Kinah Team** 보고를 제출해주세요.' });
+                    return;
+                }
+                const startKinah = parseNonNegativeBigIntInput(startSession.startKinah);
+                if (startKinah == null) {
+                    delete sessions[sessionKey];
+                    savePanelState(state, true);
+                    await interaction.editReply({ content: '❌ 시작 데이터가 손상되었습니다. Start 보고를 다시 제출해주세요.' });
+                    return;
+                }
+                const onHandDelta = endKinah - startKinah;
+                const netProfit = endKinah - startKinah - spentKinah;
+                const grossFarmed = onHandDelta + spentKinah;
+                const data = [
+                    timestamp,
+                    worker,
+                    'KinahEnd',
+                    startSession.loginAt || 'N/A',
+                    timestamp,
+                    formatBigIntWithCommas(netProfit),
+                    `Start:${formatBigIntWithCommas(startKinah)} | End:${formatBigIntWithCommas(endKinah)} | Spent:${formatBigIntWithCommas(spentKinah)} | Delta:${formatBigIntWithCommas(onHandDelta)} | Gross:${formatBigIntWithCommas(grossFarmed)}${startSession.startMemo ? ` | StartMemo:${startSession.startMemo}` : ''}${memo ? ` | EndMemo:${memo}` : ''}`,
+                ];
+                const res = await appendToSheet(regionCfg.sheetRange, data);
+                if (res.ok) {
+                    const msg = [
+                        '📋 <b>Daily Log — Kinah End</b>',
+                        `Region: ${regionCfg.code} | ${timestamp}`,
+                        `Worker: ${escapeHtml(worker)}`,
+                        `Login: ${escapeHtml(startSession.loginAt || 'N/A')} | Logout: ${escapeHtml(timestamp)}`,
+                        '',
+                        `Start: ${escapeHtml(formatBigIntWithCommas(startKinah))}`,
+                        `End: ${escapeHtml(formatBigIntWithCommas(endKinah))}`,
+                        `Spent: ${escapeHtml(formatBigIntWithCommas(spentKinah))}`,
+                        `Net (End-Start-Spent): ${escapeHtml(formatBigIntWithCommas(netProfit))}`,
+                        `Gross (Delta+Spent): ${escapeHtml(formatBigIntWithCommas(grossFarmed))}`,
+                    ].join('\n');
+                    sendTelegramNotification(msg).catch(() => {});
+                    delete sessions[sessionKey];
+                    savePanelState(state, true);
+                }
                 await interaction.editReply({
-                    content: '❌ 숫자만 입력해주세요. (예: 40, 45, 1800, 2100)'
+                    content: res.ok
+                        ? `✅ End Kinah submitted (${worker}) → ${regionCfg.code}\n• Logout: **${timestamp}**\n• Net: **${formatBigIntWithCommas(netProfit)}**\n• Gross: **${formatBigIntWithCommas(grossFarmed)}**`
+                        : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
                 });
                 return;
             }
-            const levelGain = endLevel - startLevel;
-            const cpGain = endCp - startCp;
-            const data = [
-                timestamp,
-                worker,
-                'LevelUp',
-                String(startLevel),
-                String(endLevel),
-                String(levelGain),
-                `StartCP:${startCp} | EndCP:${endCp} | CPGain:${cpGain}`,
-            ];
-            const res = await appendToSheet(regionCfg.sheetRange, data);
-            if (res.ok) {
-                const msg = [
-                    '📋 <b>Daily Log — Level-Up</b>',
-                    `Region: ${regionCfg.code} | ${timestamp}`,
-                    `Worker: ${escapeHtml(worker)}`,
-                    '',
-                    `Level: ${startLevel} -> ${endLevel} (Gain ${levelGain >= 0 ? '+' : ''}${levelGain})`,
-                    `CP: ${startCp} -> ${endCp} (Gain ${cpGain >= 0 ? '+' : ''}${cpGain})`,
-                ].join('\n');
-                sendTelegramNotification(msg).catch(() => {});
+
+            if (modalType === 'levelup' && phase === 'start') {
+                const startLevelRaw = interaction.fields.getTextInputValue('start_level');
+                const startCpRaw = interaction.fields.getTextInputValue('start_cp');
+                const memo = (interaction.fields.getTextInputValue('memo') || '').trim();
+                const startLevel = parseNonNegativeIntInput(startLevelRaw);
+                const startCp = parseNonNegativeIntInput(startCpRaw);
+                if (startLevel == null || startCp == null) {
+                    await interaction.editReply({ content: '❌ 시작 레벨/전투력은 숫자만 입력해주세요.' });
+                    return;
+                }
+                sessions[sessionKey] = {
+                    userId: interaction.user.id,
+                    worker,
+                    team: 'levelup',
+                    region: regionCfg.value,
+                    startedAt: Date.now(),
+                    loginAt: timestamp,
+                    startLevel,
+                    startCp,
+                    startMemo: memo,
+                };
+                savePanelState(state, true);
+                const data = [
+                    timestamp,
+                    worker,
+                    'LevelUpStart',
+                    timestamp,
+                    '-',
+                    '-',
+                    `StartLevel:${startLevel} | StartCP:${startCp}${memo ? ` | Memo:${memo}` : ''}`,
+                ];
+                const res = await appendToSheet(regionCfg.sheetRange, data);
+                await interaction.editReply({
+                    content: res.ok
+                        ? `✅ Start Level-Up saved (${worker}) → ${regionCfg.code}\n• Login: **${timestamp}**\n• Start: **Lv.${startLevel} / CP ${startCp.toLocaleString()}**`
+                        : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
+                });
+                return;
             }
-            await interaction.editReply({
-                content: res.ok
-                    ? `✅ Level-Up report submitted (${worker}) → ${regionCfg.code}\n` +
-                      `• Level Gain: **${levelGain >= 0 ? '+' : ''}${levelGain}**\n` +
-                      `• CP Gain: **${cpGain >= 0 ? '+' : ''}${cpGain}**`
-                    : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
-            });
+
+            if (modalType === 'levelup' && phase === 'end') {
+                const endLevelRaw = interaction.fields.getTextInputValue('end_level');
+                const endCpRaw = interaction.fields.getTextInputValue('end_cp');
+                const memo = (interaction.fields.getTextInputValue('memo') || '').trim();
+                const endLevel = parseNonNegativeIntInput(endLevelRaw);
+                const endCp = parseNonNegativeIntInput(endCpRaw);
+                if (endLevel == null || endCp == null) {
+                    await interaction.editReply({ content: '❌ 종료 레벨/전투력은 숫자만 입력해주세요.' });
+                    return;
+                }
+                const startSession = sessions[sessionKey];
+                if (!startSession) {
+                    await interaction.editReply({ content: '❌ 먼저 **Start Level-Up Team** 보고를 제출해주세요.' });
+                    return;
+                }
+                const startLevel = parseNonNegativeIntInput(startSession.startLevel);
+                const startCp = parseNonNegativeIntInput(startSession.startCp);
+                if (startLevel == null || startCp == null) {
+                    delete sessions[sessionKey];
+                    savePanelState(state, true);
+                    await interaction.editReply({ content: '❌ 시작 데이터가 손상되었습니다. Start 보고를 다시 제출해주세요.' });
+                    return;
+                }
+                const levelGain = endLevel - startLevel;
+                const cpGain = endCp - startCp;
+                const data = [
+                    timestamp,
+                    worker,
+                    'LevelUpEnd',
+                    startSession.loginAt || 'N/A',
+                    timestamp,
+                    `Lv${levelGain >= 0 ? '+' : ''}${levelGain} / CP${cpGain >= 0 ? '+' : ''}${cpGain}`,
+                    `StartLv:${startLevel} | EndLv:${endLevel} | StartCP:${startCp} | EndCP:${endCp}${startSession.startMemo ? ` | StartMemo:${startSession.startMemo}` : ''}${memo ? ` | EndMemo:${memo}` : ''}`,
+                ];
+                const res = await appendToSheet(regionCfg.sheetRange, data);
+                if (res.ok) {
+                    const msg = [
+                        '📋 <b>Daily Log — Level-Up End</b>',
+                        `Region: ${regionCfg.code} | ${timestamp}`,
+                        `Worker: ${escapeHtml(worker)}`,
+                        `Login: ${escapeHtml(startSession.loginAt || 'N/A')} | Logout: ${escapeHtml(timestamp)}`,
+                        '',
+                        `Level: ${startLevel} -> ${endLevel} (Gain ${levelGain >= 0 ? '+' : ''}${levelGain})`,
+                        `CP: ${startCp} -> ${endCp} (Gain ${cpGain >= 0 ? '+' : ''}${cpGain})`,
+                    ].join('\n');
+                    sendTelegramNotification(msg).catch(() => {});
+                    delete sessions[sessionKey];
+                    savePanelState(state, true);
+                }
+                await interaction.editReply({
+                    content: res.ok
+                        ? `✅ End Level-Up submitted (${worker}) → ${regionCfg.code}\n• Logout: **${timestamp}**\n• Level Gain: **${levelGain >= 0 ? '+' : ''}${levelGain}**\n• CP Gain: **${cpGain >= 0 ? '+' : ''}${cpGain}**`
+                        : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
+                });
+                return;
+            }
+            await interaction.editReply({ content: '❌ Unsupported report phase.' });
         } else if (modalType === 'join_verify') {
             const roleNote = (interaction.fields.getTextInputValue('role_note') || '').trim();
             const saved = await appendMemberListRecord(interaction, regionCfg, roleNote, '');

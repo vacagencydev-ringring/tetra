@@ -62,14 +62,19 @@ https://koreanbots.dev/bots/1436590099235340410
 
 11. **Daily Report v2 (Submit button + numeric modal)**
    - `/panel type:report` posts a single **📊 Submit Report** button
-   - User click flow: button -> select `region + team` -> modal
-   - Kinah modal fields (4): `start_kinah`, `end_kinah`, `spent_kinah`, `memo`
-   - Level-Up modal fields (4): `start_level`, `end_level`, `start_cp`, `end_cp`
+   - User click flow: button -> select `Start/End + region + team` -> modal
+   - **Start Kinah Team**: auto login time + `start_kinah` + `memo`
+   - **End Kinah Team**: auto logout time + `end_kinah` + `spent_kinah` + `memo`
+   - **Start Level-Up Team**: auto login time + `start_level` + `start_cp` + `memo`
+   - **End Level-Up Team**: auto logout time + `end_level` + `end_cp` + `memo`
    - Numeric-only validation for required amount/level/cp fields
-   - Kinah calculations:
+   - End Kinah calculations (using saved Start values):
      - `Net Profit = End - Start - Spent`
      - `On-hand Delta = End - Start`
      - `Gross Farmed = On-hand Delta + Spent`
+   - End Level-Up calculations (using saved Start values):
+     - `Level Gain = End Level - Start Level`
+     - `CP Gain = End CP - Start CP`
 
 9. **Global Trading Hub (Anti-Scam Escrow)**
    - `/market_setup market_channel:<channel> ticket_category:<category> admin_role:<role> fee_percent:<0-20>` (Admin)
