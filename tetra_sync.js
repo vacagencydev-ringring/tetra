@@ -1918,7 +1918,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '📋 1. 일일 리포트',
-                value: '**`/report_kinah region:<지역> phase:start|end`** — 키나팀 시작/종료 보고\n**`/report_levelup region:<지역> phase:start|end`** — 레벨업팀 시작/종료 보고',
+                value: '**`/panel type:report region:all|ph|in|np|ch|tw`** — 나라별(또는 전체) 리포트 패널\n**`/report_kinah region:<지역> phase:start|end`** — 키나팀 시작/종료\n**`/report_levelup region:<지역> phase:start|end`** — 레벨업팀 시작/종료\n• Start: 로그인시간 자동 기록\n• End: 로그아웃시간 자동 기록\n• 키나 종료 보고는 `소비키나` 포함\n• 계산: `Net=End-Start-Spent`, `Gross=(End-Start)+Spent`\n• Daily_Log 헤더(A1:G1) 자동 동기화: `Timestamp|Worker|Type|LoginAt|LogoutAt|Metric|Details`',
                 inline: false
             },
             {
@@ -1933,7 +1933,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '💎 4. 입금 확인',
-                value: '**`/panel type:payment`** — Submit Payment → 통화 선택(KRW/USD/PHP 등) → 금액·사유 입력 → Payment Log 시트 저장',
+                value: '**`/panel type:payment`** — Submit Payment → 통화 선택(KRW/USD/PHP 등) → 금액·사유 입력 → Payment Log 저장\n**결제 OCR 자동화:** `/payment_ocr_set channel:<채널> enabled:true/false min_confidence:<0-100>`\n`/payment_ocr_status` — OCR 상태 확인',
                 inline: false
             },
             {
@@ -2017,7 +2017,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '환영/공지 설정',
-                value: '**`/welcome_set announcements_channel:<채널> welcome_channel:<채널>`** — 환영 채널 + 공지 안내 채널 설정 (Admin)\n**`/welcome_send user:<유저>`** — 수동 환영 메시지 전송',
+                value: '**`/welcome_set announcements_channel:<채널> welcome_channel:<채널>`** — 환영 채널 + 공지 안내 채널 설정 (Admin)\n**`/welcome_send user:<유저>`** — 수동 환영 메시지 전송\n⚠️ 신규 멤버 환영 이벤트는 Discord Dev Portal의 **Server Members Intent**가 켜져 있어야 작동',
                 inline: false
             },
             {
@@ -2049,7 +2049,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: '📋 1. Daily Report',
-                value: '**`/report_kinah region:<region> phase:start|end`** — Kinah team start/end report\n**`/report_levelup region:<region> phase:start|end`** — Level-Up team start/end report',
+                value: '**`/panel type:report region:all|ph|in|np|ch|tw`** — country-scoped (or global) report panel\n**`/report_kinah region:<region> phase:start|end`** — Kinah team start/end\n**`/report_levelup region:<region> phase:start|end`** — Level-Up team start/end\n• Start = auto login timestamp\n• End = auto logout timestamp\n• Kinah End includes `spent_kinah`\n• Math: `Net=End-Start-Spent`, `Gross=(End-Start)+Spent`\n• Daily_Log header(A1:G1) auto-sync: `Timestamp|Worker|Type|LoginAt|LogoutAt|Metric|Details`',
                 inline: false
             },
             {
@@ -2064,7 +2064,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: '💎 4. Payment Confirmation',
-                value: '**`/panel type:payment`** — Submit Payment → select currency (KRW/USD/PHP...) → amount & reason → Payment Log sheet',
+                value: '**`/panel type:payment`** — Submit Payment → select currency (KRW/USD/PHP...) → amount & reason → Payment Log\n**Payment OCR automation:** `/payment_ocr_set channel:<channel> enabled:true/false min_confidence:<0-100>`\n`/payment_ocr_status` — OCR runtime status',
                 inline: false
             },
             {
@@ -2148,7 +2148,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: 'Welcome & Announcements Setup',
-                value: '**`/welcome_set announcements_channel:<channel> welcome_channel:<channel>`** — Configure onboarding channels (Admin)\n**`/welcome_send user:<user>`** — Send welcome message manually',
+                value: '**`/welcome_set announcements_channel:<channel> welcome_channel:<channel>`** — Configure onboarding channels (Admin)\n**`/welcome_send user:<user>`** — Send welcome message manually\n⚠️ New-member welcome events require **Server Members Intent** enabled in Discord Developer Portal',
                 inline: false
             },
             {
@@ -2288,13 +2288,15 @@ function buildFaqAdminEmbed(lang = 'en') {
                 { name: 'Q: 패널은 어떻게 게시하나요?', value: '**`/panel type:<종류>`** — report, salary, join_verify, payment, youtube, **link**, guide_ko, guide_en, **guidebook_plaync**, **tactics**. 채널에서 실행하면 해당 패널 게시. 종류별 1개.', inline: false },
                 { name: 'Q: TACTICS와 가이드북 차이?', value: '**TACTICS** — 인벤 던전/펫 가이드. **가이드북** — PlayNC 공식 (클래스·스킬).\n둘 다 기본은 나만보기.\n**관리자 공개:** `/tactics public:true`, `/guidebook public:true` 또는 패널 Post to Channel.\n**가이드북:** `/guidebook_fetch` 갱신, 실패/빈 데이터 시 로컬 fallback 자동 사용.', inline: false },
                 { name: 'Q: 신규 멤버 안내 순서는?', value: '**Announcements 확인** → **`/join_verify`** 가입 진행 → **`/help`**로 명령어 확인.\n환영 문구 채널/공지 채널은 **`/welcome_set announcements_channel:<채널> welcome_channel:<채널>`**로 설정.', inline: false },
+                { name: 'Q: 오늘 Daily Report 업데이트 핵심?', value: '**나라별 패널:** `/panel type:report region:ph|in|np|ch|tw|all`\n**Start/End 분리:** `/report_kinah` `/report_levelup` + `phase:start|end`\n**자동시간:** Start=로그인, End=로그아웃\n**키나 종료:** 소비키나 포함 계산\n**시트폼 자동동기화:** Daily_Log A1:G1 헤더 자동 갱신', inline: false },
                 { name: 'Q: 전체 가이드 vs 멤버 가이드?', value: '**전체 가이드** (`/panel type:guide_ko`, `guide_en`) — Admin 전체 명령어, 채널에 게시\n**멤버 가이드** (`/guide`) — 멤버용 명령어, 나만보기', inline: false },
                 { name: 'Q: 필드 보스 타이머 설정 순서?', value: '1. **`/preset mode:combined`** 또는 **`/boss_fetch`** (URL에서 로드)\n2. 처치 시: **`/cut boss_name:<이름>`**로 기록\n3. **`/boss_alert_mode mode:dm`** — DM 알림 (선택)\n4. **`/boss_event_multiplier multiplier:0.8`** — 이벤트 리스폰 배율 (선택)', inline: false },
                 { name: 'Q: MVP 스케줄 설정?', value: '**`/mvp_set day:<요일> time:HH:mm`** — 요일별 MVP 시간 (Admin)\n**`/mvp`** — 현재 스케줄 조회 (Admin)', inline: false },
                 { name: 'Q: 키나 시세 모니터링 설정?', value: '**`/kinah_watch_preset`** — ItemBay/ItemMania 프리셋. channel, poll_minutes, mention_role 설정. **`/kinah_watch_status`**로 확인, **`/kinah_watch_stop`**으로 중지.', inline: false },
                 { name: 'Q: AON 한→영 번역?', value: '**`/aon_translate_set`** — category(notice/update/event), channel 설정. **`/aon_translate_source`** — AON 봇 ID. **`/aon_translate_status`**로 라우트 확인.', inline: false },
                 { name: 'Q: 캐릭터 검증 설정?', value: '**`/join_verify`** — Role만. **`/myinfo_register`**로 캐릭터명 추가 (스크린샷 필수)\n1. Admin: **`/verify_channel_set category:<카테고리>`**\n2. 사용자: **`/myinfo_register character_name:<이름>`** → 스크린샷 업로드\n3. 스태프: Approve → 지역 선택 → 회원목록 G열 반영', inline: false },
-                { name: 'Q: 입금 통화 선택?', value: '**Submit Payment** → 통화 선택 (KRW, USD, PHP, INR, NPR, CNY, TWD) → 금액·사유 입력. Payment Log 시트: A:G (날짜, 유형, 태그, 금액, **통화**, 사유, 상태)', inline: false },
+                { name: 'Q: 입금 통화 선택?', value: '**Submit Payment** → 통화 선택 (KRW, USD, PHP, INR, NPR, CNY, TWD) → 금액·사유 입력. Payment Log 시트: A:G\n**OCR 자동기록:** `/payment_ocr_set` + `/payment_ocr_status`', inline: false },
+                { name: 'Q: 새 멤버 웰컴이 안 와요', value: '1) Discord Dev Portal에서 **Server Members Intent ON**\n2) `/welcome_set announcements_channel:<채널> welcome_channel:<채널>` 확인\n3) `/welcome_send user:<유저>`로 수동 테스트\n4) 봇 재시작 후 재확인', inline: false },
                 { name: 'Q: 검색·가이드 결과는 누가 보나요?', value: '**`/character`** **`/item`** **`/collection`** **`/build`** — 나만 (ephemeral)\n**`!char <이름>`** — 결과 DM 전송\n**`/guide`** **`/tactics`** **`/guidebook`** — 기본 나만 (ephemeral)\n**관리자 공개:** `/tactics public:true`, `/guidebook public:true`', inline: false },
                 { name: 'Q: 권한 오류?', value: '봇에 **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels**(인증 채널용) 권한이 있는지 확인하세요.', inline: false }
             )
@@ -2309,13 +2311,15 @@ function buildFaqAdminEmbed(lang = 'en') {
             { name: 'Q: How do I post panels?', value: '**`/panel type:<type>`** — report, salary, join_verify, payment, youtube, **link**, guide_ko, guide_en, **guidebook_plaync**, **tactics**. Run in a channel to post. One panel per type.', inline: false },
             { name: 'Q: TACTICS vs Guidebook?', value: '**TACTICS** — Inven dungeon/pet guides. **Guidebook** — PlayNC official (class, skill).\nBoth are ephemeral by default.\n**Admin public share:** `/tactics public:true`, `/guidebook public:true`, or panel Post to Channel.\n**Guidebook:** run **`/guidebook_fetch`**; if scrape fails/empty, local fallback loads automatically.', inline: false },
             { name: 'Q: What is the onboarding order for new members?', value: '**Announcements** → **`/join_verify`** → **`/help`**.\nSet channels with **`/welcome_set announcements_channel:<channel> welcome_channel:<channel>`**.', inline: false },
+            { name: 'Q: What changed in Daily Report today?', value: '**Country panels:** `/panel type:report region:ph|in|np|ch|tw|all`\n**Start/End split:** `/report_kinah` `/report_levelup` + `phase:start|end`\n**Auto timestamps:** Start=login, End=logout\n**Kinah End includes spent kinah**\n**Sheet form auto-sync:** Daily_Log header A1:G1 updated automatically', inline: false },
             { name: 'Q: Full guide vs member guide?', value: '**Full guide** (`/panel type:guide_ko`, `guide_en`) — Admin commands, post to channel\n**Member guide** (`/guide`) — Member commands, visible only to you', inline: false },
             { name: 'Q: Field boss timer setup order?', value: '1. **`/preset mode:combined`** or **`/boss_fetch`** (load from URL)\n2. On kill: **`/cut boss_name:<name>`** to record\n3. **`/boss_alert_mode mode:dm`** — DM alerts (optional)\n4. **`/boss_event_multiplier multiplier:0.8`** — Event respawn rate (optional)', inline: false },
             { name: 'Q: How to set MVP schedule?', value: '**`/mvp_set day:<day> time:HH:mm`** — Set MVP time per day (Admin)\n**`/mvp`** — View current schedule (Admin)', inline: false },
             { name: 'Q: Kinah rate monitoring setup?', value: '**`/kinah_watch_preset`** — ItemBay/ItemMania preset for quick setup. Set channel, poll_minutes, mention_role. **`/kinah_watch_status`** to check, **`/kinah_watch_stop`** to stop.', inline: false },
             { name: 'Q: AON Korean→English translation?', value: '**`/aon_translate_set`** — Set category(notice/update/event), channel. **`/aon_translate_source`** — AON bot ID. **`/aon_translate_status`** to view routes.', inline: false },
             { name: 'Q: Character verification setup?', value: '**`/join_verify`** — Role only. **`/myinfo_register`** adds character (screenshot required)\n1. Admin: **`/verify_channel_set category:<category>`**\n2. User: **`/myinfo_register character_name:<name>`** → Upload screenshot\n3. Staff: Approve → Select region → Column G', inline: false },
-            { name: 'Q: How to select payment currency?', value: '**Submit Payment** → Select currency (KRW, USD, PHP, INR, NPR, CNY, TWD) → Enter amount & reason. Payment Log sheet: A:G (Date, Type, Tag, Amount, **Currency**, Reason, Status)', inline: false },
+            { name: 'Q: How to select payment currency?', value: '**Submit Payment** → Select currency (KRW, USD, PHP, INR, NPR, CNY, TWD) → Enter amount & reason. Payment Log sheet: A:G\n**OCR auto-log:** `/payment_ocr_set` + `/payment_ocr_status`', inline: false },
+            { name: 'Q: New member welcome message is not sent', value: '1) Enable **Server Members Intent** in Discord Developer Portal\n2) Verify `/welcome_set announcements_channel:<channel> welcome_channel:<channel>`\n3) Test with `/welcome_send user:<user>`\n4) Restart bot and re-test', inline: false },
             { name: 'Q: Who sees search results & guides?', value: '**`/character`** **`/item`** **`/collection`** **`/build`** — Only you (ephemeral)\n**`!char <name>`** — Results sent via DM\n**`/guide`** **`/tactics`** **`/guidebook`** — Default only you (ephemeral)\n**Admin public:** `/tactics public:true`, `/guidebook public:true`', inline: false },
             { name: 'Q: Permission errors?', value: 'Ensure the bot has **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels** (for verification channels).', inline: false }
         )
