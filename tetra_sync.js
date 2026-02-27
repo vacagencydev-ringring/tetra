@@ -1125,7 +1125,7 @@ function buildMarketListingEmbed({ listingType, amount, totalPrice, currency, no
         .setDescription(
             [
                 `**${sideLabel}:** ${ownerTag}`,
-                '**Anti-Scam Policy / 사기 방지 안내:** 모든 거래는 반드시 **TETRA 에스크로 티켓**으로 진행해야 합니다. 외부/직거래 정산은 **금지**입니다.',
+                '**Anti-Scam Policy / 사기 방지 안내:** 모든 거래는 반드시 **TETRA 에스크로 티켓**으로 진행해야 합니다. 외부/직거래 정산은 **금지**입니다.\n**Anti-Scam Policy:** All trades must go through the **TETRA escrow ticket**. Any external or direct settlement is **strictly prohibited**.',
             ].join('\n')
         )
         .addFields(
@@ -1137,7 +1137,7 @@ function buildMarketListingEmbed({ listingType, amount, totalPrice, currency, no
             { name: '🌐 환율 기준 (FX Snapshot)', value: `${formatCurrencyAmount(conversions?.usd, 'USD')} / ${formatCurrencyAmount(conversions?.krw, 'KRW')} (${conversions?.source || 'N/A'})`, inline: true },
             ...(note ? [{ name: '📝 메모 (Note)', value: note.slice(0, 400), inline: false }] : [])
         )
-        .setFooter({ text: 'TETRA 안전거래 시스템 • 아래 버튼을 눌러 에스크로 방을 여세요 (Safe Trade System / Open escrow ticket with button below)' })
+        .setFooter({ text: 'TETRA 안전거래 시스템 (Safe Trade System) • 아래 버튼을 눌러 에스크로 방을 여세요. (Open escrow ticket with the button below.)' })
         .setTimestamp();
 }
 
