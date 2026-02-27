@@ -74,13 +74,24 @@ async function main() {
     results[payment.ok ? 'ok' : 'fail'].push('Payment Log');
     console.log('');
 
-    // 3. Daily_Log_{CODE} (A:G) — Kinah/LevelUp 리포트
-    console.log(`📋 Daily_Log_* (Kinah/LevelUp 리포트, A:G)`);
+    // 3. Daily_Log_{CODE} (A:G) — Start/End report format
+    const expectedDailyHeader = ['Timestamp', 'Worker', 'Type', 'LoginAt', 'LogoutAt', 'Metric', 'Details'];
+    console.log(`📋 Daily_Log_* (Start/End 리포트, A:G)`);
     for (const code of REGION_CODES) {
         const r = await readRange(sheets, `Daily_Log_${code}!A1:G1`);
-        const status = r.ok ? '✅' : '⚠️';
-        console.log(`   Daily_Log_${code}: ${status}${!r.ok ? ` (${r.error})` : ''}`);
-        results[r.ok ? 'ok' : 'fail'].push(`Daily_Log_${code}`);
+        if (!r.ok) {
+            console.log(`   Daily_Log_${code}: ⚠️ (${r.error})`);
+            results.fail.push(`Daily_Log_${code}`);
+            continue;
+        }
+        const header = (r.values?.[0] || []).map(v => String(v || '').trim());
+        const same = expectedDailyHeader.every((v, i) => String(header[i] || '') === v);
+        console.log(`   Daily_Log_${code}: ${same ? '✅ header ok' : '⚠️ header mismatch'}`);
+        if (!same) {
+            console.log(`      expected: ${expectedDailyHeader.join(' | ')}`);
+            console.log(`      actual  : ${(header.length ? header : ['(empty)']).join(' | ')}`);
+        }
+        results[same ? 'ok' : 'fail'].push(`Daily_Log_${code}`);
     }
     console.log('');
 

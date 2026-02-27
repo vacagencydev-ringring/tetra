@@ -1842,6 +1842,18 @@ async function updateSheetRows(range, values) {
     }
 }
 
+const DAILY_LOG_HEADERS_V2 = ['Timestamp', 'Worker', 'Type', 'LoginAt', 'LogoutAt', 'Metric', 'Details'];
+const dailyLogHeaderSynced = new Set();
+async function ensureDailyLogSheetForm(regionCode) {
+    const code = String(regionCode || '').toUpperCase().trim();
+    if (!code) return { ok: false, error: 'region code missing' };
+    if (dailyLogHeaderSynced.has(code)) return { ok: true };
+    const range = `Daily_Log_${code}!A1:G1`;
+    const res = await updateSheetRows(range, [DAILY_LOG_HEADERS_V2]);
+    if (res.ok) dailyLogHeaderSynced.add(code);
+    return res;
+}
+
 async function clearSheetRows(range) {
     try {
         const auth = new google.auth.GoogleAuth({
@@ -6695,6 +6707,13 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
         const timestamp = makeLocalTimestamp(regionCfg.timeZone);
         if (modalType === 'kinah' || modalType === 'levelup') {
+            const headerRes = await ensureDailyLogSheetForm(regionCfg.code);
+            if (!headerRes.ok) {
+                await interaction.editReply({
+                    content: `❌ Daily log sheet header update failed (${regionCfg.code}): ${headerRes.error}`
+                });
+                return;
+            }
             const state = loadPanelState();
             const sessions = ensureReportSessionsForGuild(state, interaction.guildId);
             pruneOldReportSessions(sessions, Date.now());

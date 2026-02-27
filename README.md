@@ -77,6 +77,9 @@ https://koreanbots.dev/bots/1436590099235340410
    - End Level-Up calculations (using saved Start values):
      - `Level Gain = End Level - Start Level`
      - `CP Gain = End CP - Start CP`
+   - Daily log sheet form auto-sync:
+     - `Daily_Log_*` header (`A1:G1`) is automatically updated to:
+       `Timestamp | Worker | Type | LoginAt | LogoutAt | Metric | Details`
 
 9. **Global Trading Hub (Anti-Scam Escrow)**
    - `/market_setup market_channel:<channel> ticket_category:<category> admin_role:<role> fee_percent:<0-20>` (Admin)
