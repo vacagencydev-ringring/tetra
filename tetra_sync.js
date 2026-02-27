@@ -5962,17 +5962,17 @@ client.on('interactionCreate', async (interaction) => {
                 const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
                 const isAdminClick = isMarketAdmin(interaction, marketConfig);
                 if (listing.ownerId === interaction.user.id && !isAdminClick) {
-                    await interaction.editReply({ content: '❌ You cannot open escrow with your own listing. (관리자는 테스트용으로만 본인 티켓을 열 수 있습니다.)' }).catch(() => {});
+                    await interaction.editReply({ content: '❌ You cannot open escrow with your own listing.\n본인이 올린 매물에는 에스크로를 열 수 없습니다. (관리자는 테스트용으로만 본인 티켓을 열 수 있습니다.)' }).catch(() => {});
                     return;
                 }
                 if (!marketConfig.marketChannelId || !marketConfig.ticketCategoryId) {
-                    await interaction.editReply({ content: '❌ Escrow config is missing. Admin: run `/market_setup`.' }).catch(() => {});
+                    await interaction.editReply({ content: '❌ Escrow config is missing. Admin: run `/market_setup`.\n에스크로 설정이 되어 있지 않습니다. 먼저 `/market_setup` 을 실행해주세요.' }).catch(() => {});
                     return;
                 }
                 const buyerId = listing.type === 'WTS' ? interaction.user.id : listing.ownerId;
                 const sellerId = listing.type === 'WTS' ? listing.ownerId : interaction.user.id;
-                if (!buyerId || !sellerId || buyerId === sellerId) {
-                    await interaction.editReply({ content: '❌ Failed to resolve buyer/seller for this listing.' }).catch(() => {});
+                if (!buyerId || !sellerId) {
+                    await interaction.editReply({ content: '❌ Failed to resolve buyer/seller for this listing.\n이 거래에 대한 구매자/판매자 정보를 찾을 수 없습니다.' }).catch(() => {});
                     return;
                 }
 
