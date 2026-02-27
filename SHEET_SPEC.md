@@ -12,7 +12,7 @@
 |--------|------|------|-----------|
 | **Bot_Runtime_State** | A2:B20 | 봇 상태 (패널·키나·번역 등) | panel_state_json, kinah_state_json, aon_translate_state_json, boss_state_json, mvp_schedule_state_json, updated_at |
 | **Payment Log** | A:G | 입금 확인 | Date, Type, Tag, Amount, Currency, Reason, Status |
-| **Daily_Log_PH** | A:G | PH 일일 리포트 | Timestamp, Worker, Type(Kinah/LevelUp), Login, Logout, Profit/Progress, (빈칸) |
+| **Daily_Log_PH** | A:G | PH 일일 리포트 | Timestamp, Worker, Type(Start/End), LoginAt, LogoutAt, Metric, Details |
 | **Daily_Log_IN** | A:G | IN 일일 리포트 |同上 |
 | **Daily_Log_NP** | A:G | NP 일일 리포트 |同上 |
 | **Daily_Log_CH** | A:G | CH 일일 리포트 |同上 |
@@ -32,6 +32,16 @@
 - **kinah, aonTranslate, boss, mvp**: guildId별로 시트 데이터 유지, 현재 인스턴스만 갱신
 - **panel**: welcomeConfig, verifyCategoryIdByGuild를 guild별로 병합
 - **verifyCategoryIdByGuild**: 서버별 인증 채널 카테고리 (`/verify_channel_set`)
+- **reportSessionsByGuild**: Start/End 리포트 중간 상태(사용자별 시작값)
+
+---
+
+## Daily_Log_* 폼 자동 갱신
+
+- 봇이 Daily 보고 저장 전에 `Daily_Log_<REGION>!A1:G1` 헤더를 자동으로 아래 형식으로 동기화합니다:
+  - `Timestamp | Worker | Type | LoginAt | LogoutAt | Metric | Details`
+- Start/End 분리 보고에 맞춰 `Type` 값 예시:
+  - `KinahStart`, `KinahEnd`, `LevelUpStart`, `LevelUpEnd`
 
 ---
 

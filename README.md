@@ -60,6 +60,50 @@ https://koreanbots.dev/bots/1436590099235340410
    - **`/guide`** — Member guide (English), all members can post, no Admin required
    - **`/panel type:guide_ko`** `guide_en` — Full guides (Admin only)
 
+11. **Daily Report v2 (Submit button + numeric modal)**
+   - `/panel type:report` posts a single **📊 Submit Report** button
+   - Country-specific panel: `/panel type:report region:PH|IN|NP|CH|TW`
+   - Global panel: `/panel type:report region:all` (or omit region)
+   - User click flow: button -> select `Start/End + region + team` -> modal
+   - **Start Kinah Team**: auto login time + `start_kinah` + `memo`
+   - **End Kinah Team**: auto logout time + `end_kinah` + `spent_kinah` + `memo`
+   - **Start Level-Up Team**: auto login time + `start_level` + `start_cp` + `memo`
+   - **End Level-Up Team**: auto logout time + `end_level` + `end_cp` + `memo`
+   - Numeric-only validation for required amount/level/cp fields
+   - End Kinah calculations (using saved Start values):
+     - `Net Profit = End - Start - Spent`
+     - `On-hand Delta = End - Start`
+     - `Gross Farmed = On-hand Delta + Spent`
+   - End Level-Up calculations (using saved Start values):
+     - `Level Gain = End Level - Start Level`
+     - `CP Gain = End CP - Start CP`
+   - Daily log sheet form auto-sync:
+     - `Daily_Log_*` header (`A1:G1`) is automatically updated to:
+       `Timestamp | Worker | Type | LoginAt | LogoutAt | Metric | Details`
+
+9. **Global Trading Hub (Anti-Scam Escrow)**
+   - `/market_setup market_channel:<channel> ticket_category:<category> admin_role:<role> fee_percent:<0-20>` (Admin)
+   - `/market_status` — Check escrow setup and open listing/ticket counts
+   - `/wts amount:<kinah> price:<total> currency:<USD|KRW|PHP|EUR|JPY>` — Post WTS listing
+   - `/wtb amount:<kinah> price:<total> currency:<USD|KRW|PHP|EUR|JPY>` — Post WTB listing
+   - Listing button creates private 3-party escrow ticket (buyer + seller + admin role)
+   - Ticket workflow buttons:
+     - **Hold Confirmed (Admin)** → **Payment Confirmed (Seller)** → **Complete + Trust (Admin)**
+   - On complete: buyer/seller trust score auto +1, tier role sync (if configured), ticket auto-closes
+   - Trust commands:
+     - `/trust [user]` — View trust score and tier
+     - `/trust_add user:<user> points:<-10~50> reason:<text>` (Admin)
+     - `/trust_role_set tier:<bronze|silver|gold> role:<role>` (Admin)
+
+10. **Payment Proof OCR -> Google Sheet (No ticket required)**
+   - `/payment_ocr_set channel:<channel> enabled:true/false min_confidence:<0-100>` (Admin)
+   - `/payment_ocr_status` — View OCR automation status
+   - Users upload payment receipt images in configured channel
+   - Bot OCR parses amount/currency/reference/time and appends to `'Payment Log'!A:G`
+   - Row type: `MEMBER_CONFIRM_OCR`, status:
+     - `OCR_AUTO_PENDING_REVIEW`
+     - `OCR_LOW_CONFIDENCE (<n>%)`
+
 ## Environment Variables
 
 See `.env.example`:
@@ -71,6 +115,7 @@ See `.env.example`:
 - `NOTICE_TICKER_MS`
 - `KINAH_TICKER_MS`
 - `NOTICE_SOURCES_JSON` (optional custom source list)
+- `ENABLE_WELCOME_DM` (optional, default false: only controls DM fallback when welcome channel is missing)
 
 ## Run
 
@@ -83,3 +128,4 @@ npm start
 
 - Runtime state is persisted to `bot_state.json`.
 - Command registration is guild-scoped for immediate updates.
+- New-member welcome requires **Server Members Intent** enabled in Discord Developer Portal.

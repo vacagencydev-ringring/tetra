@@ -38,6 +38,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
+const Tesseract = require('tesseract.js');
 
 async function getPuppeteerLaunchOptions() {
     return {
@@ -255,6 +256,26 @@ function buildRuntimeStateRowsWithMerge(loaded) {
     const mergedPanel = { ...base, ...our };
     mergedPanel.welcomeConfig = { ...(base.welcomeConfig || {}), ...(our.welcomeConfig || {}) };
     mergedPanel.verifyCategoryIdByGuild = { ...(base.verifyCategoryIdByGuild || {}), ...(our.verifyCategoryIdByGuild || {}) };
+    mergedPanel.paymentChannelIdByGuild = { ...(base.paymentChannelIdByGuild || {}), ...(our.paymentChannelIdByGuild || {}) };
+    mergedPanel.paymentOcrConfigByGuild = { ...(base.paymentOcrConfigByGuild || {}), ...(our.paymentOcrConfigByGuild || {}) };
+    mergedPanel.marketConfigByGuild = { ...(base.marketConfigByGuild || {}), ...(our.marketConfigByGuild || {}) };
+    mergedPanel.trustRoleMapByGuild = { ...(base.trustRoleMapByGuild || {}), ...(our.trustRoleMapByGuild || {}) };
+    mergedPanel.trustScoresByGuild = { ...(base.trustScoresByGuild || {}) };
+    for (const [gid, scores] of Object.entries(our.trustScoresByGuild || {})) {
+        mergedPanel.trustScoresByGuild[gid] = { ...(mergedPanel.trustScoresByGuild[gid] || {}), ...(scores || {}) };
+    }
+    mergedPanel.marketListingsByGuild = { ...(base.marketListingsByGuild || {}) };
+    for (const [gid, listings] of Object.entries(our.marketListingsByGuild || {})) {
+        mergedPanel.marketListingsByGuild[gid] = { ...(mergedPanel.marketListingsByGuild[gid] || {}), ...(listings || {}) };
+    }
+    mergedPanel.marketOpenTicketsByGuild = { ...(base.marketOpenTicketsByGuild || {}) };
+    for (const [gid, tickets] of Object.entries(our.marketOpenTicketsByGuild || {})) {
+        mergedPanel.marketOpenTicketsByGuild[gid] = { ...(mergedPanel.marketOpenTicketsByGuild[gid] || {}), ...(tickets || {}) };
+    }
+    mergedPanel.reportSessionsByGuild = { ...(base.reportSessionsByGuild || {}) };
+    for (const [gid, sessions] of Object.entries(our.reportSessionsByGuild || {})) {
+        mergedPanel.reportSessionsByGuild[gid] = { ...(mergedPanel.reportSessionsByGuild[gid] || {}), ...(sessions || {}) };
+    }
 
     const mergedKinah = { guilds: { ...(loaded?.kinah?.guilds || {}) } };
     for (const [gid, d] of Object.entries(kinahState.guilds || {})) mergedKinah.guilds[gid] = d;
@@ -348,6 +369,26 @@ async function hydrateRuntimeStateFromSheet() {
         const merged = { ...sheet, ...local };
         merged.welcomeConfig = { ...(sheet.welcomeConfig || {}), ...(local.welcomeConfig || {}) };
         merged.verifyCategoryIdByGuild = { ...(sheet.verifyCategoryIdByGuild || {}), ...(local.verifyCategoryIdByGuild || {}) };
+        merged.paymentChannelIdByGuild = { ...(sheet.paymentChannelIdByGuild || {}), ...(local.paymentChannelIdByGuild || {}) };
+        merged.paymentOcrConfigByGuild = { ...(sheet.paymentOcrConfigByGuild || {}), ...(local.paymentOcrConfigByGuild || {}) };
+        merged.marketConfigByGuild = { ...(sheet.marketConfigByGuild || {}), ...(local.marketConfigByGuild || {}) };
+        merged.trustRoleMapByGuild = { ...(sheet.trustRoleMapByGuild || {}), ...(local.trustRoleMapByGuild || {}) };
+        merged.trustScoresByGuild = { ...(sheet.trustScoresByGuild || {}) };
+        for (const [gid, scores] of Object.entries(local.trustScoresByGuild || {})) {
+            merged.trustScoresByGuild[gid] = { ...(merged.trustScoresByGuild[gid] || {}), ...(scores || {}) };
+        }
+        merged.marketListingsByGuild = { ...(sheet.marketListingsByGuild || {}) };
+        for (const [gid, listings] of Object.entries(local.marketListingsByGuild || {})) {
+            merged.marketListingsByGuild[gid] = { ...(merged.marketListingsByGuild[gid] || {}), ...(listings || {}) };
+        }
+        merged.marketOpenTicketsByGuild = { ...(sheet.marketOpenTicketsByGuild || {}) };
+        for (const [gid, tickets] of Object.entries(local.marketOpenTicketsByGuild || {})) {
+            merged.marketOpenTicketsByGuild[gid] = { ...(merged.marketOpenTicketsByGuild[gid] || {}), ...(tickets || {}) };
+        }
+        merged.reportSessionsByGuild = { ...(sheet.reportSessionsByGuild || {}) };
+        for (const [gid, sessions] of Object.entries(local.reportSessionsByGuild || {})) {
+            merged.reportSessionsByGuild[gid] = { ...(merged.reportSessionsByGuild[gid] || {}), ...(sessions || {}) };
+        }
         merged.verifyCategoryId = local.verifyCategoryId || sheet.verifyCategoryId;
         saveJsonState(CONFIG.PANEL_STATE_PATH, merged);
         hydrated = true;
@@ -847,6 +888,305 @@ function hasManageGuild(interaction) {
 }
 
 const EPHEMERAL_FLAGS = MessageFlags.Ephemeral;
+
+const MARKET_LISTING_TYPES = ['WTS', 'WTB'];
+const MARKET_CURRENCIES = ['USD', 'KRW', 'PHP', 'EUR', 'JPY'];
+const TRUST_TIER_RULES = [
+    { key: 'gold', min: 25, label: 'Gold Pilot', emoji: '🥇' },
+    { key: 'silver', min: 10, label: 'Silver Pilot', emoji: '🥈' },
+    { key: 'bronze', min: 3, label: 'Bronze Pilot', emoji: '🥉' },
+];
+const FX_FALLBACK_USD_RATES = {
+    USD: 1,
+    KRW: 1350,
+    PHP: 56,
+    EUR: 0.92,
+    JPY: 150,
+};
+let fxRateCache = {
+    base: 'USD',
+    rates: { ...FX_FALLBACK_USD_RATES },
+    fetchedAt: 0,
+    source: 'fallback',
+};
+
+function clampNumber(value, min, max, fallback = min) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return fallback;
+    return Math.min(max, Math.max(min, num));
+}
+
+function asSnowflake(value) {
+    const id = String(value || '').trim();
+    return /^\d{17,20}$/.test(id) ? id : null;
+}
+
+function ensureMarketCollections(state, guildId) {
+    if (!state.marketListingsByGuild || typeof state.marketListingsByGuild !== 'object') state.marketListingsByGuild = {};
+    if (!state.marketOpenTicketsByGuild || typeof state.marketOpenTicketsByGuild !== 'object') state.marketOpenTicketsByGuild = {};
+    if (!state.trustScoresByGuild || typeof state.trustScoresByGuild !== 'object') state.trustScoresByGuild = {};
+    if (!state.marketConfigByGuild || typeof state.marketConfigByGuild !== 'object') state.marketConfigByGuild = {};
+    if (!state.trustRoleMapByGuild || typeof state.trustRoleMapByGuild !== 'object') state.trustRoleMapByGuild = {};
+
+    if (!state.marketListingsByGuild[guildId] || typeof state.marketListingsByGuild[guildId] !== 'object') {
+        state.marketListingsByGuild[guildId] = {};
+    }
+    if (!state.marketOpenTicketsByGuild[guildId] || typeof state.marketOpenTicketsByGuild[guildId] !== 'object') {
+        state.marketOpenTicketsByGuild[guildId] = {};
+    }
+    if (!state.trustScoresByGuild[guildId] || typeof state.trustScoresByGuild[guildId] !== 'object') {
+        state.trustScoresByGuild[guildId] = {};
+    }
+    if (!state.marketConfigByGuild[guildId] || typeof state.marketConfigByGuild[guildId] !== 'object') {
+        state.marketConfigByGuild[guildId] = {};
+    }
+    if (!state.trustRoleMapByGuild[guildId] || typeof state.trustRoleMapByGuild[guildId] !== 'object') {
+        state.trustRoleMapByGuild[guildId] = {};
+    }
+
+    return {
+        listings: state.marketListingsByGuild[guildId],
+        tickets: state.marketOpenTicketsByGuild[guildId],
+        trustScores: state.trustScoresByGuild[guildId],
+        marketConfigByGuild: state.marketConfigByGuild,
+        trustRoleMapByGuild: state.trustRoleMapByGuild,
+    };
+}
+
+function getMarketConfigForGuild(state, guildId) {
+    const raw = state?.marketConfigByGuild?.[guildId] || {};
+    return {
+        marketChannelId: asSnowflake(raw.marketChannelId),
+        ticketCategoryId: asSnowflake(raw.ticketCategoryId),
+        adminRoleId: asSnowflake(raw.adminRoleId),
+        feePercent: clampNumber(raw.feePercent, 0, 20, 3),
+    };
+}
+
+function getTrustRoleMapForGuild(state, guildId) {
+    const raw = state?.trustRoleMapByGuild?.[guildId] || {};
+    return {
+        bronze: asSnowflake(raw.bronze),
+        silver: asSnowflake(raw.silver),
+        gold: asSnowflake(raw.gold),
+    };
+}
+
+function getTrustScore(state, guildId, userId) {
+    const scores = state?.trustScoresByGuild?.[guildId];
+    const score = scores ? Number.parseInt(String(scores[userId] || 0), 10) : 0;
+    return Number.isFinite(score) ? Math.max(0, score) : 0;
+}
+
+function addTrustScore(state, guildId, userId, delta) {
+    const collections = ensureMarketCollections(state, guildId);
+    const current = Number.parseInt(String(collections.trustScores[userId] || 0), 10) || 0;
+    const next = Math.max(0, current + Number.parseInt(String(delta || 0), 10));
+    collections.trustScores[userId] = next;
+    return { previous: current, current: next };
+}
+
+function getTrustTier(score) {
+    const normalized = Math.max(0, Number.parseInt(String(score || 0), 10) || 0);
+    for (const tier of TRUST_TIER_RULES) {
+        if (normalized >= tier.min) return tier;
+    }
+    return null;
+}
+
+function formatTrustBadge(score) {
+    const tier = getTrustTier(score);
+    return tier ? `${tier.emoji} ${tier.label} (${score})` : `Unranked (${score})`;
+}
+
+async function syncTrustRolesForMember(guild, userId, roleMap, score) {
+    if (!guild || !userId || !roleMap) return;
+    const member = guild.members.cache.get(userId) || await guild.members.fetch(userId).catch(() => null);
+    if (!member) return;
+    const allRoleIds = ['bronze', 'silver', 'gold']
+        .map(k => asSnowflake(roleMap[k]))
+        .filter(Boolean);
+    if (!allRoleIds.length) return;
+    const tier = getTrustTier(score);
+    const targetRoleId = tier ? asSnowflake(roleMap[tier.key]) : null;
+    for (const roleId of allRoleIds) {
+        const hasRole = member.roles.cache.has(roleId);
+        if (roleId === targetRoleId && !hasRole) {
+            await member.roles.add(roleId, 'TETRA trust tier sync').catch(() => {});
+        } else if (roleId !== targetRoleId && hasRole) {
+            await member.roles.remove(roleId, 'TETRA trust tier sync').catch(() => {});
+        }
+    }
+}
+
+function isMarketAdmin(interaction, marketConfig) {
+    if (hasManageGuild(interaction)) return true;
+    const adminRoleId = asSnowflake(marketConfig?.adminRoleId);
+    if (!adminRoleId) return false;
+    return Boolean(interaction.member?.roles?.cache?.has(adminRoleId));
+}
+
+function createMarketListingId() {
+    const left = Date.now().toString(36).slice(-6);
+    const right = Math.random().toString(36).slice(2, 6);
+    return `${left}${right}`;
+}
+
+function slugifyChannelToken(input, fallback = 'user') {
+    const cleaned = String(input || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '')
+        .slice(0, 12);
+    return cleaned || fallback;
+}
+
+function formatCurrencyAmount(amount, currency) {
+    const numeric = Number(amount);
+    if (!Number.isFinite(numeric)) return `N/A ${currency || ''}`.trim();
+    try {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: String(currency || 'USD').toUpperCase(),
+            maximumFractionDigits: 2,
+        }).format(numeric);
+    } catch (_) {
+        return `${numeric.toLocaleString()} ${String(currency || '').toUpperCase()}`.trim();
+    }
+}
+
+function convertCurrencyWithUsdRates(amount, fromCurrency, toCurrency, rates) {
+    const amountNum = Number(amount);
+    if (!Number.isFinite(amountNum)) return null;
+    const from = String(fromCurrency || '').toUpperCase();
+    const to = String(toCurrency || '').toUpperCase();
+    const fromRate = Number(rates?.[from]);
+    const toRate = Number(rates?.[to]);
+    if (!Number.isFinite(fromRate) || !Number.isFinite(toRate) || fromRate <= 0 || toRate <= 0) return null;
+    const usd = amountNum / fromRate;
+    return usd * toRate;
+}
+
+async function getFxRatesUsdBase() {
+    const now = Date.now();
+    if (fxRateCache?.rates && now - Number(fxRateCache.fetchedAt || 0) < 30 * 60_000) {
+        return fxRateCache;
+    }
+    try {
+        const { data } = await axios.get('https://open.er-api.com/v6/latest/USD', {
+            timeout: 12_000,
+            maxRedirects: 2,
+            headers: { Accept: 'application/json' },
+        });
+        const rates = data?.rates;
+        if (data?.result === 'success' && rates && Number.isFinite(Number(rates.USD)) && Number.isFinite(Number(rates.KRW))) {
+            fxRateCache = {
+                base: 'USD',
+                rates,
+                fetchedAt: now,
+                source: 'open.er-api',
+            };
+            return fxRateCache;
+        }
+    } catch (_) {}
+    return fxRateCache;
+}
+
+async function getMarketPriceConversions(totalPrice, currency) {
+    const pack = await getFxRatesUsdBase();
+    const rates = pack?.rates || FX_FALLBACK_USD_RATES;
+    const curr = String(currency || 'USD').toUpperCase();
+    return {
+        usd: convertCurrencyWithUsdRates(totalPrice, curr, 'USD', rates),
+        krw: convertCurrencyWithUsdRates(totalPrice, curr, 'KRW', rates),
+        source: pack?.source || 'fallback',
+    };
+}
+
+function buildEscrowMath(totalPrice, feePercent) {
+    const amount = Number(totalPrice);
+    const fee = Number.isFinite(amount) ? amount * (Number(feePercent) / 100) : 0;
+    return {
+        fee,
+        net: Number.isFinite(amount) ? amount - fee : 0,
+    };
+}
+
+function buildMarketListingEmbed({ listingType, amount, totalPrice, currency, note, ownerTag, trustScore, feePercent, conversions }) {
+    const isWts = listingType === 'WTS';
+    const fee = buildEscrowMath(totalPrice, feePercent);
+    const title = isWts ? '💎 [WTS] Kinah for Sale' : '🛒 [WTB] Looking to Buy Kinah';
+    const sideLabel = isWts ? 'Seller' : 'Buyer';
+    const ccy = String(currency || 'USD').toUpperCase();
+    return new EmbedBuilder()
+        .setColor(isWts ? 0x00ffaa : 0x60a5fa)
+        .setTitle(title)
+        .setDescription(
+            [
+                `**${sideLabel}:** ${ownerTag}`,
+                `**Anti-Scam Policy:** All deals must go through TETRA escrow ticket. External/off-platform settlement is prohibited.`,
+            ].join('\n')
+        )
+        .addFields(
+            { name: '📦 Amount', value: `**${Number(amount || 0).toLocaleString()}** Kinah`, inline: true },
+            { name: '💰 Total Price', value: `**${formatCurrencyAmount(totalPrice, ccy)}**`, inline: true },
+            { name: '🏅 Trust Rating', value: `**${formatTrustBadge(trustScore)}**`, inline: true },
+            { name: '🛡️ Escrow Fee', value: `${feePercent.toFixed(1)}% (${formatCurrencyAmount(fee.fee, ccy)})`, inline: true },
+            { name: '📥 Net to Seller', value: formatCurrencyAmount(fee.net, ccy), inline: true },
+            { name: '🌐 FX Snapshot', value: `${formatCurrencyAmount(conversions?.usd, 'USD')} / ${formatCurrencyAmount(conversions?.krw, 'KRW')} (${conversions?.source || 'N/A'})`, inline: true },
+            ...(note ? [{ name: '📝 Note', value: note.slice(0, 400), inline: false }] : [])
+        )
+        .setFooter({ text: 'TETRA Safe Trade System • Click button below to open escrow ticket' })
+        .setTimestamp();
+}
+
+function buildMarketTicketEmbed({ listing, buyerId, sellerId, adminRoleId }) {
+    const rolePing = adminRoleId ? `<@&${adminRoleId}>` : '`Admin`';
+    return new EmbedBuilder()
+        .setColor(0xff007f)
+        .setTitle('🛡️ TETRA Safe Trade Room Initiated')
+        .setDescription(
+            [
+                `**Buyer:** <@${buyerId}>`,
+                `**Seller:** <@${sellerId}>`,
+                `**Listing:** ${listing.type} • ${Number(listing.amount || 0).toLocaleString()} Kinah • ${formatCurrencyAmount(listing.price, listing.currency)}`,
+                '',
+                '### 4-Step Escrow Flow',
+                `1) **Match / Ticket** — Buyer presses button, secure 3-party ticket is opened (${rolePing}, buyer, seller).`,
+                '2) **Hold** — Seller sends Kinah to TETRA escrow admin account first.',
+                '3) **Pay** — After admin hold confirmation, buyer sends payment (USD/KRW etc).',
+                '4) **Complete** — Seller confirms payment, admin delivers Kinah to buyer, bot adds Trust +1 and closes ticket.',
+                '',
+                `⚠️ **Do NOT pay before admin hold confirmation by ${rolePing}.**`,
+            ].join('\n')
+        )
+        .setFooter({ text: 'Anti-Scam / Zero Tolerance Policy Enforced' })
+        .setTimestamp();
+}
+
+function buildMarketTicketControlRows(channelId) {
+    return [
+        new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`market_hold_${channelId}`)
+                .setLabel('1) Hold Confirmed (Admin)')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId(`market_pay_${channelId}`)
+                .setLabel('2) Payment Confirmed (Seller)')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId(`market_complete_${channelId}`)
+                .setLabel('3) Complete + Trust (Admin)')
+                .setStyle(ButtonStyle.Secondary),
+        ),
+        new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`market_close_${channelId}`)
+                .setLabel('Close Ticket')
+                .setStyle(ButtonStyle.Danger),
+        ),
+    ];
+}
 
 // ═══════════════════════════════════════════════════════════
 // [TACTICS] Curated guides (ephemeral, user-only)
@@ -1378,7 +1718,8 @@ const ENABLE_WELCOME_DM = String(process.env.ENABLE_WELCOME_DM || 'false').toLow
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        ...(ENABLE_WELCOME_DM ? [GatewayIntentBits.GuildMembers] : []),
+        // Required for guildMemberAdd welcome flow (channel welcome + optional DM fallback)
+        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
     ]
@@ -1502,6 +1843,19 @@ async function updateSheetRows(range, values) {
     }
 }
 
+const DAILY_LOG_HEADERS_V2 = ['Timestamp', 'Worker', 'Type', 'LoginAt', 'LogoutAt', 'Metric', 'Details'];
+const dailyLogHeaderSynced = new Set();
+async function ensureDailyLogSheetForm(regionCode, force = false) {
+    const code = String(regionCode || '').toUpperCase().trim();
+    if (!code) return { ok: false, error: 'region code missing' };
+    if (!force && dailyLogHeaderSynced.has(code)) return { ok: true };
+    const range = `Daily_Log_${code}!A1:G1`;
+    const res = await updateSheetRows(range, [DAILY_LOG_HEADERS_V2]);
+    if (res.ok) dailyLogHeaderSynced.add(code);
+    else dailyLogHeaderSynced.delete(code);
+    return res;
+}
+
 async function clearSheetRows(range) {
     try {
         const auth = new google.auth.GoogleAuth({
@@ -1565,7 +1919,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '📋 1. 일일 리포트',
-                value: '**`/report_kinah region:<지역>`** — 키나 팀: 접속/종료, 당일 수익\n**`/report_levelup region:<지역>`** — 레벨업 팀: 접속/종료, 레벨·CP 진행',
+                value: '**`/panel type:report region:all|ph|in|np|ch|tw`** — 나라별(또는 전체) 리포트 패널\n**`/report_kinah region:<지역> phase:start|end`** — 키나팀 시작/종료\n**`/report_levelup region:<지역> phase:start|end`** — 레벨업팀 시작/종료\n**`/dailylog_header_sync region:all|ph|in|np|ch|tw`** — Daily_Log 헤더 강제 동기화(Admin)\n• Start: 로그인시간 자동 기록\n• End: 로그아웃시간 자동 기록\n• 키나 종료 보고는 `소비키나` 포함\n• 계산: `Net=End-Start-Spent`, `Gross=(End-Start)+Spent`\n• Daily_Log 헤더(A1:G1) 자동 동기화: `Timestamp|Worker|Type|LoginAt|LogoutAt|Metric|Details`',
                 inline: false
             },
             {
@@ -1580,7 +1934,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '💎 4. 입금 확인',
-                value: '**`/panel type:payment`** — Submit Payment → 통화 선택(KRW/USD/PHP 등) → 금액·사유 입력 → Payment Log 시트 저장',
+                value: '**`/panel type:payment`** — Submit Payment → 통화 선택(KRW/USD/PHP 등) → 금액·사유 입력 → Payment Log 저장\n**결제 OCR 자동화:** `/payment_ocr_set channel:<채널> enabled:true/false min_confidence:<0-100>`\n`/payment_ocr_status` — OCR 상태 확인',
                 inline: false
             },
             {
@@ -1664,7 +2018,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '환영/공지 설정',
-                value: '**`/welcome_set announcements_channel:<채널> welcome_channel:<채널>`** — 환영 채널 + 공지 안내 채널 설정 (Admin)\n**`/welcome_send user:<유저>`** — 수동 환영 메시지 전송',
+                value: '**`/welcome_set announcements_channel:<채널> welcome_channel:<채널>`** — 환영 채널 + 공지 안내 채널 설정 (Admin)\n**`/welcome_send user:<유저>`** — 수동 환영 메시지 전송\n⚠️ 신규 멤버 환영 이벤트는 Discord Dev Portal의 **Server Members Intent**가 켜져 있어야 작동',
                 inline: false
             },
             {
@@ -1696,7 +2050,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: '📋 1. Daily Report',
-                value: '**`/report_kinah region:<region>`** — Kinah team: Login/Logout, profit\n**`/report_levelup region:<region>`** — Level-Up team: Login/Logout, Level/CP',
+                value: '**`/panel type:report region:all|ph|in|np|ch|tw`** — country-scoped (or global) report panel\n**`/report_kinah region:<region> phase:start|end`** — Kinah team start/end\n**`/report_levelup region:<region> phase:start|end`** — Level-Up team start/end\n**`/dailylog_header_sync region:all|ph|in|np|ch|tw`** — force header sync for Daily_Log (Admin)\n• Start = auto login timestamp\n• End = auto logout timestamp\n• Kinah End includes `spent_kinah`\n• Math: `Net=End-Start-Spent`, `Gross=(End-Start)+Spent`\n• Daily_Log header(A1:G1) auto-sync: `Timestamp|Worker|Type|LoginAt|LogoutAt|Metric|Details`',
                 inline: false
             },
             {
@@ -1711,7 +2065,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: '💎 4. Payment Confirmation',
-                value: '**`/panel type:payment`** — Submit Payment → select currency (KRW/USD/PHP...) → amount & reason → Payment Log sheet',
+                value: '**`/panel type:payment`** — Submit Payment → select currency (KRW/USD/PHP...) → amount & reason → Payment Log\n**Payment OCR automation:** `/payment_ocr_set channel:<channel> enabled:true/false min_confidence:<0-100>`\n`/payment_ocr_status` — OCR runtime status',
                 inline: false
             },
             {
@@ -1795,7 +2149,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: 'Welcome & Announcements Setup',
-                value: '**`/welcome_set announcements_channel:<channel> welcome_channel:<channel>`** — Configure onboarding channels (Admin)\n**`/welcome_send user:<user>`** — Send welcome message manually',
+                value: '**`/welcome_set announcements_channel:<channel> welcome_channel:<channel>`** — Configure onboarding channels (Admin)\n**`/welcome_send user:<user>`** — Send welcome message manually\n⚠️ New-member welcome events require **Server Members Intent** enabled in Discord Developer Portal',
                 inline: false
             },
             {
@@ -1822,7 +2176,7 @@ function buildGuideEmbedsUser() {
             },
             {
                 name: '📋 Daily Report',
-                value: '**`/report_kinah region:<region>`** — Kinah team: Login, Logout, today\'s profit\n**`/report_levelup region:<region>`** — Level-Up team: Login, Logout, Level & CP progress\n_Or use the Daily Report panel buttons (Kinah / Level-Up) if posted by staff._',
+                value: '**`/report_kinah region:<region> phase:start|end`** — Kinah team start/end (End includes spent kinah)\n**`/report_levelup region:<region> phase:start|end`** — Level-Up team start/end (Level & CP gains)\n_Or use the Daily Report panel Submit button if posted by staff._',
                 inline: false
             },
             {
@@ -1935,13 +2289,15 @@ function buildFaqAdminEmbed(lang = 'en') {
                 { name: 'Q: 패널은 어떻게 게시하나요?', value: '**`/panel type:<종류>`** — report, salary, join_verify, payment, youtube, **link**, guide_ko, guide_en, **guidebook_plaync**, **tactics**. 채널에서 실행하면 해당 패널 게시. 종류별 1개.', inline: false },
                 { name: 'Q: TACTICS와 가이드북 차이?', value: '**TACTICS** — 인벤 던전/펫 가이드. **가이드북** — PlayNC 공식 (클래스·스킬).\n둘 다 기본은 나만보기.\n**관리자 공개:** `/tactics public:true`, `/guidebook public:true` 또는 패널 Post to Channel.\n**가이드북:** `/guidebook_fetch` 갱신, 실패/빈 데이터 시 로컬 fallback 자동 사용.', inline: false },
                 { name: 'Q: 신규 멤버 안내 순서는?', value: '**Announcements 확인** → **`/join_verify`** 가입 진행 → **`/help`**로 명령어 확인.\n환영 문구 채널/공지 채널은 **`/welcome_set announcements_channel:<채널> welcome_channel:<채널>`**로 설정.', inline: false },
+                { name: 'Q: 오늘 Daily Report 업데이트 핵심?', value: '**나라별 패널:** `/panel type:report region:ph|in|np|ch|tw|all`\n**Start/End 분리:** `/report_kinah` `/report_levelup` + `phase:start|end`\n**자동시간:** Start=로그인, End=로그아웃\n**키나 종료:** 소비키나 포함 계산\n**시트폼 자동동기화:** Daily_Log A1:G1 헤더 자동 갱신', inline: false },
                 { name: 'Q: 전체 가이드 vs 멤버 가이드?', value: '**전체 가이드** (`/panel type:guide_ko`, `guide_en`) — Admin 전체 명령어, 채널에 게시\n**멤버 가이드** (`/guide`) — 멤버용 명령어, 나만보기', inline: false },
                 { name: 'Q: 필드 보스 타이머 설정 순서?', value: '1. **`/preset mode:combined`** 또는 **`/boss_fetch`** (URL에서 로드)\n2. 처치 시: **`/cut boss_name:<이름>`**로 기록\n3. **`/boss_alert_mode mode:dm`** — DM 알림 (선택)\n4. **`/boss_event_multiplier multiplier:0.8`** — 이벤트 리스폰 배율 (선택)', inline: false },
                 { name: 'Q: MVP 스케줄 설정?', value: '**`/mvp_set day:<요일> time:HH:mm`** — 요일별 MVP 시간 (Admin)\n**`/mvp`** — 현재 스케줄 조회 (Admin)', inline: false },
                 { name: 'Q: 키나 시세 모니터링 설정?', value: '**`/kinah_watch_preset`** — ItemBay/ItemMania 프리셋. channel, poll_minutes, mention_role 설정. **`/kinah_watch_status`**로 확인, **`/kinah_watch_stop`**으로 중지.', inline: false },
                 { name: 'Q: AON 한→영 번역?', value: '**`/aon_translate_set`** — category(notice/update/event), channel 설정. **`/aon_translate_source`** — AON 봇 ID. **`/aon_translate_status`**로 라우트 확인.', inline: false },
                 { name: 'Q: 캐릭터 검증 설정?', value: '**`/join_verify`** — Role만. **`/myinfo_register`**로 캐릭터명 추가 (스크린샷 필수)\n1. Admin: **`/verify_channel_set category:<카테고리>`**\n2. 사용자: **`/myinfo_register character_name:<이름>`** → 스크린샷 업로드\n3. 스태프: Approve → 지역 선택 → 회원목록 G열 반영', inline: false },
-                { name: 'Q: 입금 통화 선택?', value: '**Submit Payment** → 통화 선택 (KRW, USD, PHP, INR, NPR, CNY, TWD) → 금액·사유 입력. Payment Log 시트: A:G (날짜, 유형, 태그, 금액, **통화**, 사유, 상태)', inline: false },
+                { name: 'Q: 입금 통화 선택?', value: '**Submit Payment** → 통화 선택 (KRW, USD, PHP, INR, NPR, CNY, TWD) → 금액·사유 입력. Payment Log 시트: A:G\n**OCR 자동기록:** `/payment_ocr_set` + `/payment_ocr_status`', inline: false },
+                { name: 'Q: 새 멤버 웰컴이 안 와요', value: '1) Discord Dev Portal에서 **Server Members Intent ON**\n2) `/welcome_set announcements_channel:<채널> welcome_channel:<채널>` 확인\n3) `/welcome_send user:<유저>`로 수동 테스트\n4) 봇 재시작 후 재확인', inline: false },
                 { name: 'Q: 검색·가이드 결과는 누가 보나요?', value: '**`/character`** **`/item`** **`/collection`** **`/build`** — 나만 (ephemeral)\n**`!char <이름>`** — 결과 DM 전송\n**`/guide`** **`/tactics`** **`/guidebook`** — 기본 나만 (ephemeral)\n**관리자 공개:** `/tactics public:true`, `/guidebook public:true`', inline: false },
                 { name: 'Q: 권한 오류?', value: '봇에 **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels**(인증 채널용) 권한이 있는지 확인하세요.', inline: false }
             )
@@ -1956,13 +2312,15 @@ function buildFaqAdminEmbed(lang = 'en') {
             { name: 'Q: How do I post panels?', value: '**`/panel type:<type>`** — report, salary, join_verify, payment, youtube, **link**, guide_ko, guide_en, **guidebook_plaync**, **tactics**. Run in a channel to post. One panel per type.', inline: false },
             { name: 'Q: TACTICS vs Guidebook?', value: '**TACTICS** — Inven dungeon/pet guides. **Guidebook** — PlayNC official (class, skill).\nBoth are ephemeral by default.\n**Admin public share:** `/tactics public:true`, `/guidebook public:true`, or panel Post to Channel.\n**Guidebook:** run **`/guidebook_fetch`**; if scrape fails/empty, local fallback loads automatically.', inline: false },
             { name: 'Q: What is the onboarding order for new members?', value: '**Announcements** → **`/join_verify`** → **`/help`**.\nSet channels with **`/welcome_set announcements_channel:<channel> welcome_channel:<channel>`**.', inline: false },
+            { name: 'Q: What changed in Daily Report today?', value: '**Country panels:** `/panel type:report region:ph|in|np|ch|tw|all`\n**Start/End split:** `/report_kinah` `/report_levelup` + `phase:start|end`\n**Auto timestamps:** Start=login, End=logout\n**Kinah End includes spent kinah**\n**Sheet form auto-sync:** Daily_Log header A1:G1 updated automatically\n**Manual force sync (Admin):** `/dailylog_header_sync region:all|ph|in|np|ch|tw`', inline: false },
             { name: 'Q: Full guide vs member guide?', value: '**Full guide** (`/panel type:guide_ko`, `guide_en`) — Admin commands, post to channel\n**Member guide** (`/guide`) — Member commands, visible only to you', inline: false },
             { name: 'Q: Field boss timer setup order?', value: '1. **`/preset mode:combined`** or **`/boss_fetch`** (load from URL)\n2. On kill: **`/cut boss_name:<name>`** to record\n3. **`/boss_alert_mode mode:dm`** — DM alerts (optional)\n4. **`/boss_event_multiplier multiplier:0.8`** — Event respawn rate (optional)', inline: false },
             { name: 'Q: How to set MVP schedule?', value: '**`/mvp_set day:<day> time:HH:mm`** — Set MVP time per day (Admin)\n**`/mvp`** — View current schedule (Admin)', inline: false },
             { name: 'Q: Kinah rate monitoring setup?', value: '**`/kinah_watch_preset`** — ItemBay/ItemMania preset for quick setup. Set channel, poll_minutes, mention_role. **`/kinah_watch_status`** to check, **`/kinah_watch_stop`** to stop.', inline: false },
             { name: 'Q: AON Korean→English translation?', value: '**`/aon_translate_set`** — Set category(notice/update/event), channel. **`/aon_translate_source`** — AON bot ID. **`/aon_translate_status`** to view routes.', inline: false },
             { name: 'Q: Character verification setup?', value: '**`/join_verify`** — Role only. **`/myinfo_register`** adds character (screenshot required)\n1. Admin: **`/verify_channel_set category:<category>`**\n2. User: **`/myinfo_register character_name:<name>`** → Upload screenshot\n3. Staff: Approve → Select region → Column G', inline: false },
-            { name: 'Q: How to select payment currency?', value: '**Submit Payment** → Select currency (KRW, USD, PHP, INR, NPR, CNY, TWD) → Enter amount & reason. Payment Log sheet: A:G (Date, Type, Tag, Amount, **Currency**, Reason, Status)', inline: false },
+            { name: 'Q: How to select payment currency?', value: '**Submit Payment** → Select currency (KRW, USD, PHP, INR, NPR, CNY, TWD) → Enter amount & reason. Payment Log sheet: A:G\n**OCR auto-log:** `/payment_ocr_set` + `/payment_ocr_status`', inline: false },
+            { name: 'Q: New member welcome message is not sent', value: '1) Enable **Server Members Intent** in Discord Developer Portal\n2) Verify `/welcome_set announcements_channel:<channel> welcome_channel:<channel>`\n3) Test with `/welcome_send user:<user>`\n4) Restart bot and re-test', inline: false },
             { name: 'Q: Who sees search results & guides?', value: '**`/character`** **`/item`** **`/collection`** **`/build`** — Only you (ephemeral)\n**`!char <name>`** — Results sent via DM\n**`/guide`** **`/tactics`** **`/guidebook`** — Default only you (ephemeral)\n**Admin public:** `/tactics public:true`, `/guidebook public:true`', inline: false },
             { name: 'Q: Permission errors?', value: 'Ensure the bot has **Manage Messages**, **Send Messages**, **Embed Links**, **Read Message History**, **Manage Channels** (for verification channels).', inline: false }
         )
@@ -2643,21 +3001,37 @@ const commands = [
         .toJSON(),
     new SlashCommandBuilder()
         .setName('report_kinah')
-        .setDescription('Submit Kinah Team daily report')
+        .setDescription('Submit Kinah Team start/end report')
         .addStringOption(o => o
             .setName('region')
             .setDescription('Your region')
             .setRequired(true)
             .addChoices(...getRegionChoices()))
+        .addStringOption(o => o
+            .setName('phase')
+            .setDescription('Start or end report')
+            .setRequired(false)
+            .addChoices(
+                { name: 'Start', value: 'start' },
+                { name: 'End', value: 'end' }
+            ))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('report_levelup')
-        .setDescription('Submit Level-Up Team daily report')
+        .setDescription('Submit Level-Up Team start/end report')
         .addStringOption(o => o
             .setName('region')
             .setDescription('Your region')
             .setRequired(true)
             .addChoices(...getRegionChoices()))
+        .addStringOption(o => o
+            .setName('phase')
+            .setDescription('Start or end report')
+            .setRequired(false)
+            .addChoices(
+                { name: 'Start', value: 'start' },
+                { name: 'End', value: 'end' }
+            ))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('salary_confirm')
@@ -2689,6 +3063,14 @@ const commands = [
                 { name: '📖 Usage Guide (English)', value: 'guide_en' },
                 { name: '📖 PlayNC Guidebook (Official)', value: 'guidebook_plaync' },
                 { name: '⚔️ TACTICS (All Guide Categories)', value: 'tactics' }
+            ))
+        .addStringOption(o => o
+            .setName('region')
+            .setDescription('Report panel scope (report type only)')
+            .setRequired(false)
+            .addChoices(
+                { name: 'All Regions', value: 'all' },
+                ...getRegionChoices()
             ))
         .toJSON(),
     new SlashCommandBuilder()
@@ -2919,6 +3301,131 @@ const commands = [
         .setDescription('Show kinah rate crawler settings and last state')
         .toJSON(),
     new SlashCommandBuilder()
+        .setName('market_setup')
+        .setDescription('Set global market and escrow ticket routing (Admin)')
+        .addChannelOption(o => o
+            .setName('market_channel')
+            .setDescription('Channel where /wts and /wtb listings are posted')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+        .addChannelOption(o => o
+            .setName('ticket_category')
+            .setDescription('Category where escrow trade tickets are created')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildCategory))
+        .addRoleOption(o => o
+            .setName('admin_role')
+            .setDescription('TETRA escrow admin role')
+            .setRequired(true))
+        .addNumberOption(o => o
+            .setName('fee_percent')
+            .setDescription('Escrow fee percent (default 3.0, suggested 3-5)')
+            .setRequired(false)
+            .setMinValue(0)
+            .setMaxValue(20))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('market_status')
+        .setDescription('Show global market escrow setup and runtime status')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('wts')
+        .setDescription('Post a Want-To-Sell (WTS) escrow listing')
+        .addIntegerOption(o => o.setName('amount').setDescription('Amount of Kinah').setRequired(true).setMinValue(1))
+        .addNumberOption(o => o.setName('price').setDescription('Total price').setRequired(true).setMinValue(0.01))
+        .addStringOption(o => o
+            .setName('currency')
+            .setDescription('Settlement currency')
+            .setRequired(true)
+            .addChoices(
+                { name: 'USD ($)', value: 'USD' },
+                { name: 'KRW (₩)', value: 'KRW' },
+                { name: 'PHP (₱)', value: 'PHP' },
+                { name: 'EUR (€)', value: 'EUR' },
+                { name: 'JPY (¥)', value: 'JPY' },
+            ))
+        .addStringOption(o => o.setName('note').setDescription('Optional note').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('wtb')
+        .setDescription('Post a Want-To-Buy (WTB) escrow listing')
+        .addIntegerOption(o => o.setName('amount').setDescription('Amount of Kinah').setRequired(true).setMinValue(1))
+        .addNumberOption(o => o.setName('price').setDescription('Total price').setRequired(true).setMinValue(0.01))
+        .addStringOption(o => o
+            .setName('currency')
+            .setDescription('Settlement currency')
+            .setRequired(true)
+            .addChoices(
+                { name: 'USD ($)', value: 'USD' },
+                { name: 'KRW (₩)', value: 'KRW' },
+                { name: 'PHP (₱)', value: 'PHP' },
+                { name: 'EUR (€)', value: 'EUR' },
+                { name: 'JPY (¥)', value: 'JPY' },
+            ))
+        .addStringOption(o => o.setName('note').setDescription('Optional note').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('trust')
+        .setDescription('Show trust score and tier')
+        .addUserOption(o => o.setName('user').setDescription('Target user').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('trust_add')
+        .setDescription('Adjust trust score for a user (Admin)')
+        .addUserOption(o => o.setName('user').setDescription('Target user').setRequired(true))
+        .addIntegerOption(o => o.setName('points').setDescription('Points to add/remove').setRequired(true).setMinValue(-10).setMaxValue(50))
+        .addStringOption(o => o.setName('reason').setDescription('Adjustment reason').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('trust_role_set')
+        .setDescription('Bind trust tier to Discord role (Admin)')
+        .addStringOption(o => o
+            .setName('tier')
+            .setDescription('Trust tier')
+            .setRequired(true)
+            .addChoices(
+                { name: 'Bronze (>=3)', value: 'bronze' },
+                { name: 'Silver (>=10)', value: 'silver' },
+                { name: 'Gold (>=25)', value: 'gold' },
+            ))
+        .addRoleOption(o => o.setName('role').setDescription('Role to grant for the tier').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('dailylog_header_sync')
+        .setDescription('Force-sync Daily_Log sheet headers to latest format (Admin)')
+        .addStringOption(o => o
+            .setName('region')
+            .setDescription('Target region (omit or all = all regions)')
+            .setRequired(false)
+            .addChoices(
+                { name: 'All Regions', value: 'all' },
+                ...getRegionChoices()
+            ))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('payment_ocr_set')
+        .setDescription('Set payment receipt OCR channel and behavior (Admin)')
+        .addChannelOption(o => o
+            .setName('channel')
+            .setDescription('Channel where users upload payment proof images')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+        .addBooleanOption(o => o
+            .setName('enabled')
+            .setDescription('Enable OCR auto logging (default: true)')
+            .setRequired(false))
+        .addIntegerOption(o => o
+            .setName('min_confidence')
+            .setDescription('Low confidence threshold 0-100 (default: 45)')
+            .setRequired(false)
+            .setMinValue(0)
+            .setMaxValue(100))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('payment_ocr_status')
+        .setDescription('Show payment receipt OCR automation status')
+        .toJSON(),
+    new SlashCommandBuilder()
         .setName('aon_translate_set')
         .setDescription('Set channel route for AON Korean->English translation (Admin)')
         .addStringOption(o => o
@@ -2991,41 +3498,227 @@ const commands = [
 // ═══════════════════════════════════════════════════════════
 // [4] 모달 (버튼 클릭 시)
 // ═══════════════════════════════════════════════════════════
-function createKinahModal(region) {
+function createKinahStartModal(region) {
     return new ModalBuilder()
-        .setCustomId(`modal_kinah_${region}`)
-        .setTitle('Kinah Team Daily Report')
+        .setCustomId(`modal_kinah_start_${region}`)
+        .setTitle('Start — Kinah Team')
         .addComponents(
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('login').setLabel('Login Time').setPlaceholder('09:00 (local)').setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder()
+                    .setCustomId('start_kinah')
+                    .setLabel('Start Kinah (numbers only)')
+                    .setPlaceholder('e.g. 12000000')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
             ),
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('logout').setLabel('Logout Time').setPlaceholder('18:00 (local)').setStyle(TextInputStyle.Short).setRequired(true)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('profit').setLabel("Today's Kinah Profit").setPlaceholder('1,500,000').setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder()
+                    .setCustomId('memo')
+                    .setLabel('Memo')
+                    .setPlaceholder('e.g. Today target: 30m')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
             ),
         );
 }
 
-function createLevelUpModal(region) {
+function createKinahEndModal(region) {
     return new ModalBuilder()
-        .setCustomId(`modal_levelup_${region}`)
-        .setTitle('Level-Up Team Daily Report')
+        .setCustomId(`modal_kinah_end_${region}`)
+        .setTitle('End — Kinah Team')
         .addComponents(
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('login').setLabel('Login Time').setPlaceholder('09:00 (local)').setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder()
+                    .setCustomId('end_kinah')
+                    .setLabel('End Kinah (numbers only)')
+                    .setPlaceholder('e.g. 14750000')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
             ),
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('logout').setLabel('Logout Time').setPlaceholder('18:00 (local)').setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder()
+                    .setCustomId('spent_kinah')
+                    .setLabel('Spent Kinah (numbers only)')
+                    .setPlaceholder('e.g. 10000000')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
             ),
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('level').setLabel('Level Progress').setPlaceholder('Lv.40 -> Lv.45').setStyle(TextInputStyle.Short).setRequired(true)
-            ),
-            new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('cp').setLabel('CP Progress').setPlaceholder('1800 -> 2100').setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder()
+                    .setCustomId('memo')
+                    .setLabel('Memo')
+                    .setPlaceholder('e.g. Some kinah used to gear up')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
             ),
         );
+}
+
+function createLevelUpStartModal(region) {
+    return new ModalBuilder()
+        .setCustomId(`modal_levelup_start_${region}`)
+        .setTitle('Start — Level-Up Team')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('start_level')
+                    .setLabel('Start Level (numbers only)')
+                    .setPlaceholder('e.g. 40')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('start_cp')
+                    .setLabel('Start Combat Power (numbers only)')
+                    .setPlaceholder('e.g. 1800')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('memo')
+                    .setLabel('Memo')
+                    .setPlaceholder('e.g. Goal: Lv +2 / CP +150')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+            ),
+        );
+}
+
+function createLevelUpEndModal(region) {
+    return new ModalBuilder()
+        .setCustomId(`modal_levelup_end_${region}`)
+        .setTitle('End — Level-Up Team')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('end_level')
+                    .setLabel('End Level (numbers only)')
+                    .setPlaceholder('e.g. 45')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('end_cp')
+                    .setLabel('End Combat Power (numbers only)')
+                    .setPlaceholder('e.g. 2100')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('memo')
+                    .setLabel('Memo')
+                    .setPlaceholder('e.g. Rune upgrade + dungeon clear')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
+            ),
+        );
+}
+
+function parseNonNegativeBigIntInput(raw) {
+    const normalized = String(raw || '').replace(/[,\s]/g, '').trim();
+    if (!/^\d+$/.test(normalized)) return null;
+    try {
+        return BigInt(normalized);
+    } catch (_) {
+        return null;
+    }
+}
+
+function parseNonNegativeIntInput(raw) {
+    const normalized = String(raw || '').replace(/[,\s]/g, '').trim();
+    if (!/^\d+$/.test(normalized)) return null;
+    const value = Number.parseInt(normalized, 10);
+    return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function formatBigIntWithCommas(value) {
+    const v = typeof value === 'bigint' ? value : BigInt(value || 0);
+    const sign = v < 0n ? '-' : '';
+    const abs = v < 0n ? -v : v;
+    const s = abs.toString();
+    return `${sign}${s.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+}
+
+function buildDailySubmitButtonRow() {
+    return buildDailySubmitButtonRowForRegion(null);
+}
+
+function buildDailySubmitButtonRowForRegion(regionValue = null) {
+    const regionCfg = regionValue ? getRegionConfig(regionValue) : null;
+    const customId = regionCfg ? `btn_daily_submit_${regionCfg.value}` : 'btn_daily_submit';
+    const label = regionCfg ? `Submit Report (${regionCfg.code})` : 'Submit Report';
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(customId)
+            .setLabel(label)
+            .setEmoji('📊')
+            .setStyle(ButtonStyle.Primary)
+    );
+}
+
+function buildDailySubmitTargetSelectRow(regionValue = null) {
+    const regionCfg = regionValue ? getRegionConfig(regionValue) : null;
+    const targetRegions = regionCfg ? [regionCfg] : REGION_CONFIGS;
+    const options = [];
+    for (const region of targetRegions) {
+        options.push({
+            label: `${region.code} • Start Kinah Team`,
+            value: `kinah_start:${region.value}`,
+            emoji: region.emoji,
+            description: `${region.label} start report`,
+        });
+        options.push({
+            label: `${region.code} • End Kinah Team`,
+            value: `kinah_end:${region.value}`,
+            emoji: region.emoji,
+            description: `${region.label} end report (+spent)`,
+        });
+        options.push({
+            label: `${region.code} • Start Level-Up Team`,
+            value: `levelup_start:${region.value}`,
+            emoji: region.emoji,
+            description: `${region.label} start level/cp`,
+        });
+        options.push({
+            label: `${region.code} • End Level-Up Team`,
+            value: `levelup_end:${region.value}`,
+            emoji: region.emoji,
+            description: `${region.label} end level/cp`,
+        });
+    }
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId('select_daily_submit_target')
+            .setPlaceholder(regionCfg ? `Select start/end + team (${regionCfg.code})` : 'Select start/end + team + region')
+            .addOptions(options.slice(0, 25))
+    );
+}
+
+function ensureReportSessionsForGuild(state, guildId) {
+    if (!state.reportSessionsByGuild || typeof state.reportSessionsByGuild !== 'object') {
+        state.reportSessionsByGuild = {};
+    }
+    if (!state.reportSessionsByGuild[guildId] || typeof state.reportSessionsByGuild[guildId] !== 'object') {
+        state.reportSessionsByGuild[guildId] = {};
+    }
+    return state.reportSessionsByGuild[guildId];
+}
+
+function buildReportSessionKey(userId, team, region) {
+    return `${team}:${region}:${userId}`;
+}
+
+function pruneOldReportSessions(sessionMap, nowTs = Date.now()) {
+    if (!sessionMap || typeof sessionMap !== 'object') return;
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+    for (const [key, session] of Object.entries(sessionMap)) {
+        const startedAt = Number(session?.startedAt || 0);
+        if (!startedAt || nowTs - startedAt > maxAgeMs) delete sessionMap[key];
+    }
 }
 
 const PAYMENT_CURRENCIES = [
@@ -3037,6 +3730,221 @@ const PAYMENT_CURRENCIES = [
     { value: 'CNY', label: 'CNY (Chinese Yuan)', emoji: '🇨🇳' },
     { value: 'TWD', label: 'TWD (Taiwan Dollar)', emoji: '🇹🇼' },
 ];
+
+function getPaymentOcrConfigForGuild(state, guildId) {
+    const byGuild = state?.paymentOcrConfigByGuild && typeof state.paymentOcrConfigByGuild === 'object'
+        ? state.paymentOcrConfigByGuild
+        : {};
+    const paymentByGuild = state?.paymentChannelIdByGuild && typeof state.paymentChannelIdByGuild === 'object'
+        ? state.paymentChannelIdByGuild
+        : {};
+    const raw = byGuild[guildId] || {};
+    return {
+        enabled: raw.enabled !== false,
+        channelId: asSnowflake(raw.channelId) || asSnowflake(paymentByGuild[guildId]) || asSnowflake(state?.paymentChannelId),
+        minConfidence: clampNumber(raw.minConfidence ?? 45, 0, 100, 45),
+    };
+}
+
+function isImageAttachment(attachment) {
+    const contentType = String(attachment?.contentType || '').toLowerCase();
+    if (contentType.startsWith('image/')) return true;
+    const name = String(attachment?.name || '').toLowerCase();
+    return /\.(png|jpe?g|webp|gif|bmp|tiff?)$/i.test(name);
+}
+
+function normalizeReceiptText(text) {
+    return String(text || '')
+        .replace(/\r/g, '\n')
+        .replace(/[^\S\n]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+function inferCurrencyFromReceiptText(text) {
+    const t = String(text || '');
+    if (/₱|\bphp\b|gcash/i.test(t)) return 'PHP';
+    if (/₩|\bkrw\b/.test(t)) return 'KRW';
+    if (/\$|\busd\b/.test(t)) return 'USD';
+    if (/€|\beur\b/.test(t)) return 'EUR';
+    if (/¥|\bjpy\b|\byen\b/.test(t)) return 'JPY';
+    if (/₹|\binr\b/.test(t)) return 'INR';
+    if (/₨|\bnpr\b/.test(t)) return 'NPR';
+    if (/nt\$|\btwd\b/.test(t)) return 'TWD';
+    if (/cny|rmb|元/.test(t)) return 'CNY';
+    return 'PHP';
+}
+
+function pickReceiptAmount(text) {
+    const source = String(text || '');
+    const amountPatterns = [
+        /total\s*amount\s*(?:sent|paid)?[^\d₱₩$¥€]{0,24}([₱₩$¥€]?\s*\d[\d,]*(?:\.\d{1,2})?)/i,
+        /amount[^\d₱₩$¥€]{0,24}([₱₩$¥€]?\s*\d[\d,]*(?:\.\d{1,2})?)/i,
+        /sent[^\d₱₩$¥€]{0,24}([₱₩$¥€]?\s*\d[\d,]*(?:\.\d{1,2})?)/i,
+    ];
+    for (const rx of amountPatterns) {
+        const match = source.match(rx);
+        const token = match?.[1];
+        const numeric = parseNumericValue(String(token || '').replace(/[^\d.,-]/g, ''));
+        if (numeric != null && numeric > 0 && numeric < 1_000_000_000) {
+            return { numeric, token: String(token || '').trim() };
+        }
+    }
+    const allNumeric = (source.match(/\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+\.\d{1,2}/g) || [])
+        .map(token => ({ token, numeric: parseNumericValue(token) }))
+        .filter(item => item.numeric != null && item.numeric > 0 && item.numeric < 1_000_000_000);
+    if (!allNumeric.length) return null;
+    allNumeric.sort((a, b) => b.numeric - a.numeric);
+    return allNumeric[0];
+}
+
+function extractReceiptReferenceNo(text) {
+    const source = String(text || '');
+    const match = source.match(/ref(?:erence)?\s*(?:no|#|number)?\.?\s*[:\-]?\s*([A-Z0-9][A-Z0-9 \-]{5,40})/i);
+    if (!match) return null;
+    return String(match[1] || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+}
+
+function extractReceiptTimestamp(text) {
+    const source = String(text || '');
+    const patterns = [
+        /\b([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s*(?:AM|PM))\b/i,
+        /\b(\d{4}[/-]\d{1,2}[/-]\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?)\b/i,
+        /\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s+\d{1,2}:\d{2}\s*(?:AM|PM)?)\b/i,
+    ];
+    for (const rx of patterns) {
+        const match = source.match(rx);
+        if (match?.[1]) return String(match[1]).trim();
+    }
+    return null;
+}
+
+function extractReceiptPayMethod(text) {
+    const source = String(text || '');
+    if (/gcash/i.test(source)) return 'GCash';
+    if (/paypal/i.test(source)) return 'PayPal';
+    if (/bank/i.test(source)) return 'Bank Transfer';
+    return null;
+}
+
+function parseReceiptOcrText(text) {
+    const normalized = normalizeReceiptText(text);
+    const amountInfo = pickReceiptAmount(normalized);
+    const currency = inferCurrencyFromReceiptText(normalized);
+    return {
+        rawText: normalized,
+        amount: amountInfo?.numeric ?? null,
+        amountToken: amountInfo?.token || null,
+        currency,
+        refNo: extractReceiptReferenceNo(normalized),
+        paidAt: extractReceiptTimestamp(normalized),
+        method: extractReceiptPayMethod(normalized),
+    };
+}
+
+async function runReceiptOcr(imageUrl) {
+    const result = await Tesseract.recognize(imageUrl, 'eng', {
+        logger: () => {},
+    });
+    const text = result?.data?.text || '';
+    const confidence = Number(result?.data?.confidence);
+    return {
+        text,
+        confidence: Number.isFinite(confidence) ? confidence : null,
+    };
+}
+
+async function handleAutoPaymentProofOcr(message) {
+    if (!message?.guildId || !message?.channelId) return false;
+    if (!message.attachments?.size) return false;
+    const state = loadPanelState();
+    const cfg = getPaymentOcrConfigForGuild(state, message.guildId);
+    if (!cfg.enabled || !cfg.channelId) return false;
+    if (cfg.channelId !== message.channelId) return false;
+    const images = [...message.attachments.values()].filter(isImageAttachment);
+    if (!images.length) return false;
+
+    let parsed = null;
+    let confidence = null;
+    let usedAttachment = null;
+    let lastError = null;
+    for (const att of images.slice(0, 3)) {
+        try {
+            const ocr = await runReceiptOcr(att.url);
+            const receipt = parseReceiptOcrText(ocr.text);
+            if (receipt.amount != null) {
+                parsed = receipt;
+                confidence = ocr.confidence;
+                usedAttachment = att;
+                break;
+            }
+        } catch (err) {
+            lastError = err;
+        }
+    }
+
+    if (!parsed || parsed.amount == null) {
+        await message.reply({
+            content: '⚠️ 결제 영수증 OCR에서 금액을 읽지 못했습니다. `/panel type:payment` 버튼 또는 `!confirm`으로 수동 입력해 주세요.',
+            allowedMentions: { repliedUser: false }
+        }).catch(() => {});
+        if (lastError) console.warn('[payment-ocr] parse-failed', lastError.message || lastError);
+        return true;
+    }
+
+    const trustConfidence = confidence == null ? 'N/A' : `${Math.round(confidence)}%`;
+    const status = confidence != null && confidence < cfg.minConfidence
+        ? `OCR_LOW_CONFIDENCE (${Math.round(confidence)}%)`
+        : 'OCR_AUTO_PENDING_REVIEW';
+    const amountText = Number(parsed.amount).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    const reasonParts = [
+        'Auto OCR receipt',
+        parsed.method ? `Method:${parsed.method}` : null,
+        parsed.refNo ? `Ref:${parsed.refNo}` : null,
+        parsed.paidAt ? `At:${parsed.paidAt}` : null,
+        `Msg:${message.id}`,
+    ].filter(Boolean);
+    const row = [
+        new Date().toLocaleString('ko-KR'),
+        'MEMBER_CONFIRM_OCR',
+        message.author.tag || message.author.username,
+        amountText,
+        parsed.currency || 'PHP',
+        reasonParts.join(' | ').slice(0, 500),
+        status,
+    ];
+    const res = await appendToSheet("'Payment Log'!A:G", row);
+    if (!res.ok) {
+        await message.reply({
+            content: `❌ OCR 결과 시트 저장 실패: ${res.error}`,
+            allowedMentions: { repliedUser: false }
+        }).catch(() => {});
+        return true;
+    }
+
+    const embed = new EmbedBuilder()
+        .setTitle('🧾 Payment Proof OCR Captured')
+        .setColor(status.startsWith('OCR_LOW') ? 0xf59e0b : 0x22c55e)
+        .setAuthor({ name: message.author.username, iconURL: message.author.displayAvatarURL() })
+        .addFields(
+            { name: '💵 Amount', value: `\`${amountText} ${parsed.currency}\``, inline: true },
+            { name: '🔎 OCR Confidence', value: `\`${trustConfidence}\``, inline: true },
+            { name: '📌 Status', value: `\`${status}\``, inline: true },
+            { name: '🧾 Ref No', value: `\`${parsed.refNo || 'N/A'}\``, inline: true },
+            { name: '🕒 Paid At', value: `\`${parsed.paidAt || 'N/A'}\``, inline: true },
+            { name: '💳 Method', value: `\`${parsed.method || 'N/A'}\``, inline: true },
+            { name: '🔗 Source', value: `[Open message](${message.url})`, inline: false },
+        )
+        .setFooter({ text: 'Saved to Payment Log (A:G) as OCR auto entry' })
+        .setTimestamp();
+    if (usedAttachment?.url) embed.setImage(usedAttachment.url);
+    await message.channel.send({
+        content: `✅ **OCR payment proof logged — ${message.author}**`,
+        embeds: [embed],
+        allowedMentions: { parse: [] }
+    }).catch(() => {});
+    return true;
+}
 
 function buildPaymentCurrencySelectRow() {
     const menu = new StringSelectMenuBuilder()
@@ -3192,7 +4100,10 @@ async function registerGuildSlashCommands(rest, guild) {
 // ═══════════════════════════════════════════════════════════
 client.once('ready', async () => {
     console.log(`🚀 TETRA Sync 봇 가동: ${client.user.tag}`);
-    if (!ENABLE_WELCOME_DM) console.log('   ℹ️ Welcome DM off (set ENABLE_WELCOME_DM=true + Server Members Intent in Discord Dev Portal to enable)');
+    if (!ENABLE_WELCOME_DM) {
+        console.log('   ℹ️ Welcome fallback DM off (channel welcome still active).');
+    }
+    console.log('   ℹ️ Ensure "Server Members Intent" is enabled in Discord Dev Portal for new-member welcome events.');
     try {
         await hydrateRuntimeStateFromSheet().catch(err => {
             console.warn(`[state] runtime state hydrate skipped: ${err.message}`);
@@ -3311,10 +4222,14 @@ client.on('interactionCreate', async (interaction) => {
                     '**Start Here:** Announcements → `/join_verify` → `/help`\n\n' +
                     '**Reports:** `/report_kinah` `/report_levelup` (or panel buttons)\n' +
                     '**Salary:** `/salary_confirm` (or panel region buttons)\n' +
+                    '**Payment OCR:** `/payment_ocr_status` (Admin: `/payment_ocr_set`)\n' +
                     '**Join:** `/join_verify` — Country → Role\n' +
                     '**Character Verification:** `/myinfo_register character_name:<name>` → screenshot → staff approval\n\n' +
                     '**Boss:** `/preset` `/boss` `/cut` `/boss_fetch` `/boss_alert_mode`\n**MVP (Admin):** `/mvp` `/mvp_set`\n\n' +
                     '**Kinah:** `/kinah_watch_now` `/kinah_watch_status`\n\n' +
+                    '**Global Market (Escrow):** `/wts` `/wtb` `/market_status`\n' +
+                    '**Market Admin:** `/market_setup` `/trust_add` `/trust_role_set`\n' +
+                    '**Trust:** `/trust`\n\n' +
                     '**Search (ephemeral):** `/character` `/item` `/collection` `/build`\n' +
                     '**DM Search:** `!char <name>`\n\n' +
                     '**Guides (ephemeral):** `/guide` `/homework` `/tactics` `/guidebook`\n' +
@@ -3391,10 +4306,14 @@ client.on('interactionCreate', async (interaction) => {
             await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
         } else if (interaction.commandName === 'report_kinah') {
             const r = interaction.options.getString('region') || 'ph';
-            await interaction.showModal(createKinahModal(r));
+            const phase = (interaction.options.getString('phase') || 'start').toLowerCase();
+            if (phase === 'start') await interaction.showModal(createKinahStartModal(r));
+            else await interaction.showModal(createKinahEndModal(r));
         } else if (interaction.commandName === 'report_levelup') {
             const r = interaction.options.getString('region') || 'ph';
-            await interaction.showModal(createLevelUpModal(r));
+            const phase = (interaction.options.getString('phase') || 'start').toLowerCase();
+            if (phase === 'start') await interaction.showModal(createLevelUpStartModal(r));
+            else await interaction.showModal(createLevelUpEndModal(r));
         } else if (interaction.commandName === 'salary_confirm') {
             if (interaction.user.bot) return;
             const regionOpt = interaction.options.getString('region');
@@ -3991,6 +4910,288 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 await interaction.editReply({ embeds: [embed, buildKinahStatusEmbed(guildState)] });
             }
+        } else if (interaction.commandName === 'market_setup') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const marketChannel = interaction.options.getChannel('market_channel', true);
+            const ticketCategory = interaction.options.getChannel('ticket_category', true);
+            const adminRole = interaction.options.getRole('admin_role', true);
+            const feePercent = clampNumber(interaction.options.getNumber('fee_percent') ?? 3, 0, 20, 3);
+            if (!marketChannel.isTextBased()) {
+                await safeEphemeral(interaction, 'market_channel must be a text or announcement channel.');
+                return;
+            }
+            if (ticketCategory.type !== ChannelType.GuildCategory) {
+                await safeEphemeral(interaction, 'ticket_category must be a category channel.');
+                return;
+            }
+            const state = loadPanelState();
+            const collections = ensureMarketCollections(state, interaction.guildId);
+            collections.marketConfigByGuild[interaction.guildId] = {
+                marketChannelId: marketChannel.id,
+                ticketCategoryId: ticketCategory.id,
+                adminRoleId: adminRole.id,
+                feePercent,
+            };
+            savePanelState(state, true);
+            await interaction.reply({
+                content:
+                    `✅ Global market setup saved.\n` +
+                    `• Market channel: <#${marketChannel.id}>\n` +
+                    `• Ticket category: **${ticketCategory.name}**\n` +
+                    `• Escrow admin role: <@&${adminRole.id}>\n` +
+                    `• Escrow fee: **${feePercent.toFixed(1)}%**`,
+                flags: EPHEMERAL_FLAGS
+            });
+        } else if (interaction.commandName === 'market_status') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            const state = loadPanelState();
+            const { listings, tickets } = ensureMarketCollections(state, interaction.guildId);
+            const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+            const openListingCount = Object.values(listings || {}).filter(item => item?.status === 'open').length;
+            const openTicketCount = Object.values(tickets || {}).filter(item => item?.status !== 'completed' && item?.status !== 'closed').length;
+            const configured = Boolean(marketConfig.marketChannelId && marketConfig.ticketCategoryId && marketConfig.adminRoleId);
+            const embed = new EmbedBuilder()
+                .setTitle('🌐 TETRA Global Market Status')
+                .setColor(configured ? 0x22c55e : 0xf59e0b)
+                .setDescription(
+                    [
+                        `Configured: **${configured ? 'Yes' : 'No'}**`,
+                        `Market channel: ${marketConfig.marketChannelId ? `<#${marketConfig.marketChannelId}>` : 'Not set'}`,
+                        `Ticket category: ${marketConfig.ticketCategoryId ? `<#${marketConfig.ticketCategoryId}>` : 'Not set'}`,
+                        `Escrow admin role: ${marketConfig.adminRoleId ? `<@&${marketConfig.adminRoleId}>` : 'Not set'}`,
+                        `Escrow fee: **${marketConfig.feePercent.toFixed(1)}%**`,
+                        `Open listings: **${openListingCount}**`,
+                        `Open tickets: **${openTicketCount}**`,
+                    ].join('\n')
+                )
+                .setFooter({ text: configured ? 'Anti-Scam escrow mode active' : 'Run /market_setup to activate escrow mode' })
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'wts' || interaction.commandName === 'wtb') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS }).catch(() => {});
+            const listingType = interaction.commandName === 'wts' ? 'WTS' : 'WTB';
+            const amount = interaction.options.getInteger('amount', true);
+            const price = interaction.options.getNumber('price', true);
+            const currency = String(interaction.options.getString('currency', true) || 'USD').toUpperCase();
+            const note = String(interaction.options.getString('note') || '').trim().slice(0, 400);
+            if (!MARKET_LISTING_TYPES.includes(listingType)) {
+                await interaction.editReply({ content: 'Invalid listing type.' }).catch(() => {});
+                return;
+            }
+            if (!MARKET_CURRENCIES.includes(currency)) {
+                await interaction.editReply({ content: `Unsupported currency. Use one of: ${MARKET_CURRENCIES.join(', ')}` }).catch(() => {});
+                return;
+            }
+            const state = loadPanelState();
+            const collections = ensureMarketCollections(state, interaction.guildId);
+            const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+            if (!marketConfig.marketChannelId || !marketConfig.ticketCategoryId || !marketConfig.adminRoleId) {
+                await interaction.editReply({ content: '❌ Escrow market is not configured. Admin must run `/market_setup` first.' }).catch(() => {});
+                return;
+            }
+            const listingChannel = interaction.guild.channels.cache.get(marketConfig.marketChannelId)
+                || await interaction.guild.channels.fetch(marketConfig.marketChannelId).catch(() => null);
+            if (!listingChannel || !listingChannel.isTextBased()) {
+                await interaction.editReply({ content: '❌ Market channel is missing or not text-based. Admin: run `/market_setup` again.' }).catch(() => {});
+                return;
+            }
+            const listingId = createMarketListingId();
+            const conversions = await getMarketPriceConversions(price, currency);
+            const trustScore = getTrustScore(state, interaction.guildId, interaction.user.id);
+            const listing = {
+                id: listingId,
+                type: listingType,
+                ownerId: interaction.user.id,
+                ownerTag: interaction.user.tag || interaction.user.username,
+                amount,
+                price,
+                currency,
+                note,
+                feePercent: marketConfig.feePercent,
+                createdAt: Date.now(),
+                status: 'open',
+                channelId: listingChannel.id,
+                messageId: null,
+                matchedAt: null,
+                matchedBy: null,
+                matchedTicketChannelId: null,
+                completedAt: null,
+            };
+            const embed = buildMarketListingEmbed({
+                listingType,
+                amount,
+                totalPrice: price,
+                currency,
+                note,
+                ownerTag: `${interaction.user}`,
+                trustScore,
+                feePercent: marketConfig.feePercent,
+                conversions,
+            });
+            const buttonLabel = listingType === 'WTS' ? '🤝 Purchase Request (Open Escrow)' : '🤝 Sell Offer (Open Escrow)';
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`market_buy_${listingId}`)
+                    .setLabel(buttonLabel)
+                    .setStyle(ButtonStyle.Success)
+            );
+            let sent;
+            try {
+                sent = await listingChannel.send({ embeds: [embed], components: [row] });
+            } catch (err) {
+                await interaction.editReply({ content: `❌ Failed to post listing: ${err.message}` }).catch(() => {});
+                return;
+            }
+            listing.messageId = sent.id;
+            collections.listings[listingId] = listing;
+            savePanelState(state, true);
+            await interaction.editReply({
+                content:
+                    `✅ ${listingType} listing posted to <#${listingChannel.id}>.\n` +
+                    `• Listing ID: \`${listingId}\`\n` +
+                    `• Ticket mode: 3-party escrow only\n` +
+                    `• Link: ${sent.url}`
+            }).catch(() => {});
+        } else if (interaction.commandName === 'trust') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            const target = interaction.options.getUser('user') || interaction.user;
+            const state = loadPanelState();
+            const score = getTrustScore(state, interaction.guildId, target.id);
+            const tier = getTrustTier(score);
+            const asc = [...TRUST_TIER_RULES].sort((a, b) => a.min - b.min);
+            const nextTier = asc.find(t => score < t.min);
+            const roleMap = getTrustRoleMapForGuild(state, interaction.guildId);
+            const tierRole = tier ? asSnowflake(roleMap[tier.key]) : null;
+            const embed = new EmbedBuilder()
+                .setTitle('🏅 Trust Rating')
+                .setColor(tier ? 0x22c55e : 0x94a3b8)
+                .setDescription(
+                    [
+                        `User: ${target}`,
+                        `Score: **${score}**`,
+                        `Tier: **${tier ? `${tier.emoji} ${tier.label}` : 'Unranked'}**`,
+                        `Tier role: ${tierRole ? `<@&${tierRole}>` : 'Not configured'}`,
+                        nextTier ? `Next tier: **${nextTier.label}** in ${nextTier.min - score} point(s)` : 'Next tier: Max tier reached',
+                    ].join('\n')
+                )
+                .setFooter({ text: 'Trust +1 is added automatically when escrow trade is completed by admin.' })
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'trust_add') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS }).catch(() => {});
+            const target = interaction.options.getUser('user', true);
+            const delta = interaction.options.getInteger('points', true);
+            const reason = String(interaction.options.getString('reason') || 'Manual admin adjustment').slice(0, 200);
+            const state = loadPanelState();
+            const result = addTrustScore(state, interaction.guildId, target.id, delta);
+            const roleMap = getTrustRoleMapForGuild(state, interaction.guildId);
+            await syncTrustRolesForMember(interaction.guild, target.id, roleMap, result.current).catch(() => {});
+            savePanelState(state, true);
+            await interaction.editReply({
+                content:
+                    `✅ Trust updated for ${target}\n` +
+                    `• Change: ${delta >= 0 ? '+' : ''}${delta}\n` +
+                    `• Score: ${result.previous} → **${result.current}**\n` +
+                    `• Tier: ${formatTrustBadge(result.current)}\n` +
+                    `• Reason: ${reason}`
+            }).catch(() => {});
+        } else if (interaction.commandName === 'trust_role_set') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const tier = interaction.options.getString('tier', true);
+            const role = interaction.options.getRole('role', true);
+            if (!['bronze', 'silver', 'gold'].includes(tier)) {
+                await safeEphemeral(interaction, 'Invalid tier.');
+                return;
+            }
+            const state = loadPanelState();
+            const collections = ensureMarketCollections(state, interaction.guildId);
+            const current = getTrustRoleMapForGuild(state, interaction.guildId);
+            current[tier] = role.id;
+            collections.trustRoleMapByGuild[interaction.guildId] = current;
+            savePanelState(state, true);
+            await interaction.reply({
+                content: `✅ Trust tier role mapped: **${tier.toUpperCase()}** → ${role}`,
+                flags: EPHEMERAL_FLAGS
+            });
+        } else if (interaction.commandName === 'dailylog_header_sync') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS }).catch(() => {});
+            const regionOpt = (interaction.options.getString('region') || 'all').toLowerCase();
+            const targetCodes = regionOpt === 'all'
+                ? REGION_CONFIGS.map(r => r.code)
+                : [getRegionConfig(regionOpt)?.code].filter(Boolean);
+            if (!targetCodes.length) {
+                await interaction.editReply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES} or all.` }).catch(() => {});
+                return;
+            }
+            const results = await Promise.all(targetCodes.map(code => ensureDailyLogSheetForm(code, true)));
+            const failed = results
+                .map((res, idx) => ({ res, code: targetCodes[idx] }))
+                .filter(item => !item.res?.ok);
+            if (failed.length) {
+                await interaction.editReply({
+                    content: `⚠️ Header sync completed with errors:\n${failed.map(f => `- ${f.code}: ${f.res.error || 'unknown'}`).join('\n')}`
+                }).catch(() => {});
+                return;
+            }
+            await interaction.editReply({
+                content: `✅ Daily_Log headers synced: ${targetCodes.join(', ')}\nFormat: ${DAILY_LOG_HEADERS_V2.join(' | ')}`
+            }).catch(() => {});
+        } else if (interaction.commandName === 'payment_ocr_set') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const channel = interaction.options.getChannel('channel', true);
+            const enabled = interaction.options.getBoolean('enabled');
+            const minConfidence = interaction.options.getInteger('min_confidence');
+            if (!channel.isTextBased()) {
+                await safeEphemeral(interaction, 'Please select a text/announcement channel.');
+                return;
+            }
+            const state = loadPanelState();
+            if (!state.paymentOcrConfigByGuild || typeof state.paymentOcrConfigByGuild !== 'object') state.paymentOcrConfigByGuild = {};
+            if (!state.paymentChannelIdByGuild || typeof state.paymentChannelIdByGuild !== 'object') state.paymentChannelIdByGuild = {};
+            const prev = getPaymentOcrConfigForGuild(state, interaction.guildId);
+            state.paymentOcrConfigByGuild[interaction.guildId] = {
+                enabled: enabled == null ? prev.enabled : Boolean(enabled),
+                channelId: channel.id,
+                minConfidence: minConfidence == null ? prev.minConfidence : clampNumber(minConfidence, 0, 100, 45),
+            };
+            state.paymentChannelIdByGuild[interaction.guildId] = channel.id;
+            savePanelState(state, true);
+            const cfg = getPaymentOcrConfigForGuild(state, interaction.guildId);
+            await interaction.reply({
+                content:
+                    `✅ Payment OCR automation updated.\n` +
+                    `• Channel: <#${cfg.channelId}>\n` +
+                    `• Enabled: **${cfg.enabled ? 'Yes' : 'No'}**\n` +
+                    `• Low-confidence threshold: **${cfg.minConfidence}%**\n` +
+                    `\n이제 이 채널에 영수증 이미지를 올리면 OCR 후 **Payment Log** 시트에 자동 적재됩니다.`,
+                flags: EPHEMERAL_FLAGS
+            });
+        } else if (interaction.commandName === 'payment_ocr_status') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            const state = loadPanelState();
+            const cfg = getPaymentOcrConfigForGuild(state, interaction.guildId);
+            const embed = new EmbedBuilder()
+                .setTitle('🧾 Payment OCR Status')
+                .setColor(cfg.enabled ? 0x22c55e : 0xf59e0b)
+                .setDescription(
+                    [
+                        `Enabled: **${cfg.enabled ? 'Yes' : 'No'}**`,
+                        `Channel: ${cfg.channelId ? `<#${cfg.channelId}>` : 'Not set'}`,
+                        `Low-confidence threshold: **${cfg.minConfidence}%**`,
+                        '',
+                        'Flow: Upload receipt image -> OCR parse -> append to `Payment Log` (A:G).',
+                    ].join('\n')
+                )
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
         } else if (interaction.commandName === 'aon_translate_set') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
@@ -4159,38 +5360,50 @@ client.on('interactionCreate', async (interaction) => {
             panelUpdateLocks.add(lockKey);
             try {
             if (kind === 'report') {
+                const regionOpt = (interaction.options.getString('region') || 'all').toLowerCase();
+                const scopedRegionCfg = regionOpt === 'all' ? null : getRegionConfig(regionOpt);
+                if (regionOpt !== 'all' && !scopedRegionCfg) {
+                    await interaction.editReply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES} or all.` });
+                    return;
+                }
+                const headerTargets = scopedRegionCfg
+                    ? [scopedRegionCfg.code]
+                    : REGION_CONFIGS.map(r => r.code);
+                const headerResults = await Promise.all(
+                    headerTargets.map(code => ensureDailyLogSheetForm(code, true))
+                );
+                const headerFailed = headerResults
+                    .map((res, idx) => ({ res, code: headerTargets[idx] }))
+                    .filter(item => !item.res?.ok);
+                if (headerFailed.length) {
+                    const msg = headerFailed.map(item => `${item.code}: ${item.res.error || 'unknown'}`).join(' | ');
+                    await interaction.editReply({ content: `❌ Daily_Log header sync failed: ${msg}` });
+                    return;
+                }
                 const embed = new EmbedBuilder()
                     .setTitle('📋 DAILY WORK LOG')
                     .setDescription(
                         '**Operational Excellence: TETRA Management**\n\n' +
-                        'All personnel must submit daily report before finishing shift.\n\n' +
-                        '**How to submit:** Select your region + team below → fill the form → done.\n' +
-                        '• **Kinah** (💰) — Login, Logout, Profit\n' +
-                        '• **Level-Up** (📈) — Login, Logout, Level, CP\n\n' +
-                        `**Rules:** Select one of ${SUPPORTED_REGION_CODES}, enter timestamps in your local time.\n` +
+                        `Scope: **${scopedRegionCfg ? `${scopedRegionCfg.label} (${scopedRegionCfg.code})` : `All Regions (${SUPPORTED_REGION_CODES})`}**\n\n` +
+                        'Click **📊 Submit Report** -> choose Start/End + Team + Region.\n\n' +
+                        '• **Start Kinah**: Login time(auto), Start Kinah, Memo\n' +
+                        '• **End Kinah**: Logout time(auto), End Kinah, Spent Kinah, Memo\n' +
+                        '  - Uses saved start record for calculation:\n' +
+                        '    - `Net Profit = End - Start - Spent`\n' +
+                        '    - `On-hand Delta = End - Start`\n' +
+                        '    - `Gross Farmed = Delta + Spent`\n' +
+                        '• **Start Level-Up**: Login time(auto), Start Level, Start CP, Memo\n' +
+                        '• **End Level-Up**: Logout time(auto), End Level, End CP, Memo\n' +
+                        '  - `Level Gain` / `CP Gain` auto-calculated from start record\n\n' +
+                        `**Rules:** Numbers only, choose one of ${SUPPORTED_REGION_CODES}, submit Start before End.\n` +
                         '_Data syncs to management database automatically._'
                     )
                     .setColor(0x5865F2);
-                const kinahButtons = REGION_CONFIGS.map(region =>
-                    new ButtonBuilder()
-                        .setCustomId(`btn_kinah_${region.value}`)
-                        .setLabel(`Kinah (${region.code})`)
-                        .setStyle(ButtonStyle.Primary)
-                        .setEmoji(region.emoji)
-                );
-                const levelUpButtons = REGION_CONFIGS.map(region =>
-                    new ButtonBuilder()
-                        .setCustomId(`btn_levelup_${region.value}`)
-                        .setLabel(`Level-Up (${region.code})`)
-                        .setStyle(ButtonStyle.Danger)
-                        .setEmoji(region.emoji)
-                );
-                const rowTop = new ActionRowBuilder().addComponents(...kinahButtons);
-                const rowBottom = new ActionRowBuilder().addComponents(...levelUpButtons);
+                const submitRow = buildDailySubmitButtonRowForRegion(scopedRegionCfg?.value || null);
                 const files = [];
                 const state = loadPanelState();
-                const payload = { embeds: [embed], components: [rowTop, rowBottom], files: files.length ? files : undefined };
-                const isReportPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('DAILY WORK LOG') || m.components?.some(c => c.components?.some(b => b.customId?.startsWith('btn_kinah') || b.customId?.startsWith('btn_levelup'))));
+                const payload = { embeds: [embed], components: [submitRow], files: files.length ? files : undefined };
+                const isReportPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('DAILY WORK LOG') || m.components?.some(c => c.components?.some(b => b.customId?.startsWith('btn_daily_submit') || b.customId?.startsWith('btn_kinah') || b.customId?.startsWith('btn_levelup'))));
                 let allReportPanels = (await channel.messages.fetch({ limit: 100 })).filter(isReportPanel);
                 for (const m of allReportPanels.values()) await m.delete().catch(() => {});
                 const sent = await channel.send(payload);
@@ -4199,7 +5412,9 @@ client.on('interactionCreate', async (interaction) => {
                     if (m.id !== sent.id) await m.delete().catch(() => {});
                 }
                 savePanelState({ ...state, reportMsgId: sent.id, reportChannelId: channel.id });
-                await interaction.editReply({ content: '✅ Daily Report panel updated (1 only).' });
+                await interaction.editReply({
+                    content: `✅ Daily Report panel updated (1 only). Scope: ${scopedRegionCfg ? scopedRegionCfg.code : 'ALL'}`
+                });
             } else if (kind === 'kinah') {
                 const embed = new EmbedBuilder()
                     .setTitle('💰 Kinah Rate')
@@ -4358,7 +5573,29 @@ client.on('interactionCreate', async (interaction) => {
                     if (m.id !== sent.id) await m.delete().catch(() => {});
                 }
                 const state = loadPanelState();
-                savePanelState({ ...state, paymentMsgId: sent.id, paymentChannelId: channel.id });
+                const paymentChannelIdByGuild = state.paymentChannelIdByGuild && typeof state.paymentChannelIdByGuild === 'object'
+                    ? { ...state.paymentChannelIdByGuild }
+                    : {};
+                paymentChannelIdByGuild[interaction.guildId] = channel.id;
+                const paymentOcrConfigByGuild = state.paymentOcrConfigByGuild && typeof state.paymentOcrConfigByGuild === 'object'
+                    ? { ...state.paymentOcrConfigByGuild }
+                    : {};
+                if (!paymentOcrConfigByGuild[interaction.guildId]) {
+                    paymentOcrConfigByGuild[interaction.guildId] = {
+                        enabled: true,
+                        channelId: channel.id,
+                        minConfidence: 45,
+                    };
+                } else if (!asSnowflake(paymentOcrConfigByGuild[interaction.guildId].channelId)) {
+                    paymentOcrConfigByGuild[interaction.guildId].channelId = channel.id;
+                }
+                savePanelState({
+                    ...state,
+                    paymentMsgId: sent.id,
+                    paymentChannelId: channel.id,
+                    paymentChannelIdByGuild,
+                    paymentOcrConfigByGuild,
+                });
                 await interaction.editReply({ content: '✅ Payment panel updated (1 only).' });
             } else if (kind === 'youtube') {
                 const embed = new EmbedBuilder()
@@ -4522,7 +5759,308 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isButton()) {
         try {
             const id = interaction.customId;
-            if (id === 'btn_tactics_open') {
+            if (id.startsWith('market_buy_')) {
+                if (!interaction.guildId || !interaction.guild) {
+                    await safeEphemeral(interaction, 'Guild only action.');
+                    return;
+                }
+                await interaction.deferReply({ flags: EPHEMERAL_FLAGS }).catch(() => {});
+                const listingId = id.replace(/^market_buy_/, '').trim();
+                if (!listingId) {
+                    await interaction.editReply({ content: 'Invalid listing id.' }).catch(() => {});
+                    return;
+                }
+                const state = loadPanelState();
+                const collections = ensureMarketCollections(state, interaction.guildId);
+                const listing = collections.listings[listingId];
+                if (!listing) {
+                    await interaction.editReply({ content: '❌ Listing not found or expired.' }).catch(() => {});
+                    return;
+                }
+                if (listing.status !== 'open') {
+                    const ticketMention = listing.matchedTicketChannelId ? `<#${listing.matchedTicketChannelId}>` : 'N/A';
+                    await interaction.editReply({ content: `⚠️ This listing is already matched.\nTicket: ${ticketMention}` }).catch(() => {});
+                    return;
+                }
+                if (listing.ownerId === interaction.user.id) {
+                    await interaction.editReply({ content: '❌ You cannot open escrow with your own listing.' }).catch(() => {});
+                    return;
+                }
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                if (!marketConfig.marketChannelId || !marketConfig.ticketCategoryId) {
+                    await interaction.editReply({ content: '❌ Escrow config is missing. Admin: run `/market_setup`.' }).catch(() => {});
+                    return;
+                }
+                const buyerId = listing.type === 'WTS' ? interaction.user.id : listing.ownerId;
+                const sellerId = listing.type === 'WTS' ? listing.ownerId : interaction.user.id;
+                if (!buyerId || !sellerId || buyerId === sellerId) {
+                    await interaction.editReply({ content: '❌ Failed to resolve buyer/seller for this listing.' }).catch(() => {});
+                    return;
+                }
+
+                const buyerMember = interaction.guild.members.cache.get(buyerId) || await interaction.guild.members.fetch(buyerId).catch(() => null);
+                const sellerMember = interaction.guild.members.cache.get(sellerId) || await interaction.guild.members.fetch(sellerId).catch(() => null);
+                const buyerToken = slugifyChannelToken(buyerMember?.displayName || 'buyer', 'buyer');
+                const sellerToken = slugifyChannelToken(sellerMember?.displayName || 'seller', 'seller');
+                const channelName = `trade-${listingId}-${buyerToken}-${sellerToken}`.slice(0, 95);
+                const permissionOverwrites = [
+                    { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    {
+                        id: client.user.id,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.EmbedLinks,
+                            PermissionFlagsBits.AttachFiles,
+                            PermissionFlagsBits.ManageChannels,
+                            PermissionFlagsBits.ManageMessages,
+                        ],
+                    },
+                    {
+                        id: buyerId,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.EmbedLinks,
+                            PermissionFlagsBits.AttachFiles,
+                        ],
+                    },
+                    {
+                        id: sellerId,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.EmbedLinks,
+                            PermissionFlagsBits.AttachFiles,
+                        ],
+                    },
+                ];
+                if (marketConfig.adminRoleId) {
+                    permissionOverwrites.push({
+                        id: marketConfig.adminRoleId,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.ManageMessages,
+                        ],
+                    });
+                }
+
+                let ticketChannel;
+                try {
+                    ticketChannel = await interaction.guild.channels.create({
+                        name: channelName,
+                        type: ChannelType.GuildText,
+                        parent: marketConfig.ticketCategoryId || null,
+                        permissionOverwrites,
+                    });
+                } catch (err) {
+                    await interaction.editReply({ content: `❌ Failed to create escrow ticket: ${err.message}` }).catch(() => {});
+                    return;
+                }
+
+                if (!marketConfig.adminRoleId) {
+                    const manageRoles = interaction.guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.ManageGuild));
+                    for (const [, role] of manageRoles) {
+                        await ticketChannel.permissionOverwrites.create(role, {
+                            ViewChannel: true,
+                            SendMessages: true,
+                            ReadMessageHistory: true,
+                            ManageMessages: true,
+                        }).catch(() => {});
+                    }
+                }
+
+                listing.status = 'matched';
+                listing.matchedAt = Date.now();
+                listing.matchedBy = interaction.user.id;
+                listing.matchedTicketChannelId = ticketChannel.id;
+                collections.tickets[ticketChannel.id] = {
+                    channelId: ticketChannel.id,
+                    listingId,
+                    buyerId,
+                    sellerId,
+                    createdBy: interaction.user.id,
+                    createdAt: Date.now(),
+                    status: 'opened',
+                    holdConfirmedAt: null,
+                    sellerPaymentConfirmedAt: null,
+                    completedAt: null,
+                    closedAt: null,
+                    feePercent: Number.isFinite(Number(listing.feePercent)) ? Number(listing.feePercent) : 0,
+                };
+                savePanelState(state, true);
+
+                const marketChannel = interaction.guild.channels.cache.get(listing.channelId) || await interaction.guild.channels.fetch(listing.channelId).catch(() => null);
+                if (marketChannel && marketChannel.isTextBased() && listing.messageId) {
+                    const listingMsg = await marketChannel.messages.fetch(listing.messageId).catch(() => null);
+                    if (listingMsg) {
+                        const disabledRow = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`market_buy_${listingId}`)
+                                .setLabel('🔒 Matched (Escrow Ticket Open)')
+                                .setStyle(ButtonStyle.Secondary)
+                                .setDisabled(true)
+                        );
+                        await listingMsg.edit({ components: [disabledRow] }).catch(() => {});
+                    }
+                }
+
+                const introEmbed = buildMarketTicketEmbed({
+                    listing,
+                    buyerId,
+                    sellerId,
+                    adminRoleId: marketConfig.adminRoleId,
+                });
+                const mentionParts = [`<@${buyerId}>`, `<@${sellerId}>`];
+                if (marketConfig.adminRoleId) mentionParts.push(`<@&${marketConfig.adminRoleId}>`);
+                await ticketChannel.send({
+                    content: mentionParts.join(' '),
+                    embeds: [introEmbed],
+                    components: buildMarketTicketControlRows(ticketChannel.id),
+                }).catch(() => {});
+
+                await interaction.editReply({ content: `✅ Escrow ticket created: <#${ticketChannel.id}>` }).catch(() => {});
+            } else if (id.startsWith('market_hold_')) {
+                if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only action.'); return; }
+                const ticketChannelId = id.replace(/^market_hold_/, '').trim() || interaction.channelId;
+                const state = loadPanelState();
+                const collections = ensureMarketCollections(state, interaction.guildId);
+                const ticket = collections.tickets[ticketChannelId] || collections.tickets[interaction.channelId];
+                if (!ticket) { await safeEphemeral(interaction, '❌ Escrow ticket state not found.'); return; }
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                if (!isMarketAdmin(interaction, marketConfig)) {
+                    await safeEphemeral(interaction, '❌ Only escrow admin can confirm hold.');
+                    return;
+                }
+                if (ticket.completedAt) {
+                    await safeEphemeral(interaction, '⚠️ This ticket is already completed.');
+                    return;
+                }
+                if (ticket.holdConfirmedAt) {
+                    await safeEphemeral(interaction, '⚠️ Hold is already confirmed.');
+                    return;
+                }
+                ticket.holdConfirmedAt = Date.now();
+                ticket.status = 'hold_confirmed';
+                savePanelState(state, true);
+                await interaction.reply({ content: `✅ Admin hold confirmed. Buyer may proceed with payment now.\nBuyer: <@${ticket.buyerId}> • Seller: <@${ticket.sellerId}>` });
+            } else if (id.startsWith('market_pay_')) {
+                if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only action.'); return; }
+                const ticketChannelId = id.replace(/^market_pay_/, '').trim() || interaction.channelId;
+                const state = loadPanelState();
+                const collections = ensureMarketCollections(state, interaction.guildId);
+                const ticket = collections.tickets[ticketChannelId] || collections.tickets[interaction.channelId];
+                if (!ticket) { await safeEphemeral(interaction, '❌ Escrow ticket state not found.'); return; }
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                const isAdminClick = isMarketAdmin(interaction, marketConfig);
+                if (interaction.user.id !== ticket.sellerId && !isAdminClick) {
+                    await safeEphemeral(interaction, '❌ Only seller (or admin) can confirm payment receipt.');
+                    return;
+                }
+                if (!ticket.holdConfirmedAt) {
+                    await safeEphemeral(interaction, '⚠️ Hold is not confirmed yet. Wait for admin hold confirmation first.');
+                    return;
+                }
+                if (ticket.completedAt) {
+                    await safeEphemeral(interaction, '⚠️ This ticket is already completed.');
+                    return;
+                }
+                ticket.sellerPaymentConfirmedAt = Date.now();
+                ticket.status = 'payment_confirmed';
+                savePanelState(state, true);
+                await interaction.reply({ content: `✅ Seller confirmed payment receipt.\nAdmin can now finalize delivery and trust update via **Complete + Trust**.` });
+            } else if (id.startsWith('market_complete_')) {
+                if (!interaction.guildId || !interaction.guild) { await safeEphemeral(interaction, 'Guild only action.'); return; }
+                const ticketChannelId = id.replace(/^market_complete_/, '').trim() || interaction.channelId;
+                const state = loadPanelState();
+                const collections = ensureMarketCollections(state, interaction.guildId);
+                const ticket = collections.tickets[ticketChannelId] || collections.tickets[interaction.channelId];
+                if (!ticket) { await safeEphemeral(interaction, '❌ Escrow ticket state not found.'); return; }
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                if (!isMarketAdmin(interaction, marketConfig)) {
+                    await safeEphemeral(interaction, '❌ Only escrow admin can complete this trade.');
+                    return;
+                }
+                if (!ticket.holdConfirmedAt || !ticket.sellerPaymentConfirmedAt) {
+                    await safeEphemeral(interaction, '⚠️ You must complete Hold and Payment confirmation first.');
+                    return;
+                }
+                if (ticket.completedAt) {
+                    await safeEphemeral(interaction, '⚠️ This ticket is already completed.');
+                    return;
+                }
+                ticket.completedAt = Date.now();
+                ticket.closedAt = Date.now();
+                ticket.status = 'completed';
+                const listing = collections.listings[ticket.listingId];
+                if (listing) {
+                    listing.status = 'completed';
+                    listing.completedAt = Date.now();
+                }
+                const buyerTrust = addTrustScore(state, interaction.guildId, ticket.buyerId, 1);
+                const sellerTrust = addTrustScore(state, interaction.guildId, ticket.sellerId, 1);
+                const roleMap = getTrustRoleMapForGuild(state, interaction.guildId);
+                await syncTrustRolesForMember(interaction.guild, ticket.buyerId, roleMap, buyerTrust.current).catch(() => {});
+                await syncTrustRolesForMember(interaction.guild, ticket.sellerId, roleMap, sellerTrust.current).catch(() => {});
+                delete collections.tickets[ticket.channelId || interaction.channelId];
+                savePanelState(state, true);
+
+                const summary = new EmbedBuilder()
+                    .setTitle('✅ Escrow Trade Completed')
+                    .setColor(0x22c55e)
+                    .setDescription(
+                        [
+                            `Buyer: <@${ticket.buyerId}>`,
+                            `Seller: <@${ticket.sellerId}>`,
+                            `Listing: \`${ticket.listingId}\``,
+                            '',
+                            '**Trust Updated (+1 each)**',
+                            `• Buyer: ${buyerTrust.previous} → **${buyerTrust.current}** (${formatTrustBadge(buyerTrust.current)})`,
+                            `• Seller: ${sellerTrust.previous} → **${sellerTrust.current}** (${formatTrustBadge(sellerTrust.current)})`,
+                            '',
+                            'Ticket will auto-close in 10 seconds.',
+                        ].join('\n')
+                    )
+                    .setTimestamp();
+                await interaction.reply({ embeds: [summary] });
+                setTimeout(async () => {
+                    const ch = await client.channels.fetch(ticket.channelId || interaction.channelId).catch(() => null);
+                    if (ch && ch.type === ChannelType.GuildText) {
+                        await ch.delete('Escrow completed and trust synced').catch(() => {});
+                    }
+                }, 10_000);
+            } else if (id.startsWith('market_close_')) {
+                if (!interaction.guildId || !interaction.guild) { await safeEphemeral(interaction, 'Guild only action.'); return; }
+                const ticketChannelId = id.replace(/^market_close_/, '').trim() || interaction.channelId;
+                const state = loadPanelState();
+                const collections = ensureMarketCollections(state, interaction.guildId);
+                const ticket = collections.tickets[ticketChannelId] || collections.tickets[interaction.channelId];
+                if (!ticket) { await safeEphemeral(interaction, '❌ Escrow ticket state not found.'); return; }
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                if (!isMarketAdmin(interaction, marketConfig)) {
+                    await safeEphemeral(interaction, '❌ Only escrow admin can close ticket.');
+                    return;
+                }
+                const listing = collections.listings[ticket.listingId];
+                if (listing && listing.status !== 'completed') {
+                    listing.status = 'closed';
+                    listing.closedAt = Date.now();
+                }
+                delete collections.tickets[ticket.channelId || interaction.channelId];
+                savePanelState(state, true);
+                await interaction.reply({ content: '🗄️ Ticket will close in 5 seconds.' });
+                setTimeout(async () => {
+                    const ch = await client.channels.fetch(ticket.channelId || interaction.channelId).catch(() => null);
+                    if (ch && ch.type === ChannelType.GuildText) {
+                        await ch.delete('Escrow ticket closed by admin').catch(() => {});
+                    }
+                }, 5_000);
+            } else if (id === 'btn_tactics_open') {
                 const row = buildTacticsCategorySelect(false);
                 await interaction.reply({
                     content: '**TACTICS** — Select a category.\n_Visible only to you_',
@@ -4594,6 +6132,22 @@ client.on('interactionCreate', async (interaction) => {
                     content: '🎮 **Character Verification**\n\nUse **`/myinfo_register character_name:<name>`**\nExample: `/myinfo_register character_name:YourCharacterName`\n\n→ A private channel will be created. Upload your screenshot there and staff will Approve.',
                     flags: EPHEMERAL_FLAGS
                 }).catch(() => {});
+            } else if (id === 'btn_daily_submit' || id.startsWith('btn_daily_submit_')) {
+                const forcedRegion = id.startsWith('btn_daily_submit_')
+                    ? id.replace(/^btn_daily_submit_/, '').trim().toLowerCase()
+                    : null;
+                const forcedCfg = forcedRegion ? getRegionConfig(forcedRegion) : null;
+                if (forcedRegion && !forcedCfg) {
+                    await interaction.reply({ content: '❌ Invalid region scope on this panel. Recreate panel with `/panel type:report`.', flags: EPHEMERAL_FLAGS });
+                    return;
+                }
+                await interaction.reply({
+                    content: forcedCfg
+                        ? `📊 Select Start/End + Team for **${forcedCfg.code}**.`
+                        : '📊 Select Start/End + Team + Region, then the report form will open.',
+                    components: [buildDailySubmitTargetSelectRow(forcedCfg?.value || null)],
+                    flags: EPHEMERAL_FLAGS
+                });
             } else if (id.startsWith('btn_kinah_')) {
                 const region = parseRegionFromCustomId(id, 'btn_kinah');
                 const cfg = getRegionConfig(region);
@@ -4601,7 +6155,7 @@ client.on('interactionCreate', async (interaction) => {
                     await interaction.reply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES}.`, flags: EPHEMERAL_FLAGS });
                     return;
                 }
-                await interaction.showModal(createKinahModal(cfg.value));
+                await interaction.showModal(createKinahEndModal(cfg.value));
             } else if (id.startsWith('btn_levelup_')) {
                 const region = parseRegionFromCustomId(id, 'btn_levelup');
                 const cfg = getRegionConfig(region);
@@ -4609,7 +6163,7 @@ client.on('interactionCreate', async (interaction) => {
                     await interaction.reply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES}.`, flags: EPHEMERAL_FLAGS });
                     return;
                 }
-                await interaction.showModal(createLevelUpModal(cfg.value));
+                await interaction.showModal(createLevelUpEndModal(cfg.value));
             } else if (id === 'btn_kinah_rate_fetch') {
                 if (interaction.user.bot) return;
                 const guildId = interaction.guildId;
@@ -4762,6 +6316,8 @@ client.on('interactionCreate', async (interaction) => {
                         msg = `Interaction failed (bot may be starting up). Please try again in a moment.`;
                     } else if (id.startsWith('btn_salary')) {
                         msg = `Interaction failed. Please try again or use \`/salary_confirm\` (choose ${SUPPORTED_REGION_CODES}).`;
+                    } else if (id.startsWith('market_')) {
+                        msg = 'Escrow interaction failed. Please try again or ask admin to run `/market_status`.';
                     }
                     await interaction.reply({ content: msg, flags: EPHEMERAL_FLAGS });
                 }
@@ -4862,6 +6418,28 @@ client.on('interactionCreate', async (interaction) => {
                     components: [],
                     flags: EPHEMERAL_FLAGS
                 }).catch(() => {});
+            }
+            return;
+        }
+        if (interaction.customId === 'select_daily_submit_target') {
+            const selected = String(interaction.values?.[0] || '');
+            const [target, region] = selected.split(':');
+            const parts = String(target || '').split('_');
+            const team = parts[0] || '';
+            const phase = parts[1] || '';
+            const regionCfg = getRegionConfig(region);
+            if (!regionCfg || !['kinah', 'levelup'].includes(team) || !['start', 'end'].includes(phase)) {
+                await interaction.update({ content: '❌ Invalid selection. Try again.', components: [] }).catch(() => {});
+                return;
+            }
+            if (team === 'kinah' && phase === 'start') {
+                await interaction.showModal(createKinahStartModal(regionCfg.value));
+            } else if (team === 'kinah' && phase === 'end') {
+                await interaction.showModal(createKinahEndModal(regionCfg.value));
+            } else if (team === 'levelup' && phase === 'start') {
+                await interaction.showModal(createLevelUpStartModal(regionCfg.value));
+            } else {
+                await interaction.showModal(createLevelUpEndModal(regionCfg.value));
             }
             return;
         }
@@ -5171,13 +6749,15 @@ client.on('interactionCreate', async (interaction) => {
             return;
         }
 
-        const match = String(customId || '').match(/^modal_(kinah|levelup|join_verify)_([a-z]{2})$/i);
-        if (!match) {
+        const reportMatch = String(customId || '').match(/^modal_(kinah|levelup)_(start|end)_([a-z]{2})$/i);
+        const joinMatch = String(customId || '').match(/^modal_join_verify_([a-z]{2})$/i);
+        if (!reportMatch && !joinMatch) {
             await interaction.reply({ content: '❌ Unknown modal request.', flags: EPHEMERAL_FLAGS });
             return;
         }
-        const modalType = match[1].toLowerCase();
-        const region = match[2].toLowerCase();
+        const modalType = reportMatch ? reportMatch[1].toLowerCase() : 'join_verify';
+        const phase = reportMatch ? reportMatch[2].toLowerCase() : null;
+        const region = (reportMatch ? reportMatch[3] : joinMatch[1]).toLowerCase();
         const worker = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'Unknown').trim();
         const regionCfg = getRegionConfig(region);
         if (!regionCfg) {
@@ -5186,46 +6766,213 @@ client.on('interactionCreate', async (interaction) => {
         }
         await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
         const timestamp = makeLocalTimestamp(regionCfg.timeZone);
-        if (modalType === 'kinah') {
-            const login = interaction.fields.getTextInputValue('login');
-            const logout = interaction.fields.getTextInputValue('logout');
-            const profit = interaction.fields.getTextInputValue('profit');
-            const data = [timestamp, worker, 'Kinah', login, logout, profit, ''];
-            const res = await appendToSheet(regionCfg.sheetRange, data);
-            if (res.ok) {
-                const msg = [
-                    '📋 <b>Daily Log — Kinah</b>',
-                    `Region: ${regionCfg.code} | ${timestamp}`,
-                    `Worker: ${escapeHtml(worker)}`,
-                    '',
-                    `Login: ${escapeHtml(login)}`,
-                    `Logout: ${escapeHtml(logout)}`,
-                    `Profit: ${escapeHtml(profit)}`,
-                ].join('\n');
-                sendTelegramNotification(msg).catch(() => {});
+        if (modalType === 'kinah' || modalType === 'levelup') {
+            const headerRes = await ensureDailyLogSheetForm(regionCfg.code, true);
+            if (!headerRes.ok) {
+                await interaction.editReply({
+                    content: `❌ Daily log sheet header update failed (${regionCfg.code}): ${headerRes.error}`
+                });
+                return;
             }
-            await interaction.editReply({ content: res.ok ? `✅ Kinah report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.` });
-        } else if (modalType === 'levelup') {
-            const login = interaction.fields.getTextInputValue('login');
-            const logout = interaction.fields.getTextInputValue('logout');
-            const level = interaction.fields.getTextInputValue('level');
-            const cp = interaction.fields.getTextInputValue('cp');
-            const progress = `${level} / ${cp}`;
-            const data = [timestamp, worker, 'LevelUp', login, logout, progress, ''];
-            const res = await appendToSheet(regionCfg.sheetRange, data);
-            if (res.ok) {
-                const msg = [
-                    '📋 <b>Daily Log — Level-Up</b>',
-                    `Region: ${regionCfg.code} | ${timestamp}`,
-                    `Worker: ${escapeHtml(worker)}`,
-                    '',
-                    `Login: ${escapeHtml(login)}`,
-                    `Logout: ${escapeHtml(logout)}`,
-                    `Level: ${escapeHtml(level)} | CP: ${escapeHtml(cp)}`,
-                ].join('\n');
-                sendTelegramNotification(msg).catch(() => {});
+            const state = loadPanelState();
+            const sessions = ensureReportSessionsForGuild(state, interaction.guildId);
+            pruneOldReportSessions(sessions, Date.now());
+            const sessionKey = buildReportSessionKey(interaction.user.id, modalType, regionCfg.value);
+
+            if (modalType === 'kinah' && phase === 'start') {
+                const startKinahRaw = interaction.fields.getTextInputValue('start_kinah');
+                const memo = (interaction.fields.getTextInputValue('memo') || '').trim();
+                const startKinah = parseNonNegativeBigIntInput(startKinahRaw);
+                if (startKinah == null) {
+                    await interaction.editReply({ content: '❌ 시작 키나는 숫자만 입력해주세요.' });
+                    return;
+                }
+                sessions[sessionKey] = {
+                    userId: interaction.user.id,
+                    worker,
+                    team: 'kinah',
+                    region: regionCfg.value,
+                    startedAt: Date.now(),
+                    loginAt: timestamp,
+                    startKinah: startKinah.toString(),
+                    startMemo: memo,
+                };
+                savePanelState(state, true);
+                const data = [
+                    timestamp,
+                    worker,
+                    'KinahStart',
+                    timestamp,
+                    '-',
+                    '-',
+                    `StartKinah:${formatBigIntWithCommas(startKinah)}${memo ? ` | Memo:${memo}` : ''}`,
+                ];
+                const res = await appendToSheet(regionCfg.sheetRange, data);
+                await interaction.editReply({
+                    content: res.ok
+                        ? `✅ Start Kinah saved (${worker}) → ${regionCfg.code}\n• Login: **${timestamp}**\n• Start Kinah: **${formatBigIntWithCommas(startKinah)}**`
+                        : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
+                });
+                return;
             }
-            await interaction.editReply({ content: res.ok ? `✅ Level-Up report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.` });
+
+            if (modalType === 'kinah' && phase === 'end') {
+                const endKinahRaw = interaction.fields.getTextInputValue('end_kinah');
+                const spentKinahRaw = interaction.fields.getTextInputValue('spent_kinah');
+                const memo = (interaction.fields.getTextInputValue('memo') || '').trim();
+                const endKinah = parseNonNegativeBigIntInput(endKinahRaw);
+                const spentKinah = parseNonNegativeBigIntInput(spentKinahRaw);
+                if (endKinah == null || spentKinah == null) {
+                    await interaction.editReply({ content: '❌ 종료 키나/소비 키나는 숫자만 입력해주세요.' });
+                    return;
+                }
+                const startSession = sessions[sessionKey];
+                if (!startSession) {
+                    await interaction.editReply({ content: '❌ 먼저 **Start Kinah Team** 보고를 제출해주세요.' });
+                    return;
+                }
+                const startKinah = parseNonNegativeBigIntInput(startSession.startKinah);
+                if (startKinah == null) {
+                    delete sessions[sessionKey];
+                    savePanelState(state, true);
+                    await interaction.editReply({ content: '❌ 시작 데이터가 손상되었습니다. Start 보고를 다시 제출해주세요.' });
+                    return;
+                }
+                const onHandDelta = endKinah - startKinah;
+                const netProfit = endKinah - startKinah - spentKinah;
+                const grossFarmed = onHandDelta + spentKinah;
+                const data = [
+                    timestamp,
+                    worker,
+                    'KinahEnd',
+                    startSession.loginAt || 'N/A',
+                    timestamp,
+                    formatBigIntWithCommas(netProfit),
+                    `Start:${formatBigIntWithCommas(startKinah)} | End:${formatBigIntWithCommas(endKinah)} | Spent:${formatBigIntWithCommas(spentKinah)} | Delta:${formatBigIntWithCommas(onHandDelta)} | Gross:${formatBigIntWithCommas(grossFarmed)}${startSession.startMemo ? ` | StartMemo:${startSession.startMemo}` : ''}${memo ? ` | EndMemo:${memo}` : ''}`,
+                ];
+                const res = await appendToSheet(regionCfg.sheetRange, data);
+                if (res.ok) {
+                    const msg = [
+                        '📋 <b>Daily Log — Kinah End</b>',
+                        `Region: ${regionCfg.code} | ${timestamp}`,
+                        `Worker: ${escapeHtml(worker)}`,
+                        `Login: ${escapeHtml(startSession.loginAt || 'N/A')} | Logout: ${escapeHtml(timestamp)}`,
+                        '',
+                        `Start: ${escapeHtml(formatBigIntWithCommas(startKinah))}`,
+                        `End: ${escapeHtml(formatBigIntWithCommas(endKinah))}`,
+                        `Spent: ${escapeHtml(formatBigIntWithCommas(spentKinah))}`,
+                        `Net (End-Start-Spent): ${escapeHtml(formatBigIntWithCommas(netProfit))}`,
+                        `Gross (Delta+Spent): ${escapeHtml(formatBigIntWithCommas(grossFarmed))}`,
+                    ].join('\n');
+                    sendTelegramNotification(msg).catch(() => {});
+                    delete sessions[sessionKey];
+                    savePanelState(state, true);
+                }
+                await interaction.editReply({
+                    content: res.ok
+                        ? `✅ End Kinah submitted (${worker}) → ${regionCfg.code}\n• Logout: **${timestamp}**\n• Net: **${formatBigIntWithCommas(netProfit)}**\n• Gross: **${formatBigIntWithCommas(grossFarmed)}**`
+                        : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
+                });
+                return;
+            }
+
+            if (modalType === 'levelup' && phase === 'start') {
+                const startLevelRaw = interaction.fields.getTextInputValue('start_level');
+                const startCpRaw = interaction.fields.getTextInputValue('start_cp');
+                const memo = (interaction.fields.getTextInputValue('memo') || '').trim();
+                const startLevel = parseNonNegativeIntInput(startLevelRaw);
+                const startCp = parseNonNegativeIntInput(startCpRaw);
+                if (startLevel == null || startCp == null) {
+                    await interaction.editReply({ content: '❌ 시작 레벨/전투력은 숫자만 입력해주세요.' });
+                    return;
+                }
+                sessions[sessionKey] = {
+                    userId: interaction.user.id,
+                    worker,
+                    team: 'levelup',
+                    region: regionCfg.value,
+                    startedAt: Date.now(),
+                    loginAt: timestamp,
+                    startLevel,
+                    startCp,
+                    startMemo: memo,
+                };
+                savePanelState(state, true);
+                const data = [
+                    timestamp,
+                    worker,
+                    'LevelUpStart',
+                    timestamp,
+                    '-',
+                    '-',
+                    `StartLevel:${startLevel} | StartCP:${startCp}${memo ? ` | Memo:${memo}` : ''}`,
+                ];
+                const res = await appendToSheet(regionCfg.sheetRange, data);
+                await interaction.editReply({
+                    content: res.ok
+                        ? `✅ Start Level-Up saved (${worker}) → ${regionCfg.code}\n• Login: **${timestamp}**\n• Start: **Lv.${startLevel} / CP ${startCp.toLocaleString()}**`
+                        : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
+                });
+                return;
+            }
+
+            if (modalType === 'levelup' && phase === 'end') {
+                const endLevelRaw = interaction.fields.getTextInputValue('end_level');
+                const endCpRaw = interaction.fields.getTextInputValue('end_cp');
+                const memo = (interaction.fields.getTextInputValue('memo') || '').trim();
+                const endLevel = parseNonNegativeIntInput(endLevelRaw);
+                const endCp = parseNonNegativeIntInput(endCpRaw);
+                if (endLevel == null || endCp == null) {
+                    await interaction.editReply({ content: '❌ 종료 레벨/전투력은 숫자만 입력해주세요.' });
+                    return;
+                }
+                const startSession = sessions[sessionKey];
+                if (!startSession) {
+                    await interaction.editReply({ content: '❌ 먼저 **Start Level-Up Team** 보고를 제출해주세요.' });
+                    return;
+                }
+                const startLevel = parseNonNegativeIntInput(startSession.startLevel);
+                const startCp = parseNonNegativeIntInput(startSession.startCp);
+                if (startLevel == null || startCp == null) {
+                    delete sessions[sessionKey];
+                    savePanelState(state, true);
+                    await interaction.editReply({ content: '❌ 시작 데이터가 손상되었습니다. Start 보고를 다시 제출해주세요.' });
+                    return;
+                }
+                const levelGain = endLevel - startLevel;
+                const cpGain = endCp - startCp;
+                const data = [
+                    timestamp,
+                    worker,
+                    'LevelUpEnd',
+                    startSession.loginAt || 'N/A',
+                    timestamp,
+                    `Lv${levelGain >= 0 ? '+' : ''}${levelGain} / CP${cpGain >= 0 ? '+' : ''}${cpGain}`,
+                    `StartLv:${startLevel} | EndLv:${endLevel} | StartCP:${startCp} | EndCP:${endCp}${startSession.startMemo ? ` | StartMemo:${startSession.startMemo}` : ''}${memo ? ` | EndMemo:${memo}` : ''}`,
+                ];
+                const res = await appendToSheet(regionCfg.sheetRange, data);
+                if (res.ok) {
+                    const msg = [
+                        '📋 <b>Daily Log — Level-Up End</b>',
+                        `Region: ${regionCfg.code} | ${timestamp}`,
+                        `Worker: ${escapeHtml(worker)}`,
+                        `Login: ${escapeHtml(startSession.loginAt || 'N/A')} | Logout: ${escapeHtml(timestamp)}`,
+                        '',
+                        `Level: ${startLevel} -> ${endLevel} (Gain ${levelGain >= 0 ? '+' : ''}${levelGain})`,
+                        `CP: ${startCp} -> ${endCp} (Gain ${cpGain >= 0 ? '+' : ''}${cpGain})`,
+                    ].join('\n');
+                    sendTelegramNotification(msg).catch(() => {});
+                    delete sessions[sessionKey];
+                    savePanelState(state, true);
+                }
+                await interaction.editReply({
+                    content: res.ok
+                        ? `✅ End Level-Up submitted (${worker}) → ${regionCfg.code}\n• Logout: **${timestamp}**\n• Level Gain: **${levelGain >= 0 ? '+' : ''}${levelGain}**\n• CP Gain: **${cpGain >= 0 ? '+' : ''}${cpGain}**`
+                        : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
+                });
+                return;
+            }
+            await interaction.editReply({ content: '❌ Unsupported report phase.' });
         } else if (modalType === 'join_verify') {
             const roleNote = (interaction.fields.getTextInputValue('role_note') || '').trim();
             const saved = await appendMemberListRecord(interaction, regionCfg, roleNote, '');
@@ -6407,6 +8154,15 @@ client.on('messageCreate', async (message) => {
     await handleAonBotNewsTranslation(message).catch(() => {});
     if (message.author?.bot) return;
     const content = message.content?.trim() || '';
+
+    // ── Auto OCR payment proof (image -> Payment Log)
+    if (!content.toLowerCase().startsWith('!confirm')) {
+        const ocrHandled = await handleAutoPaymentProofOcr(message).catch(err => {
+            console.error('[payment-ocr]', err);
+            return false;
+        });
+        if (ocrHandled) return;
+    }
 
     // ── !yt [youtube-url]
     const ytMatch = content.match(/^!(?:yt|youtube)\s+(.+)$/i);
