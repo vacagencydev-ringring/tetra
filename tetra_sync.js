@@ -3046,6 +3046,14 @@ const commands = [
                 { name: '📖 PlayNC Guidebook (Official)', value: 'guidebook_plaync' },
                 { name: '⚔️ TACTICS (All Guide Categories)', value: 'tactics' }
             ))
+        .addStringOption(o => o
+            .setName('region')
+            .setDescription('Report panel scope (report type only)')
+            .setRequired(false)
+            .addChoices(
+                { name: 'All Regions', value: 'all' },
+                ...getRegionChoices()
+            ))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('join_verify')
@@ -3606,18 +3614,27 @@ function formatBigIntWithCommas(value) {
 }
 
 function buildDailySubmitButtonRow() {
+    return buildDailySubmitButtonRowForRegion(null);
+}
+
+function buildDailySubmitButtonRowForRegion(regionValue = null) {
+    const regionCfg = regionValue ? getRegionConfig(regionValue) : null;
+    const customId = regionCfg ? `btn_daily_submit_${regionCfg.value}` : 'btn_daily_submit';
+    const label = regionCfg ? `Submit Report (${regionCfg.code})` : 'Submit Report';
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId('btn_daily_submit')
-            .setLabel('Submit Report')
+            .setCustomId(customId)
+            .setLabel(label)
             .setEmoji('📊')
             .setStyle(ButtonStyle.Primary)
     );
 }
 
-function buildDailySubmitTargetSelectRow() {
+function buildDailySubmitTargetSelectRow(regionValue = null) {
+    const regionCfg = regionValue ? getRegionConfig(regionValue) : null;
+    const targetRegions = regionCfg ? [regionCfg] : REGION_CONFIGS;
     const options = [];
-    for (const region of REGION_CONFIGS) {
+    for (const region of targetRegions) {
         options.push({
             label: `${region.code} • Start Kinah Team`,
             value: `kinah_start:${region.value}`,
@@ -3646,7 +3663,7 @@ function buildDailySubmitTargetSelectRow() {
     return new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
             .setCustomId('select_daily_submit_target')
-            .setPlaceholder('Select start/end + team + region')
+            .setPlaceholder(regionCfg ? `Select start/end + team (${regionCfg.code})` : 'Select start/end + team + region')
             .addOptions(options.slice(0, 25))
     );
 }
@@ -5285,10 +5302,17 @@ client.on('interactionCreate', async (interaction) => {
             panelUpdateLocks.add(lockKey);
             try {
             if (kind === 'report') {
+                const regionOpt = (interaction.options.getString('region') || 'all').toLowerCase();
+                const scopedRegionCfg = regionOpt === 'all' ? null : getRegionConfig(regionOpt);
+                if (regionOpt !== 'all' && !scopedRegionCfg) {
+                    await interaction.editReply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES} or all.` });
+                    return;
+                }
                 const embed = new EmbedBuilder()
                     .setTitle('📋 DAILY WORK LOG')
                     .setDescription(
                         '**Operational Excellence: TETRA Management**\n\n' +
+                        `Scope: **${scopedRegionCfg ? `${scopedRegionCfg.label} (${scopedRegionCfg.code})` : `All Regions (${SUPPORTED_REGION_CODES})`}**\n\n` +
                         'Click **📊 Submit Report** -> choose Start/End + Team + Region.\n\n' +
                         '• **Start Kinah**: Login time(auto), Start Kinah, Memo\n' +
                         '• **End Kinah**: Logout time(auto), End Kinah, Spent Kinah, Memo\n' +
@@ -5303,11 +5327,11 @@ client.on('interactionCreate', async (interaction) => {
                         '_Data syncs to management database automatically._'
                     )
                     .setColor(0x5865F2);
-                const submitRow = buildDailySubmitButtonRow();
+                const submitRow = buildDailySubmitButtonRowForRegion(scopedRegionCfg?.value || null);
                 const files = [];
                 const state = loadPanelState();
                 const payload = { embeds: [embed], components: [submitRow], files: files.length ? files : undefined };
-                const isReportPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('DAILY WORK LOG') || m.components?.some(c => c.components?.some(b => b.customId === 'btn_daily_submit' || b.customId?.startsWith('btn_kinah') || b.customId?.startsWith('btn_levelup'))));
+                const isReportPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('DAILY WORK LOG') || m.components?.some(c => c.components?.some(b => b.customId?.startsWith('btn_daily_submit') || b.customId?.startsWith('btn_kinah') || b.customId?.startsWith('btn_levelup'))));
                 let allReportPanels = (await channel.messages.fetch({ limit: 100 })).filter(isReportPanel);
                 for (const m of allReportPanels.values()) await m.delete().catch(() => {});
                 const sent = await channel.send(payload);
@@ -5316,7 +5340,9 @@ client.on('interactionCreate', async (interaction) => {
                     if (m.id !== sent.id) await m.delete().catch(() => {});
                 }
                 savePanelState({ ...state, reportMsgId: sent.id, reportChannelId: channel.id });
-                await interaction.editReply({ content: '✅ Daily Report panel updated (1 only).' });
+                await interaction.editReply({
+                    content: `✅ Daily Report panel updated (1 only). Scope: ${scopedRegionCfg ? scopedRegionCfg.code : 'ALL'}`
+                });
             } else if (kind === 'kinah') {
                 const embed = new EmbedBuilder()
                     .setTitle('💰 Kinah Rate')
@@ -6034,10 +6060,20 @@ client.on('interactionCreate', async (interaction) => {
                     content: '🎮 **Character Verification**\n\nUse **`/myinfo_register character_name:<name>`**\nExample: `/myinfo_register character_name:YourCharacterName`\n\n→ A private channel will be created. Upload your screenshot there and staff will Approve.',
                     flags: EPHEMERAL_FLAGS
                 }).catch(() => {});
-            } else if (id === 'btn_daily_submit') {
+            } else if (id === 'btn_daily_submit' || id.startsWith('btn_daily_submit_')) {
+                const forcedRegion = id.startsWith('btn_daily_submit_')
+                    ? id.replace(/^btn_daily_submit_/, '').trim().toLowerCase()
+                    : null;
+                const forcedCfg = forcedRegion ? getRegionConfig(forcedRegion) : null;
+                if (forcedRegion && !forcedCfg) {
+                    await interaction.reply({ content: '❌ Invalid region scope on this panel. Recreate panel with `/panel type:report`.', flags: EPHEMERAL_FLAGS });
+                    return;
+                }
                 await interaction.reply({
-                    content: '📊 Select your team and region, then the report form will open.',
-                    components: [buildDailySubmitTargetSelectRow()],
+                    content: forcedCfg
+                        ? `📊 Select Start/End + Team for **${forcedCfg.code}**.`
+                        : '📊 Select Start/End + Team + Region, then the report form will open.',
+                    components: [buildDailySubmitTargetSelectRow(forcedCfg?.value || null)],
                     flags: EPHEMERAL_FLAGS
                 });
             } else if (id.startsWith('btn_kinah_')) {

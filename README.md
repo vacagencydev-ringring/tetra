@@ -62,6 +62,8 @@ https://koreanbots.dev/bots/1436590099235340410
 
 11. **Daily Report v2 (Submit button + numeric modal)**
    - `/panel type:report` posts a single **📊 Submit Report** button
+   - Country-specific panel: `/panel type:report region:PH|IN|NP|CH|TW`
+   - Global panel: `/panel type:report region:all` (or omit region)
    - User click flow: button -> select `Start/End + region + team` -> modal
    - **Start Kinah Team**: auto login time + `start_kinah` + `memo`
    - **End Kinah Team**: auto logout time + `end_kinah` + `spent_kinah` + `memo`
