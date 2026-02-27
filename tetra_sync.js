@@ -1114,8 +1114,10 @@ function buildEscrowMath(totalPrice, feePercent) {
 function buildMarketListingEmbed({ listingType, amount, totalPrice, currency, note, ownerTag, trustScore, feePercent, conversions }) {
     const isWts = listingType === 'WTS';
     const fee = buildEscrowMath(totalPrice, feePercent);
-    const title = isWts ? '💎 [WTS] Kinah for Sale' : '🛒 [WTB] Looking to Buy Kinah';
-    const sideLabel = isWts ? 'Seller' : 'Buyer';
+    const title = isWts
+        ? '💎 [WTS] 키나 판매 (Kinah for Sale)'
+        : '🛒 [WTB] 키나 구매 희망 (Looking to Buy Kinah)';
+    const sideLabel = isWts ? 'Seller / 판매자' : 'Buyer / 구매자';
     const ccy = String(currency || 'USD').toUpperCase();
     return new EmbedBuilder()
         .setColor(isWts ? 0x00ffaa : 0x60a5fa)
@@ -1123,19 +1125,19 @@ function buildMarketListingEmbed({ listingType, amount, totalPrice, currency, no
         .setDescription(
             [
                 `**${sideLabel}:** ${ownerTag}`,
-                `**Anti-Scam Policy:** All deals must go through TETRA escrow ticket. External/off-platform settlement is prohibited.`,
+                '**Anti-Scam Policy / 사기 방지 안내:** 모든 거래는 반드시 **TETRA 에스크로 티켓**으로 진행해야 합니다. 외부/직거래 정산은 **금지**입니다.',
             ].join('\n')
         )
         .addFields(
-            { name: '📦 Amount', value: `**${Number(amount || 0).toLocaleString()}** Kinah`, inline: true },
-            { name: '💰 Total Price', value: `**${formatCurrencyAmount(totalPrice, ccy)}**`, inline: true },
-            { name: '🏅 Trust Rating', value: `**${formatTrustBadge(trustScore)}**`, inline: true },
-            { name: '🛡️ Escrow Fee', value: `${feePercent.toFixed(1)}% (${formatCurrencyAmount(fee.fee, ccy)})`, inline: true },
-            { name: '📥 Net to Seller', value: formatCurrencyAmount(fee.net, ccy), inline: true },
-            { name: '🌐 FX Snapshot', value: `${formatCurrencyAmount(conversions?.usd, 'USD')} / ${formatCurrencyAmount(conversions?.krw, 'KRW')} (${conversions?.source || 'N/A'})`, inline: true },
-            ...(note ? [{ name: '📝 Note', value: note.slice(0, 400), inline: false }] : [])
+            { name: '📦 수량 (Amount)', value: `**${Number(amount || 0).toLocaleString()}** Kinah`, inline: true },
+            { name: '💰 총 금액 (Total Price)', value: `**${formatCurrencyAmount(totalPrice, ccy)}**`, inline: true },
+            { name: '🏅 신뢰도 (Trust Rating)', value: `**${formatTrustBadge(trustScore)}**`, inline: true },
+            { name: '🛡️ 에스크로 수수료 (Escrow Fee)', value: `${feePercent.toFixed(1)}% (${formatCurrencyAmount(fee.fee, ccy)})`, inline: true },
+            { name: '📥 실수령액 (Net to Seller)', value: formatCurrencyAmount(fee.net, ccy), inline: true },
+            { name: '🌐 환율 기준 (FX Snapshot)', value: `${formatCurrencyAmount(conversions?.usd, 'USD')} / ${formatCurrencyAmount(conversions?.krw, 'KRW')} (${conversions?.source || 'N/A'})`, inline: true },
+            ...(note ? [{ name: '📝 메모 (Note)', value: note.slice(0, 400), inline: false }] : [])
         )
-        .setFooter({ text: 'TETRA Safe Trade System • Click button below to open escrow ticket' })
+        .setFooter({ text: 'TETRA 안전거래 시스템 • 아래 버튼을 눌러 에스크로 방을 여세요 (Safe Trade System / Open escrow ticket with button below)' })
         .setTimestamp();
 }
 
@@ -1143,23 +1145,23 @@ function buildMarketTicketEmbed({ listing, buyerId, sellerId, adminRoleId }) {
     const rolePing = adminRoleId ? `<@&${adminRoleId}>` : '`Admin`';
     return new EmbedBuilder()
         .setColor(0xff007f)
-        .setTitle('🛡️ TETRA Safe Trade Room Initiated')
+        .setTitle('🛡️ TETRA 안전거래 방 생성 (Safe Trade Room Initiated)')
         .setDescription(
             [
-                `**Buyer:** <@${buyerId}>`,
-                `**Seller:** <@${sellerId}>`,
-                `**Listing:** ${listing.type} • ${Number(listing.amount || 0).toLocaleString()} Kinah • ${formatCurrencyAmount(listing.price, listing.currency)}`,
+                `**구매자 (Buyer):** <@${buyerId}>`,
+                `**판매자 (Seller):** <@${sellerId}>`,
+                `**거래 정보 (Listing):** ${listing.type} • ${Number(listing.amount || 0).toLocaleString()} Kinah • ${formatCurrencyAmount(listing.price, listing.currency)}`,
                 '',
-                '### 4-Step Escrow Flow',
-                `1) **Match / Ticket** — Buyer presses button, secure 3-party ticket is opened (${rolePing}, buyer, seller).`,
-                '2) **Hold** — Seller sends Kinah to TETRA escrow admin account first.',
-                '3) **Pay** — After admin hold confirmation, buyer sends payment (USD/KRW etc).',
-                '4) **Complete** — Seller confirms payment, admin delivers Kinah to buyer, bot adds Trust +1 and closes ticket.',
+                '### 에스크로 4단계 절차 (4-Step Escrow Flow)',
+                `1) **매칭 / 티켓 생성 (Match / Ticket)** — 구매자가 버튼을 누르면 ${rolePing}, 구매자, 판매자 3자만 보는 비공개 방이 생성됩니다.`,
+                '2) **홀드 (Hold)** — 판매자가 먼저 관리자(에스크로 계정)에게 게임 내에서 키나를 보냅니다.',
+                '3) **입금 (Pay)** — 관리자가 홀드 확인 후, 구매자가 실제 돈(USD/KRW 등)을 판매자에게 보냅니다.',
+                '4) **완료 (Complete)** — 판매자가 입금 확인 후, 관리자가 키나를 구매자에게 전달하고, 봇이 Trust +1 을 부여한 뒤 티켓을 닫습니다.',
                 '',
-                `⚠️ **Do NOT pay before admin hold confirmation by ${rolePing}.**`,
+                `⚠️ **${rolePing} 관리자의 Hold(홀드) 확인 이전에는 절대 실제 돈(현금)을 보내지 마세요. (Do NOT pay before admin hold confirmation.)**`,
             ].join('\n')
         )
-        .setFooter({ text: 'Anti-Scam / Zero Tolerance Policy Enforced' })
+        .setFooter({ text: 'Anti-Scam / Zero Tolerance Policy Enforced · 사기 방지를 위해 에스크로 이외 거래는 허용되지 않습니다.' })
         .setTimestamp();
 }
 
@@ -1168,21 +1170,25 @@ function buildMarketTicketControlRows(channelId) {
         new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`market_hold_${channelId}`)
-                .setLabel('1) Hold Confirmed (Admin)')
+                .setLabel('1) 홀드 확인 (Hold Confirmed · Admin)')
                 .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
                 .setCustomId(`market_pay_${channelId}`)
-                .setLabel('2) Payment Confirmed (Seller)')
+                .setLabel('2) 입금 확인 (Payment Confirmed · Seller)')
                 .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
                 .setCustomId(`market_complete_${channelId}`)
-                .setLabel('3) Complete + Trust (Admin)')
+                .setLabel('3) 거래 완료 + Trust (Complete + Trust · Admin)')
                 .setStyle(ButtonStyle.Secondary),
         ),
         new ActionRowBuilder().addComponents(
             new ButtonBuilder()
+                .setCustomId(`market_feeinfo_${channelId}`)
+                .setLabel('수수료 / Net / Guild 수익 보기 (Admin · Ephemeral)')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
                 .setCustomId(`market_close_${channelId}`)
-                .setLabel('Close Ticket')
+                .setLabel('티켓 닫기 (Close Ticket)')
                 .setStyle(ButtonStyle.Danger),
         ),
     ];
@@ -2105,7 +2111,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '거래 플로우 (에스크로)',
-                value: '**1) 판매 등록** — `/wts amount:<키나> price:<금액> currency:<통화>`\n**2) 구매 요청** — 마켓 Embed의 `🤝 Purchase Request` 버튼 → 3자 비공개 티켓 생성 (구매자/판매자/관리자)\n**3) 진행 순서**\n   - 관리자: 인게임에서 판매자로부터 키나 확보 → `1) Hold Confirmed` 버튼\n   - 판매자: 실금 입금 확인 후 `2) Payment Confirmed`\n   - 관리자: 키나를 구매자에게 전달 후 `3) Complete + Trust` 로 신뢰도 반영 및 티켓 종료',
+                value: '**1) 판매 등록** — `/wts amount:<키나> price:<금액> currency:<통화>`\n**2) 구매 요청** — 마켓 Embed의 `🤝 Purchase Request` 버튼 → 3자 비공개 티켓 생성 (구매자/판매자/관리자)\n**3) 진행 순서**\n   - 관리자: 인게임에서 **판매자로부터 총액(수수료 포함) 전부**를 먼저 받음 → `1) Hold Confirmed` 버튼\n   - 판매자: 실제 돈(현금) 입금(계좌/페이 등) 확인 후 `2) Payment Confirmed`\n   - 관리자: 임베드/버튼으로 확인 가능한 **Net to Seller** 만큼만 구매자에게 키나 지급, 남은 차액(수수료)을 길드/관리자 계정에 남김 → `3) Complete + Trust` 로 신뢰도 반영 및 티켓 종료\n• **중요:** 봇은 게임 내 키나/실제 돈(현금)을 직접 이동시키지 않으며, 위 절차는 관리자 수동 운영 기준입니다.',
                 inline: false
             },
             {
@@ -2262,7 +2268,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: 'Escrow Trade Flow',
-                value: '**1) Listing** — `/wts amount:<kinah> price:<amount> currency:<code>`\n**2) Request** — Buyer clicks `🤝 Purchase Request` on the listing → private ticket with Buyer/Seller/Admin\n**3) Steps**\n   - Admin: Receive Kinah in-game from seller → click `1) Hold Confirmed`\n   - Seller: Confirm real-world payment → click `2) Payment Confirmed`\n   - Admin: Deliver Kinah to buyer → click `3) Complete + Trust` to apply trust and close ticket',
+                value: '**1) Listing** — `/wts amount:<kinah> price:<amount> currency:<code>`\n**2) Request** — Buyer clicks `🤝 Purchase Request` on the listing → private ticket with Buyer/Seller/Admin\n**3) Steps**\n   - Admin: **Receive the full Kinah amount from the seller in-game (including fee)** → click `1) Hold Confirmed`\n   - Seller: After confirming real-world payment (bank/pay app), click `2) Payment Confirmed`\n   - Admin: Deliver only the **Net to Seller** amount of Kinah to the buyer (as shown in embed / fee info button) and keep the fee difference as guild revenue, then click `3) Complete + Trust` to apply trust and close ticket\n• **Important:** The bot does not move Kinah or real money. All transfers are manual by admins; this flow is an operational guideline.',
                 inline: false
             },
             {
@@ -5148,7 +5154,9 @@ client.on('interactionCreate', async (interaction) => {
                 feePercent: marketConfig.feePercent,
                 conversions,
             });
-            const buttonLabel = listingType === 'WTS' ? '🤝 Purchase Request (Open Escrow)' : '🤝 Sell Offer (Open Escrow)';
+            const buttonLabel = listingType === 'WTS'
+                ? '🤝 구매 요청 (Purchase Request · Open Escrow)'
+                : '🤝 판매 제안 (Sell Offer · Open Escrow)';
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId(`market_buy_${listingId}`)
@@ -5165,6 +5173,28 @@ client.on('interactionCreate', async (interaction) => {
             listing.messageId = sent.id;
             collections.listings[listingId] = listing;
             savePanelState(state, true);
+            // Market_Log 시트 기록 (선택사항, 실패해도 거래 흐름은 유지)
+            try {
+                const ts = new Date().toISOString();
+                const guildName = (interaction.guild?.name || '').slice(0, 64);
+                const rowValues = [
+                    ts,                                  // A: Timestamp (ISO)
+                    interaction.guildId || '',          // B: Guild ID
+                    guildName,                          // C: Guild Name
+                    listingId,                          // D: Listing ID
+                    listingType,                        // E: Type (WTS/WTB)
+                    amount,                             // F: Amount (Kinah)
+                    price,                              // G: Price
+                    currency,                           // H: Currency
+                    listing.ownerTag || '',             // I: Seller Tag
+                    '',                                 // J: Buyer Tag (empty at creation)
+                    'ListingCreated',                   // K: Status
+                    sent.url || '',                     // L: Link (Discord message URL)
+                ];
+                await appendToSheet("'Market_Log'!A:L", rowValues);
+            } catch (err) {
+                console.warn('[market] failed to append Market_Log row:', err.message);
+            }
             await interaction.editReply({
                 content:
                     `✅ ${listingType} listing posted to <#${listingChannel.id}>.\n` +
@@ -5568,19 +5598,21 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.editReply({ content: '✅ Kinah Rate panel updated (1 only).' });
             } else if (kind === 'market') {
                 const embed = new EmbedBuilder()
-                    .setTitle('🌐 Global Market — Escrow Trade')
+                    .setTitle('🌐 글로벌 마켓 — 에스크로 거래 (Global Market · Escrow Trade)')
                     .setDescription(
-                        '**Anti-scam escrow trading for Kinah.**\n\n' +
-                        '**Commands:**\n' +
-                        '• **`/market_setup`** — Configure market channel, ticket category, admin role, fee\n' +
-                        '• **`/wts amount:<kinah> price:<amount> currency:<code>`** — Create WTS listing (posts to market channel)\n' +
-                        '• **`/wtb amount:<kinah> price:<amount> currency:<code>`** — Create WTB listing (posts to market channel)\n' +
-                        '• **`/market_status`** — Check config, fee, open listings & tickets\n\n' +
-                        '**How escrow works:**\n' +
-                        '1) Seller runs `/wts` → listing is posted in the global market channel.\n' +
-                        '2) Buyer clicks **Purchase Request** on the listing → private 3-party ticket (Buyer/Seller/Admin).\n' +
-                        '3) Admin holds Kinah in-game from seller → Seller confirms real-world payment → Admin delivers Kinah to buyer and closes ticket with Trust.\n\n' +
-                        '_Admins: Run `/market_setup` before first use, and ask members to always use escrow instead of direct trades._'
+                        '**키나를 안전하게 중개하는 글로벌 마켓(에스크로)입니다. (Anti-scam escrow trading for Kinah)**\n\n' +
+                        '**주요 명령어 (Commands):**\n' +
+                        '• **`/market_setup`** — 마켓 채널, 티켓 카테고리, 관리자 역할, 수수료 설정 (Configure market channel, ticket category, admin role, fee)\n' +
+                        '• **`/wts amount:<키나> price:<금액> currency:<통화>`** — 판매글 등록 (WTS listing · 마켓 채널로 전송)\n' +
+                        '• **`/wtb amount:<키나> price:<금액> currency:<통화>`** — 구매글 등록 (WTB listing · 마켓 채널로 전송)\n' +
+                        '• **`/market_status`** — 현재 설정, 수수료, 오픈된 글/티켓 상태 확인 (Check config, fee, open listings & tickets)\n\n' +
+                        '**에스크로 동작 방식 (How escrow works):**\n' +
+                        '1) 판매자가 `/wts` 를 실행하면 글로벌 마켓 채널에 판매글이 올라갑니다.\n' +
+                        '2) 구매자가 판매글의 **"🤝 구매 요청 (Purchase Request · Open Escrow)"** 버튼을 누르면\n' +
+                        '   → 구매자/판매자/관리자 3자만 보이는 비공개 티켓 방이 생성됩니다.\n' +
+                        '3) 관리자가 게임 내에서 판매자로부터 키나를 먼저 받습니다(**홀드**).\n' +
+                        '   판매자는 실제 돈 입금을 확인한 뒤, 관리자는 키나를 구매자에게 전달하고 티켓을 **거래 완료 + Trust** 버튼으로 닫습니다.\n\n' +
+                        '_관리자(Admins): 반드시 먼저 `/market_setup` 으로 환경을 설정한 뒤, 모든 거래를 에스크로로만 진행하도록 안내해주세요. (Always prefer escrow over direct trades.)_'
                     )
                     .setColor(0x22c55e)
                     .setTimestamp();
@@ -5927,11 +5959,12 @@ client.on('interactionCreate', async (interaction) => {
                     await interaction.editReply({ content: `⚠️ This listing is already matched.\nTicket: ${ticketMention}` }).catch(() => {});
                     return;
                 }
-                if (listing.ownerId === interaction.user.id) {
-                    await interaction.editReply({ content: '❌ You cannot open escrow with your own listing.' }).catch(() => {});
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                const isAdminClick = isMarketAdmin(interaction, marketConfig);
+                if (listing.ownerId === interaction.user.id && !isAdminClick) {
+                    await interaction.editReply({ content: '❌ You cannot open escrow with your own listing. (관리자는 테스트용으로만 본인 티켓을 열 수 있습니다.)' }).catch(() => {});
                     return;
                 }
-                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
                 if (!marketConfig.marketChannelId || !marketConfig.ticketCategoryId) {
                     await interaction.editReply({ content: '❌ Escrow config is missing. Admin: run `/market_setup`.' }).catch(() => {});
                     return;
@@ -6154,6 +6187,29 @@ client.on('interactionCreate', async (interaction) => {
                 await syncTrustRolesForMember(interaction.guild, ticket.sellerId, roleMap, sellerTrust.current).catch(() => {});
                 delete collections.tickets[ticket.channelId || interaction.channelId];
                 savePanelState(state, true);
+                // Market_Log 시트에 완료 기록 추가
+                try {
+                    const ts = new Date().toISOString();
+                    const guildName = (interaction.guild?.name || '').slice(0, 64);
+                    const linkedListing = listing || {};
+                    const rowValues = [
+                        ts,                                      // A: Timestamp (ISO)
+                        interaction.guildId || '',              // B: Guild ID
+                        guildName,                              // C: Guild Name
+                        ticket.listingId || '',                 // D: Listing ID
+                        linkedListing.type || '',               // E: Type (WTS/WTB)
+                        linkedListing.amount || '',             // F: Amount (Kinah)
+                        linkedListing.price || '',              // G: Price
+                        linkedListing.currency || '',           // H: Currency
+                        linkedListing.ownerTag || '',           // I: Seller Tag
+                        ticket.buyerId ? `<@${ticket.buyerId}>` : '', // J: Buyer Mention
+                        'Completed',                            // K: Status
+                        ticket.channelId ? `<#${ticket.channelId}>` : '', // L: Ticket channel ref
+                    ];
+                    await appendToSheet("'Market_Log'!A:L", rowValues);
+                } catch (err) {
+                    console.warn('[market] failed to append Market_Log completed row:', err.message);
+                }
 
                 const summary = new EmbedBuilder()
                     .setTitle('✅ Escrow Trade Completed')
@@ -6205,6 +6261,54 @@ client.on('interactionCreate', async (interaction) => {
                         await ch.delete('Escrow ticket closed by admin').catch(() => {});
                     }
                 }, 5_000);
+            } else if (id.startsWith('market_feeinfo_')) {
+                if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only action.'); return; }
+                const ticketChannelId = id.replace(/^market_feeinfo_/, '').trim() || interaction.channelId;
+                const state = loadPanelState();
+                const collections = ensureMarketCollections(state, interaction.guildId);
+                const ticket = collections.tickets[ticketChannelId] || collections.tickets[interaction.channelId];
+                if (!ticket) { await safeEphemeral(interaction, '❌ Escrow ticket state not found.'); return; }
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                if (!isMarketAdmin(interaction, marketConfig)) {
+                    await safeEphemeral(interaction, '❌ 이 정보는 에스크로 관리자만 볼 수 있습니다. (Admin only).');
+                    return;
+                }
+                const listing = collections.listings[ticket.listingId];
+                if (!listing) {
+                    await safeEphemeral(interaction, '❌ Listing data not found for this ticket.'); 
+                    return;
+                }
+                const price = Number(listing.price || 0);
+                const feePercent = Number(ticket.feePercent || listing.feePercent || marketConfig.feePercent || 0);
+                const fee = buildEscrowMath(price, feePercent);
+                const ccy = String(listing.currency || 'USD').toUpperCase();
+                const embed = new EmbedBuilder()
+                    .setTitle('📊 에스크로 정산 요약 (Escrow Fee Summary)')
+                    .setColor(0x0ea5e9)
+                    .setDescription(
+                        [
+                            `**Listing ID:** \`${ticket.listingId}\``,
+                            `**Type:** ${listing.type} • ${Number(listing.amount || 0).toLocaleString()} Kinah • ${formatCurrencyAmount(price, ccy)}`,
+                            `**구매자 (Buyer):** <@${ticket.buyerId}>`,
+                            `**판매자 (Seller):** <@${ticket.sellerId}>`,
+                            '',
+                            `• **수수료율 (Fee %):** ${feePercent.toFixed(1)}%`,
+                            `• **수수료 금액 (Fee Amount):** ${formatCurrencyAmount(fee.fee, ccy)}`,
+                            `• **판매자 실수령 (Net to Seller):** ${formatCurrencyAmount(fee.net, ccy)}`,
+                            `• **Guild 수익 (Guild Revenue = Fee):** ${formatCurrencyAmount(fee.fee, ccy)}`,
+                            '',
+                            '**관리자 진행 순서 (Step-by-step for Admin):**',
+                            '1) **키나 수령** — 판매자로부터 총액(수수료 포함)을 관리자 계정으로 먼저 받습니다.',
+                            `2) **입금 확인** — 판매자가 실제 돈(현금) 입금(계좌/페이 등)을 확인하면, 이 임베드의 **판매자 실수령(Net to Seller)** 금액을 기준으로 정산합니다.`,
+                            '3) **키나 지급** — Net to Seller 만큼의 키나만 구매자에게 전달하고, 남은 금액(수수료)은 길드/관리자 계정에 남겨 둡니다.',
+                            '4) **티켓 마무리** — 에스크로 흐름에 따라 `3) 거래 완료 + Trust` 버튼을 눌러 Trust를 반영하고 티켓을 닫습니다.',
+                            '',
+                            '_봇은 게임 내 키나/실제 돈(현금)을 직접 이동시키지 않으며, 위 절차는 관리자를 위한 정산 가이드입니다._',
+                        ].join('\n')
+                    )
+                    .setFooter({ text: '표시는 관리자에게만 보이는 에페메랄 메시지입니다. (Visible to you only · ephemeral)' })
+                    .setTimestamp();
+                await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
             } else if (id === 'btn_tactics_open') {
                 const row = buildTacticsCategorySelect(false);
                 await interaction.reply({
