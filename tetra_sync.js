@@ -1845,13 +1845,14 @@ async function updateSheetRows(range, values) {
 
 const DAILY_LOG_HEADERS_V2 = ['Timestamp', 'Worker', 'Type', 'LoginAt', 'LogoutAt', 'Metric', 'Details'];
 const dailyLogHeaderSynced = new Set();
-async function ensureDailyLogSheetForm(regionCode) {
+async function ensureDailyLogSheetForm(regionCode, force = false) {
     const code = String(regionCode || '').toUpperCase().trim();
     if (!code) return { ok: false, error: 'region code missing' };
-    if (dailyLogHeaderSynced.has(code)) return { ok: true };
+    if (!force && dailyLogHeaderSynced.has(code)) return { ok: true };
     const range = `Daily_Log_${code}!A1:G1`;
     const res = await updateSheetRows(range, [DAILY_LOG_HEADERS_V2]);
     if (res.ok) dailyLogHeaderSynced.add(code);
+    else dailyLogHeaderSynced.delete(code);
     return res;
 }
 
@@ -1918,7 +1919,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '📋 1. 일일 리포트',
-                value: '**`/panel type:report region:all|ph|in|np|ch|tw`** — 나라별(또는 전체) 리포트 패널\n**`/report_kinah region:<지역> phase:start|end`** — 키나팀 시작/종료\n**`/report_levelup region:<지역> phase:start|end`** — 레벨업팀 시작/종료\n• Start: 로그인시간 자동 기록\n• End: 로그아웃시간 자동 기록\n• 키나 종료 보고는 `소비키나` 포함\n• 계산: `Net=End-Start-Spent`, `Gross=(End-Start)+Spent`\n• Daily_Log 헤더(A1:G1) 자동 동기화: `Timestamp|Worker|Type|LoginAt|LogoutAt|Metric|Details`',
+                value: '**`/panel type:report region:all|ph|in|np|ch|tw`** — 나라별(또는 전체) 리포트 패널\n**`/report_kinah region:<지역> phase:start|end`** — 키나팀 시작/종료\n**`/report_levelup region:<지역> phase:start|end`** — 레벨업팀 시작/종료\n**`/dailylog_header_sync region:all|ph|in|np|ch|tw`** — Daily_Log 헤더 강제 동기화(Admin)\n• Start: 로그인시간 자동 기록\n• End: 로그아웃시간 자동 기록\n• 키나 종료 보고는 `소비키나` 포함\n• 계산: `Net=End-Start-Spent`, `Gross=(End-Start)+Spent`\n• Daily_Log 헤더(A1:G1) 자동 동기화: `Timestamp|Worker|Type|LoginAt|LogoutAt|Metric|Details`',
                 inline: false
             },
             {
@@ -2049,7 +2050,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: '📋 1. Daily Report',
-                value: '**`/panel type:report region:all|ph|in|np|ch|tw`** — country-scoped (or global) report panel\n**`/report_kinah region:<region> phase:start|end`** — Kinah team start/end\n**`/report_levelup region:<region> phase:start|end`** — Level-Up team start/end\n• Start = auto login timestamp\n• End = auto logout timestamp\n• Kinah End includes `spent_kinah`\n• Math: `Net=End-Start-Spent`, `Gross=(End-Start)+Spent`\n• Daily_Log header(A1:G1) auto-sync: `Timestamp|Worker|Type|LoginAt|LogoutAt|Metric|Details`',
+                value: '**`/panel type:report region:all|ph|in|np|ch|tw`** — country-scoped (or global) report panel\n**`/report_kinah region:<region> phase:start|end`** — Kinah team start/end\n**`/report_levelup region:<region> phase:start|end`** — Level-Up team start/end\n**`/dailylog_header_sync region:all|ph|in|np|ch|tw`** — force header sync for Daily_Log (Admin)\n• Start = auto login timestamp\n• End = auto logout timestamp\n• Kinah End includes `spent_kinah`\n• Math: `Net=End-Start-Spent`, `Gross=(End-Start)+Spent`\n• Daily_Log header(A1:G1) auto-sync: `Timestamp|Worker|Type|LoginAt|LogoutAt|Metric|Details`',
                 inline: false
             },
             {
@@ -2311,7 +2312,7 @@ function buildFaqAdminEmbed(lang = 'en') {
             { name: 'Q: How do I post panels?', value: '**`/panel type:<type>`** — report, salary, join_verify, payment, youtube, **link**, guide_ko, guide_en, **guidebook_plaync**, **tactics**. Run in a channel to post. One panel per type.', inline: false },
             { name: 'Q: TACTICS vs Guidebook?', value: '**TACTICS** — Inven dungeon/pet guides. **Guidebook** — PlayNC official (class, skill).\nBoth are ephemeral by default.\n**Admin public share:** `/tactics public:true`, `/guidebook public:true`, or panel Post to Channel.\n**Guidebook:** run **`/guidebook_fetch`**; if scrape fails/empty, local fallback loads automatically.', inline: false },
             { name: 'Q: What is the onboarding order for new members?', value: '**Announcements** → **`/join_verify`** → **`/help`**.\nSet channels with **`/welcome_set announcements_channel:<channel> welcome_channel:<channel>`**.', inline: false },
-            { name: 'Q: What changed in Daily Report today?', value: '**Country panels:** `/panel type:report region:ph|in|np|ch|tw|all`\n**Start/End split:** `/report_kinah` `/report_levelup` + `phase:start|end`\n**Auto timestamps:** Start=login, End=logout\n**Kinah End includes spent kinah**\n**Sheet form auto-sync:** Daily_Log header A1:G1 updated automatically', inline: false },
+            { name: 'Q: What changed in Daily Report today?', value: '**Country panels:** `/panel type:report region:ph|in|np|ch|tw|all`\n**Start/End split:** `/report_kinah` `/report_levelup` + `phase:start|end`\n**Auto timestamps:** Start=login, End=logout\n**Kinah End includes spent kinah**\n**Sheet form auto-sync:** Daily_Log header A1:G1 updated automatically\n**Manual force sync (Admin):** `/dailylog_header_sync region:all|ph|in|np|ch|tw`', inline: false },
             { name: 'Q: Full guide vs member guide?', value: '**Full guide** (`/panel type:guide_ko`, `guide_en`) — Admin commands, post to channel\n**Member guide** (`/guide`) — Member commands, visible only to you', inline: false },
             { name: 'Q: Field boss timer setup order?', value: '1. **`/preset mode:combined`** or **`/boss_fetch`** (load from URL)\n2. On kill: **`/cut boss_name:<name>`** to record\n3. **`/boss_alert_mode mode:dm`** — DM alerts (optional)\n4. **`/boss_event_multiplier multiplier:0.8`** — Event respawn rate (optional)', inline: false },
             { name: 'Q: How to set MVP schedule?', value: '**`/mvp_set day:<day> time:HH:mm`** — Set MVP time per day (Admin)\n**`/mvp`** — View current schedule (Admin)', inline: false },
@@ -3388,6 +3389,18 @@ const commands = [
                 { name: 'Gold (>=25)', value: 'gold' },
             ))
         .addRoleOption(o => o.setName('role').setDescription('Role to grant for the tier').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('dailylog_header_sync')
+        .setDescription('Force-sync Daily_Log sheet headers to latest format (Admin)')
+        .addStringOption(o => o
+            .setName('region')
+            .setDescription('Target region (omit or all = all regions)')
+            .setRequired(false)
+            .addChoices(
+                { name: 'All Regions', value: 'all' },
+                ...getRegionChoices()
+            ))
         .toJSON(),
     new SlashCommandBuilder()
         .setName('payment_ocr_set')
@@ -5105,6 +5118,31 @@ client.on('interactionCreate', async (interaction) => {
                 content: `✅ Trust tier role mapped: **${tier.toUpperCase()}** → ${role}`,
                 flags: EPHEMERAL_FLAGS
             });
+        } else if (interaction.commandName === 'dailylog_header_sync') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS }).catch(() => {});
+            const regionOpt = (interaction.options.getString('region') || 'all').toLowerCase();
+            const targetCodes = regionOpt === 'all'
+                ? REGION_CONFIGS.map(r => r.code)
+                : [getRegionConfig(regionOpt)?.code].filter(Boolean);
+            if (!targetCodes.length) {
+                await interaction.editReply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES} or all.` }).catch(() => {});
+                return;
+            }
+            const results = await Promise.all(targetCodes.map(code => ensureDailyLogSheetForm(code, true)));
+            const failed = results
+                .map((res, idx) => ({ res, code: targetCodes[idx] }))
+                .filter(item => !item.res?.ok);
+            if (failed.length) {
+                await interaction.editReply({
+                    content: `⚠️ Header sync completed with errors:\n${failed.map(f => `- ${f.code}: ${f.res.error || 'unknown'}`).join('\n')}`
+                }).catch(() => {});
+                return;
+            }
+            await interaction.editReply({
+                content: `✅ Daily_Log headers synced: ${targetCodes.join(', ')}\nFormat: ${DAILY_LOG_HEADERS_V2.join(' | ')}`
+            }).catch(() => {});
         } else if (interaction.commandName === 'payment_ocr_set') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
@@ -5326,6 +5364,20 @@ client.on('interactionCreate', async (interaction) => {
                 const scopedRegionCfg = regionOpt === 'all' ? null : getRegionConfig(regionOpt);
                 if (regionOpt !== 'all' && !scopedRegionCfg) {
                     await interaction.editReply({ content: `❌ Invalid region. Supported: ${SUPPORTED_REGION_CODES} or all.` });
+                    return;
+                }
+                const headerTargets = scopedRegionCfg
+                    ? [scopedRegionCfg.code]
+                    : REGION_CONFIGS.map(r => r.code);
+                const headerResults = await Promise.all(
+                    headerTargets.map(code => ensureDailyLogSheetForm(code, true))
+                );
+                const headerFailed = headerResults
+                    .map((res, idx) => ({ res, code: headerTargets[idx] }))
+                    .filter(item => !item.res?.ok);
+                if (headerFailed.length) {
+                    const msg = headerFailed.map(item => `${item.code}: ${item.res.error || 'unknown'}`).join(' | ');
+                    await interaction.editReply({ content: `❌ Daily_Log header sync failed: ${msg}` });
                     return;
                 }
                 const embed = new EmbedBuilder()
@@ -6715,7 +6767,7 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
         const timestamp = makeLocalTimestamp(regionCfg.timeZone);
         if (modalType === 'kinah' || modalType === 'levelup') {
-            const headerRes = await ensureDailyLogSheetForm(regionCfg.code);
+            const headerRes = await ensureDailyLogSheetForm(regionCfg.code, true);
             if (!headerRes.ok) {
                 await interaction.editReply({
                     content: `❌ Daily log sheet header update failed (${regionCfg.code}): ${headerRes.error}`
