@@ -60,6 +60,17 @@ https://koreanbots.dev/bots/1436590099235340410
    - **`/guide`** — Member guide (English), all members can post, no Admin required
    - **`/panel type:guide_ko`** `guide_en` — Full guides (Admin only)
 
+11. **Daily Report v2 (Submit button + numeric modal)**
+   - `/panel type:report` posts a single **📊 Submit Report** button
+   - User click flow: button -> select `region + team` -> modal
+   - Kinah modal fields (4): `start_kinah`, `end_kinah`, `spent_kinah`, `memo`
+   - Level-Up modal fields (4): `start_level`, `end_level`, `start_cp`, `end_cp`
+   - Numeric-only validation for required amount/level/cp fields
+   - Kinah calculations:
+     - `Net Profit = End - Start - Spent`
+     - `On-hand Delta = End - Start`
+     - `Gross Farmed = On-hand Delta + Spent`
+
 9. **Global Trading Hub (Anti-Scam Escrow)**
    - `/market_setup market_channel:<channel> ticket_category:<category> admin_role:<role> fee_percent:<0-20>` (Admin)
    - `/market_status` — Check escrow setup and open listing/ticket counts

@@ -3442,13 +3442,36 @@ function createKinahModal(region) {
         .setTitle('Kinah Team Daily Report')
         .addComponents(
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('login').setLabel('Login Time').setPlaceholder('09:00 (local)').setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder()
+                    .setCustomId('start_kinah')
+                    .setLabel('Start Kinah (numbers only)')
+                    .setPlaceholder('e.g. 12000000')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
             ),
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('logout').setLabel('Logout Time').setPlaceholder('18:00 (local)').setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder()
+                    .setCustomId('end_kinah')
+                    .setLabel('End Kinah (numbers only)')
+                    .setPlaceholder('e.g. 14750000')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
             ),
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('profit').setLabel("Today's Kinah Profit").setPlaceholder('1,500,000').setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder()
+                    .setCustomId('spent_kinah')
+                    .setLabel('Spent Kinah (Gear-up expense)')
+                    .setPlaceholder('e.g. 10000000')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('note')
+                    .setLabel('Memo')
+                    .setPlaceholder('e.g. Some kinah used to gear up')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(false)
             ),
         );
 }
@@ -3459,18 +3482,97 @@ function createLevelUpModal(region) {
         .setTitle('Level-Up Team Daily Report')
         .addComponents(
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('login').setLabel('Login Time').setPlaceholder('09:00 (local)').setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder()
+                    .setCustomId('start_level')
+                    .setLabel('Start Level (numbers only)')
+                    .setPlaceholder('e.g. 40')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
             ),
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('logout').setLabel('Logout Time').setPlaceholder('18:00 (local)').setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder()
+                    .setCustomId('end_level')
+                    .setLabel('End Level (numbers only)')
+                    .setPlaceholder('e.g. 45')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
             ),
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('level').setLabel('Level Progress').setPlaceholder('Lv.40 -> Lv.45').setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder()
+                    .setCustomId('start_cp')
+                    .setLabel('Start CP (numbers only)')
+                    .setPlaceholder('e.g. 1800')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
             ),
             new ActionRowBuilder().addComponents(
-                new TextInputBuilder().setCustomId('cp').setLabel('CP Progress').setPlaceholder('1800 -> 2100').setStyle(TextInputStyle.Short).setRequired(true)
+                new TextInputBuilder()
+                    .setCustomId('end_cp')
+                    .setLabel('End CP (numbers only)')
+                    .setPlaceholder('e.g. 2100')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
             ),
         );
+}
+
+function parseNonNegativeBigIntInput(raw) {
+    const normalized = String(raw || '').replace(/[,\s]/g, '').trim();
+    if (!/^\d+$/.test(normalized)) return null;
+    try {
+        return BigInt(normalized);
+    } catch (_) {
+        return null;
+    }
+}
+
+function parseNonNegativeIntInput(raw) {
+    const normalized = String(raw || '').replace(/[,\s]/g, '').trim();
+    if (!/^\d+$/.test(normalized)) return null;
+    const value = Number.parseInt(normalized, 10);
+    return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function formatBigIntWithCommas(value) {
+    const v = typeof value === 'bigint' ? value : BigInt(value || 0);
+    const sign = v < 0n ? '-' : '';
+    const abs = v < 0n ? -v : v;
+    const s = abs.toString();
+    return `${sign}${s.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+}
+
+function buildDailySubmitButtonRow() {
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('btn_daily_submit')
+            .setLabel('Submit Report')
+            .setEmoji('📊')
+            .setStyle(ButtonStyle.Primary)
+    );
+}
+
+function buildDailySubmitTargetSelectRow() {
+    const options = [];
+    for (const region of REGION_CONFIGS) {
+        options.push({
+            label: `${region.code} • Kinah Team`,
+            value: `kinah:${region.value}`,
+            emoji: region.emoji,
+            description: `${region.label} kinah report`,
+        });
+        options.push({
+            label: `${region.code} • Level-Up Team`,
+            value: `levelup:${region.value}`,
+            emoji: region.emoji,
+            description: `${region.label} level-up report`,
+        });
+    }
+    return new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId('select_daily_submit_target')
+            .setPlaceholder('Select team + region')
+            .addOptions(options.slice(0, 25))
+    );
 }
 
 const PAYMENT_CURRENCIES = [
@@ -5084,34 +5186,23 @@ client.on('interactionCreate', async (interaction) => {
                     .setTitle('📋 DAILY WORK LOG')
                     .setDescription(
                         '**Operational Excellence: TETRA Management**\n\n' +
-                        'All personnel must submit daily report before finishing shift.\n\n' +
-                        '**How to submit:** Select your region + team below → fill the form → done.\n' +
-                        '• **Kinah** (💰) — Login, Logout, Profit\n' +
-                        '• **Level-Up** (📈) — Login, Logout, Level, CP\n\n' +
-                        `**Rules:** Select one of ${SUPPORTED_REGION_CODES}, enter timestamps in your local time.\n` +
+                        'Click **📊 Submit Report** and choose your team/region.\n\n' +
+                        '• **Kinah Team (4 fields)**: Start Kinah, End Kinah, Spent Kinah, Memo\n' +
+                        '  - Calculated automatically:\n' +
+                        '    - `Net Profit = End - Start - Spent`\n' +
+                        '    - `On-hand Delta = End - Start`\n' +
+                        '    - `Gross Farmed = On-hand Delta + Spent`\n' +
+                        '• **Level-Up Team (4 fields)**: Start Level, End Level, Start CP, End CP\n' +
+                        '  - Level Gain / CP Gain auto-calculated\n\n' +
+                        `**Rules:** Numbers only, and choose one of ${SUPPORTED_REGION_CODES}.\n` +
                         '_Data syncs to management database automatically._'
                     )
                     .setColor(0x5865F2);
-                const kinahButtons = REGION_CONFIGS.map(region =>
-                    new ButtonBuilder()
-                        .setCustomId(`btn_kinah_${region.value}`)
-                        .setLabel(`Kinah (${region.code})`)
-                        .setStyle(ButtonStyle.Primary)
-                        .setEmoji(region.emoji)
-                );
-                const levelUpButtons = REGION_CONFIGS.map(region =>
-                    new ButtonBuilder()
-                        .setCustomId(`btn_levelup_${region.value}`)
-                        .setLabel(`Level-Up (${region.code})`)
-                        .setStyle(ButtonStyle.Danger)
-                        .setEmoji(region.emoji)
-                );
-                const rowTop = new ActionRowBuilder().addComponents(...kinahButtons);
-                const rowBottom = new ActionRowBuilder().addComponents(...levelUpButtons);
+                const submitRow = buildDailySubmitButtonRow();
                 const files = [];
                 const state = loadPanelState();
-                const payload = { embeds: [embed], components: [rowTop, rowBottom], files: files.length ? files : undefined };
-                const isReportPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('DAILY WORK LOG') || m.components?.some(c => c.components?.some(b => b.customId?.startsWith('btn_kinah') || b.customId?.startsWith('btn_levelup'))));
+                const payload = { embeds: [embed], components: [submitRow], files: files.length ? files : undefined };
+                const isReportPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('DAILY WORK LOG') || m.components?.some(c => c.components?.some(b => b.customId === 'btn_daily_submit' || b.customId?.startsWith('btn_kinah') || b.customId?.startsWith('btn_levelup'))));
                 let allReportPanels = (await channel.messages.fetch({ limit: 100 })).filter(isReportPanel);
                 for (const m of allReportPanels.values()) await m.delete().catch(() => {});
                 const sent = await channel.send(payload);
@@ -5838,6 +5929,12 @@ client.on('interactionCreate', async (interaction) => {
                     content: '🎮 **Character Verification**\n\nUse **`/myinfo_register character_name:<name>`**\nExample: `/myinfo_register character_name:YourCharacterName`\n\n→ A private channel will be created. Upload your screenshot there and staff will Approve.',
                     flags: EPHEMERAL_FLAGS
                 }).catch(() => {});
+            } else if (id === 'btn_daily_submit') {
+                await interaction.reply({
+                    content: '📊 Select your team and region, then the report form will open.',
+                    components: [buildDailySubmitTargetSelectRow()],
+                    flags: EPHEMERAL_FLAGS
+                });
             } else if (id.startsWith('btn_kinah_')) {
                 const region = parseRegionFromCustomId(id, 'btn_kinah');
                 const cfg = getRegionConfig(region);
@@ -6108,6 +6205,21 @@ client.on('interactionCreate', async (interaction) => {
                     components: [],
                     flags: EPHEMERAL_FLAGS
                 }).catch(() => {});
+            }
+            return;
+        }
+        if (interaction.customId === 'select_daily_submit_target') {
+            const selected = String(interaction.values?.[0] || '');
+            const [team, region] = selected.split(':');
+            const regionCfg = getRegionConfig(region);
+            if (!regionCfg || !['kinah', 'levelup'].includes(team)) {
+                await interaction.update({ content: '❌ Invalid selection. Try again.', components: [] }).catch(() => {});
+                return;
+            }
+            if (team === 'kinah') {
+                await interaction.showModal(createKinahModal(regionCfg.value));
+            } else {
+                await interaction.showModal(createLevelUpModal(regionCfg.value));
             }
             return;
         }
@@ -6433,10 +6545,33 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
         const timestamp = makeLocalTimestamp(regionCfg.timeZone);
         if (modalType === 'kinah') {
-            const login = interaction.fields.getTextInputValue('login');
-            const logout = interaction.fields.getTextInputValue('logout');
-            const profit = interaction.fields.getTextInputValue('profit');
-            const data = [timestamp, worker, 'Kinah', login, logout, profit, ''];
+            const startKinahRaw = interaction.fields.getTextInputValue('start_kinah');
+            const endKinahRaw = interaction.fields.getTextInputValue('end_kinah');
+            const spentKinahRaw = interaction.fields.getTextInputValue('spent_kinah');
+            const note = (interaction.fields.getTextInputValue('note') || '').trim();
+
+            const startKinah = parseNonNegativeBigIntInput(startKinahRaw);
+            const endKinah = parseNonNegativeBigIntInput(endKinahRaw);
+            const spentKinah = parseNonNegativeBigIntInput(spentKinahRaw);
+            if (startKinah == null || endKinah == null || spentKinah == null) {
+                await interaction.editReply({
+                    content: '❌ 숫자만 입력해주세요. (예: 12000000 또는 12,000,000)'
+                });
+                return;
+            }
+
+            const onHandDelta = endKinah - startKinah;
+            const netProfit = endKinah - startKinah - spentKinah; // requested formula: end - start - spent
+            const grossFarmed = onHandDelta + spentKinah; // contribution metric: on-hand delta + reinvestment
+            const data = [
+                timestamp,
+                worker,
+                'Kinah',
+                formatBigIntWithCommas(startKinah),
+                formatBigIntWithCommas(endKinah),
+                formatBigIntWithCommas(netProfit),
+                `Spent:${formatBigIntWithCommas(spentKinah)} | Delta:${formatBigIntWithCommas(onHandDelta)} | Gross:${formatBigIntWithCommas(grossFarmed)}${note ? ` | Memo:${note}` : ''}`,
+            ];
             const res = await appendToSheet(regionCfg.sheetRange, data);
             if (res.ok) {
                 const msg = [
@@ -6444,20 +6579,49 @@ client.on('interactionCreate', async (interaction) => {
                     `Region: ${regionCfg.code} | ${timestamp}`,
                     `Worker: ${escapeHtml(worker)}`,
                     '',
-                    `Login: ${escapeHtml(login)}`,
-                    `Logout: ${escapeHtml(logout)}`,
-                    `Profit: ${escapeHtml(profit)}`,
+                    `Start: ${escapeHtml(formatBigIntWithCommas(startKinah))}`,
+                    `End: ${escapeHtml(formatBigIntWithCommas(endKinah))}`,
+                    `Spent: ${escapeHtml(formatBigIntWithCommas(spentKinah))}`,
+                    `Net (End-Start-Spent): ${escapeHtml(formatBigIntWithCommas(netProfit))}`,
+                    `Gross (Delta+Spent): ${escapeHtml(formatBigIntWithCommas(grossFarmed))}`,
+                    note ? `Memo: ${escapeHtml(note)}` : '',
                 ].join('\n');
                 sendTelegramNotification(msg).catch(() => {});
             }
-            await interaction.editReply({ content: res.ok ? `✅ Kinah report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.` });
+            await interaction.editReply({
+                content: res.ok
+                    ? `✅ Kinah report submitted (${worker}) → ${regionCfg.code}\n` +
+                      `• Net (End-Start-Spent): **${formatBigIntWithCommas(netProfit)}**\n` +
+                      `• Gross Contribution (Delta+Spent): **${formatBigIntWithCommas(grossFarmed)}**`
+                    : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
+            });
         } else if (modalType === 'levelup') {
-            const login = interaction.fields.getTextInputValue('login');
-            const logout = interaction.fields.getTextInputValue('logout');
-            const level = interaction.fields.getTextInputValue('level');
-            const cp = interaction.fields.getTextInputValue('cp');
-            const progress = `${level} / ${cp}`;
-            const data = [timestamp, worker, 'LevelUp', login, logout, progress, ''];
+            const startLevelRaw = interaction.fields.getTextInputValue('start_level');
+            const endLevelRaw = interaction.fields.getTextInputValue('end_level');
+            const startCpRaw = interaction.fields.getTextInputValue('start_cp');
+            const endCpRaw = interaction.fields.getTextInputValue('end_cp');
+
+            const startLevel = parseNonNegativeIntInput(startLevelRaw);
+            const endLevel = parseNonNegativeIntInput(endLevelRaw);
+            const startCp = parseNonNegativeIntInput(startCpRaw);
+            const endCp = parseNonNegativeIntInput(endCpRaw);
+            if ([startLevel, endLevel, startCp, endCp].some(v => v == null)) {
+                await interaction.editReply({
+                    content: '❌ 숫자만 입력해주세요. (예: 40, 45, 1800, 2100)'
+                });
+                return;
+            }
+            const levelGain = endLevel - startLevel;
+            const cpGain = endCp - startCp;
+            const data = [
+                timestamp,
+                worker,
+                'LevelUp',
+                String(startLevel),
+                String(endLevel),
+                String(levelGain),
+                `StartCP:${startCp} | EndCP:${endCp} | CPGain:${cpGain}`,
+            ];
             const res = await appendToSheet(regionCfg.sheetRange, data);
             if (res.ok) {
                 const msg = [
@@ -6465,13 +6629,18 @@ client.on('interactionCreate', async (interaction) => {
                     `Region: ${regionCfg.code} | ${timestamp}`,
                     `Worker: ${escapeHtml(worker)}`,
                     '',
-                    `Login: ${escapeHtml(login)}`,
-                    `Logout: ${escapeHtml(logout)}`,
-                    `Level: ${escapeHtml(level)} | CP: ${escapeHtml(cp)}`,
+                    `Level: ${startLevel} -> ${endLevel} (Gain ${levelGain >= 0 ? '+' : ''}${levelGain})`,
+                    `CP: ${startCp} -> ${endCp} (Gain ${cpGain >= 0 ? '+' : ''}${cpGain})`,
                 ].join('\n');
                 sendTelegramNotification(msg).catch(() => {});
             }
-            await interaction.editReply({ content: res.ok ? `✅ Level-Up report submitted (${worker}) → ${regionCfg.code}` : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.` });
+            await interaction.editReply({
+                content: res.ok
+                    ? `✅ Level-Up report submitted (${worker}) → ${regionCfg.code}\n` +
+                      `• Level Gain: **${levelGain >= 0 ? '+' : ''}${levelGain}**\n` +
+                      `• CP Gain: **${cpGain >= 0 ? '+' : ''}${cpGain}**`
+                    : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
+            });
         } else if (modalType === 'join_verify') {
             const roleNote = (interaction.fields.getTextInputValue('role_note') || '').trim();
             const saved = await appendMemberListRecord(interaction, regionCfg, roleNote, '');
