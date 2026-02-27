@@ -1183,6 +1183,10 @@ function buildMarketTicketControlRows(channelId) {
         ),
         new ActionRowBuilder().addComponents(
             new ButtonBuilder()
+                .setCustomId(`market_cancel_${channelId}`)
+                .setLabel('거래 취소 (Cancel Trade · Buyer/Seller/Admin)')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
                 .setCustomId(`market_feeinfo_${channelId}`)
                 .setLabel('수수료 / Net / Guild 수익 보기 (Admin · Ephemeral)')
                 .setStyle(ButtonStyle.Secondary),
@@ -2111,7 +2115,7 @@ function buildGuideEmbedsKo() {
             },
             {
                 name: '거래 플로우 (에스크로)',
-                value: '**1) 판매 등록** — `/wts amount:<키나> price:<금액> currency:<통화>`\n**2) 구매 요청** — 마켓 Embed의 `🤝 Purchase Request` 버튼 → 3자 비공개 티켓 생성 (구매자/판매자/관리자)\n**3) 진행 순서**\n   - 관리자: 인게임에서 **판매자로부터 총액(수수료 포함) 전부**를 먼저 받음 → `1) Hold Confirmed` 버튼\n   - 판매자: 실제 돈(현금) 입금(계좌/페이 등) 확인 후 `2) Payment Confirmed`\n   - 관리자: 임베드/버튼으로 확인 가능한 **Net to Seller** 만큼만 구매자에게 키나 지급, 남은 차액(수수료)을 길드/관리자 계정에 남김 → `3) Complete + Trust` 로 신뢰도 반영 및 티켓 종료\n• **중요:** 봇은 게임 내 키나/실제 돈(현금)을 직접 이동시키지 않으며, 위 절차는 관리자 수동 운영 기준입니다.',
+                value: '**1) 판매 등록** — `/wts amount:<키나> price:<금액> currency:<통화>`\n**2) 구매 요청** — 마켓 Embed의 `🤝 Purchase Request` 버튼 → 3자 비공개 티켓 생성 (구매자/판매자/관리자)\n**3) 진행 순서**\n   - 관리자: 인게임에서 **판매자로부터 총액(수수료 포함) 전부**를 먼저 받음 → `1) Hold Confirmed` 버튼\n   - 판매자: 실제 돈(현금) 입금(계좌/페이 등) 확인 후 `2) Payment Confirmed`\n   - 관리자: 임베드/버튼으로 확인 가능한 **Net to Seller** 만큼만 구매자에게 키나 지급, 남은 차액(수수료)을 길드/관리자 계정에 남김 → `3) Complete + Trust` 로 신뢰도 반영 및 티켓 종료\n**4) 취소 (선택)** — 거래 성사 전, 구매자/판매자/관리자가 `거래 취소 (Cancel Trade)` 버튼으로 티켓을 취소할 수 있으며, 이력은 `Market_Log` 시트에 기록됩니다.\n• **중요:** 봇은 게임 내 키나/실제 돈(현금)을 직접 이동시키지 않으며, 위 절차는 관리자 수동 운영 기준입니다.',
                 inline: false
             },
             {
@@ -2268,7 +2272,7 @@ function buildGuideEmbedsEn() {
             },
             {
                 name: 'Escrow Trade Flow',
-                value: '**1) Listing** — `/wts amount:<kinah> price:<amount> currency:<code>`\n**2) Request** — Buyer clicks `🤝 Purchase Request` on the listing → private ticket with Buyer/Seller/Admin\n**3) Steps**\n   - Admin: **Receive the full Kinah amount from the seller in-game (including fee)** → click `1) Hold Confirmed`\n   - Seller: After confirming real-world payment (bank/pay app), click `2) Payment Confirmed`\n   - Admin: Deliver only the **Net to Seller** amount of Kinah to the buyer (as shown in embed / fee info button) and keep the fee difference as guild revenue, then click `3) Complete + Trust` to apply trust and close ticket\n• **Important:** The bot does not move Kinah or real money. All transfers are manual by admins; this flow is an operational guideline.',
+                value: '**1) Listing** — `/wts amount:<kinah> price:<amount> currency:<code>`\n**2) Request** — Buyer clicks `🤝 Purchase Request` on the listing → private ticket with Buyer/Seller/Admin\n**3) Steps**\n   - Admin: **Receive the full Kinah amount from the seller in-game (including fee)** → click `1) Hold Confirmed`\n   - Seller: After confirming real-world payment (bank/pay app), click `2) Payment Confirmed`\n   - Admin: Deliver only the **Net to Seller** amount of Kinah to the buyer (as shown in embed / fee info button) and keep the fee difference as guild revenue, then click `3) Complete + Trust` to apply trust and close ticket\n**4) Optional Cancel** — Before completion, Buyer/Seller/Admin can press **Cancel Trade** button in the ticket to cancel the deal. Cancellation events are logged to the `Market_Log` sheet.\n• **Important:** The bot does not move Kinah or real money. All transfers are manual by admins; this flow is an operational guideline.',
                 inline: false
             },
             {
@@ -2315,6 +2319,11 @@ function buildGuideEmbedsUser() {
             {
                 name: '💎 Payment Confirmation',
                 value: '_Click **Submit Payment** on the Payment panel (if posted) → select currency → enter amount & reason._',
+                inline: false
+            },
+            {
+                name: '💱 Global Market (Escrow)',
+                value: '**`/panel type:market`** — View how to use the Global Market panel\n**WTS/WTB listings:** Use `/wts` or `/wtb` (or panel buttons if added) to create escrow listings.\n**Escrow ticket:** Buyer clicks **🤝 Purchase Request** → private room with buyer/seller/admin opens.\n**Cancel before complete:** Buyer, seller, or admin can press **Cancel Trade** in the ticket to stop the deal before completion.',
                 inline: false
             }
         )
@@ -6235,6 +6244,72 @@ client.on('interactionCreate', async (interaction) => {
                         await ch.delete('Escrow completed and trust synced').catch(() => {});
                     }
                 }, 10_000);
+            } else if (id.startsWith('market_cancel_')) {
+                if (!interaction.guildId || !interaction.guild) { await safeEphemeral(interaction, 'Guild only action.'); return; }
+                const ticketChannelId = id.replace(/^market_cancel_/, '').trim() || interaction.channelId;
+                const state = loadPanelState();
+                const collections = ensureMarketCollections(state, interaction.guildId);
+                const ticket = collections.tickets[ticketChannelId] || collections.tickets[interaction.channelId];
+                if (!ticket) { await safeEphemeral(interaction, '❌ Escrow ticket state not found.'); return; }
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                const isAdminUser = isMarketAdmin(interaction, marketConfig);
+                const isBuyerUser = interaction.user.id === ticket.buyerId;
+                const isSellerUser = interaction.user.id === ticket.sellerId;
+                if (!isAdminUser && !isBuyerUser && !isSellerUser) {
+                    await safeEphemeral(interaction, '❌ Only buyer, seller, or escrow admin can cancel this trade.\n이 거래는 구매자/판매자/에스크로 관리자만 취소할 수 있습니다.');
+                    return;
+                }
+                if (ticket.completedAt) {
+                    await safeEphemeral(interaction, '⚠️ This ticket is already completed and cannot be cancelled.\n이미 완료된 거래는 취소할 수 없습니다.');
+                    return;
+                }
+                const listing = collections.listings[ticket.listingId];
+                const ts = new Date().toISOString();
+                const guildName = (interaction.guild?.name || '').slice(0, 64);
+                const linkedListing = listing || {};
+                const cancelledBy =
+                    isAdminUser ? 'CancelledByAdmin' :
+                    isBuyerUser ? 'CancelledByBuyer' :
+                    'CancelledBySeller';
+                ticket.status = 'cancelled';
+                ticket.cancelledAt = Date.now();
+                ticket.cancelledBy = interaction.user.id;
+                if (listing && listing.status !== 'completed') {
+                    listing.status = 'cancelled';
+                    listing.closedAt = Date.now();
+                }
+                savePanelState(state, true);
+                try {
+                    const rowValues = [
+                        ts,                                      // A: Timestamp (ISO)
+                        interaction.guildId || '',              // B: Guild ID
+                        guildName,                              // C: Guild Name
+                        ticket.listingId || '',                 // D: Listing ID
+                        linkedListing.type || '',               // E: Type (WTS/WTB)
+                        linkedListing.amount || '',             // F: Amount (Kinah)
+                        linkedListing.price || '',              // G: Price
+                        linkedListing.currency || '',           // H: Currency
+                        linkedListing.ownerTag || '',           // I: Seller Tag
+                        ticket.buyerId ? `<@${ticket.buyerId}>` : '', // J: Buyer Mention
+                        cancelledBy,                            // K: Status
+                        ticket.channelId ? `<#${ticket.channelId}>` : '', // L: Ticket channel ref
+                    ];
+                    await appendToSheet("'Market_Log'!A:L", rowValues);
+                } catch (err) {
+                    console.warn('[market] failed to append Market_Log cancel row:', err.message);
+                }
+                const reasonText = isAdminUser
+                    ? '❌ Trade cancelled by admin.\n관리자가 거래를 취소했습니다.'
+                    : isBuyerUser
+                        ? '❌ Trade cancelled by buyer.\n구매자가 거래를 취소했습니다.'
+                        : '❌ Trade cancelled by seller.\n판매자가 거래를 취소했습니다.';
+                await interaction.reply({ content: `${reasonText}\nListing: \`${ticket.listingId || 'N/A'}\`\nTicket will close in 5 seconds.` });
+                setTimeout(async () => {
+                    const ch = await client.channels.fetch(ticket.channelId || interaction.channelId).catch(() => null);
+                    if (ch && ch.type === ChannelType.GuildText) {
+                        await ch.delete('Escrow ticket cancelled').catch(() => {});
+                    }
+                }, 5_000);
             } else if (id.startsWith('market_close_')) {
                 if (!interaction.guildId || !interaction.guild) { await safeEphemeral(interaction, 'Guild only action.'); return; }
                 const ticketChannelId = id.replace(/^market_close_/, '').trim() || interaction.channelId;
