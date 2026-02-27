@@ -74,6 +74,15 @@ https://koreanbots.dev/bots/1436590099235340410
      - `/trust_add user:<user> points:<-10~50> reason:<text>` (Admin)
      - `/trust_role_set tier:<bronze|silver|gold> role:<role>` (Admin)
 
+10. **Payment Proof OCR -> Google Sheet (No ticket required)**
+   - `/payment_ocr_set channel:<channel> enabled:true/false min_confidence:<0-100>` (Admin)
+   - `/payment_ocr_status` — View OCR automation status
+   - Users upload payment receipt images in configured channel
+   - Bot OCR parses amount/currency/reference/time and appends to `'Payment Log'!A:G`
+   - Row type: `MEMBER_CONFIRM_OCR`, status:
+     - `OCR_AUTO_PENDING_REVIEW`
+     - `OCR_LOW_CONFIDENCE (<n>%)`
+
 ## Environment Variables
 
 See `.env.example`:

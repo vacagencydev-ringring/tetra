@@ -38,6 +38,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer-core');
 const chromium = require('@sparticuz/chromium');
+const Tesseract = require('tesseract.js');
 
 async function getPuppeteerLaunchOptions() {
     return {
@@ -255,6 +256,8 @@ function buildRuntimeStateRowsWithMerge(loaded) {
     const mergedPanel = { ...base, ...our };
     mergedPanel.welcomeConfig = { ...(base.welcomeConfig || {}), ...(our.welcomeConfig || {}) };
     mergedPanel.verifyCategoryIdByGuild = { ...(base.verifyCategoryIdByGuild || {}), ...(our.verifyCategoryIdByGuild || {}) };
+    mergedPanel.paymentChannelIdByGuild = { ...(base.paymentChannelIdByGuild || {}), ...(our.paymentChannelIdByGuild || {}) };
+    mergedPanel.paymentOcrConfigByGuild = { ...(base.paymentOcrConfigByGuild || {}), ...(our.paymentOcrConfigByGuild || {}) };
     mergedPanel.marketConfigByGuild = { ...(base.marketConfigByGuild || {}), ...(our.marketConfigByGuild || {}) };
     mergedPanel.trustRoleMapByGuild = { ...(base.trustRoleMapByGuild || {}), ...(our.trustRoleMapByGuild || {}) };
     mergedPanel.trustScoresByGuild = { ...(base.trustScoresByGuild || {}) };
@@ -362,6 +365,8 @@ async function hydrateRuntimeStateFromSheet() {
         const merged = { ...sheet, ...local };
         merged.welcomeConfig = { ...(sheet.welcomeConfig || {}), ...(local.welcomeConfig || {}) };
         merged.verifyCategoryIdByGuild = { ...(sheet.verifyCategoryIdByGuild || {}), ...(local.verifyCategoryIdByGuild || {}) };
+        merged.paymentChannelIdByGuild = { ...(sheet.paymentChannelIdByGuild || {}), ...(local.paymentChannelIdByGuild || {}) };
+        merged.paymentOcrConfigByGuild = { ...(sheet.paymentOcrConfigByGuild || {}), ...(local.paymentOcrConfigByGuild || {}) };
         merged.marketConfigByGuild = { ...(sheet.marketConfigByGuild || {}), ...(local.marketConfigByGuild || {}) };
         merged.trustRoleMapByGuild = { ...(sheet.trustRoleMapByGuild || {}), ...(local.trustRoleMapByGuild || {}) };
         merged.trustScoresByGuild = { ...(sheet.trustScoresByGuild || {}) };
@@ -3336,6 +3341,29 @@ const commands = [
         .addRoleOption(o => o.setName('role').setDescription('Role to grant for the tier').setRequired(true))
         .toJSON(),
     new SlashCommandBuilder()
+        .setName('payment_ocr_set')
+        .setDescription('Set payment receipt OCR channel and behavior (Admin)')
+        .addChannelOption(o => o
+            .setName('channel')
+            .setDescription('Channel where users upload payment proof images')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+        .addBooleanOption(o => o
+            .setName('enabled')
+            .setDescription('Enable OCR auto logging (default: true)')
+            .setRequired(false))
+        .addIntegerOption(o => o
+            .setName('min_confidence')
+            .setDescription('Low confidence threshold 0-100 (default: 45)')
+            .setRequired(false)
+            .setMinValue(0)
+            .setMaxValue(100))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('payment_ocr_status')
+        .setDescription('Show payment receipt OCR automation status')
+        .toJSON(),
+    new SlashCommandBuilder()
         .setName('aon_translate_set')
         .setDescription('Set channel route for AON Korean->English translation (Admin)')
         .addStringOption(o => o
@@ -3454,6 +3482,221 @@ const PAYMENT_CURRENCIES = [
     { value: 'CNY', label: 'CNY (Chinese Yuan)', emoji: '🇨🇳' },
     { value: 'TWD', label: 'TWD (Taiwan Dollar)', emoji: '🇹🇼' },
 ];
+
+function getPaymentOcrConfigForGuild(state, guildId) {
+    const byGuild = state?.paymentOcrConfigByGuild && typeof state.paymentOcrConfigByGuild === 'object'
+        ? state.paymentOcrConfigByGuild
+        : {};
+    const paymentByGuild = state?.paymentChannelIdByGuild && typeof state.paymentChannelIdByGuild === 'object'
+        ? state.paymentChannelIdByGuild
+        : {};
+    const raw = byGuild[guildId] || {};
+    return {
+        enabled: raw.enabled !== false,
+        channelId: asSnowflake(raw.channelId) || asSnowflake(paymentByGuild[guildId]) || asSnowflake(state?.paymentChannelId),
+        minConfidence: clampNumber(raw.minConfidence ?? 45, 0, 100, 45),
+    };
+}
+
+function isImageAttachment(attachment) {
+    const contentType = String(attachment?.contentType || '').toLowerCase();
+    if (contentType.startsWith('image/')) return true;
+    const name = String(attachment?.name || '').toLowerCase();
+    return /\.(png|jpe?g|webp|gif|bmp|tiff?)$/i.test(name);
+}
+
+function normalizeReceiptText(text) {
+    return String(text || '')
+        .replace(/\r/g, '\n')
+        .replace(/[^\S\n]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+function inferCurrencyFromReceiptText(text) {
+    const t = String(text || '');
+    if (/₱|\bphp\b|gcash/i.test(t)) return 'PHP';
+    if (/₩|\bkrw\b/.test(t)) return 'KRW';
+    if (/\$|\busd\b/.test(t)) return 'USD';
+    if (/€|\beur\b/.test(t)) return 'EUR';
+    if (/¥|\bjpy\b|\byen\b/.test(t)) return 'JPY';
+    if (/₹|\binr\b/.test(t)) return 'INR';
+    if (/₨|\bnpr\b/.test(t)) return 'NPR';
+    if (/nt\$|\btwd\b/.test(t)) return 'TWD';
+    if (/cny|rmb|元/.test(t)) return 'CNY';
+    return 'PHP';
+}
+
+function pickReceiptAmount(text) {
+    const source = String(text || '');
+    const amountPatterns = [
+        /total\s*amount\s*(?:sent|paid)?[^\d₱₩$¥€]{0,24}([₱₩$¥€]?\s*\d[\d,]*(?:\.\d{1,2})?)/i,
+        /amount[^\d₱₩$¥€]{0,24}([₱₩$¥€]?\s*\d[\d,]*(?:\.\d{1,2})?)/i,
+        /sent[^\d₱₩$¥€]{0,24}([₱₩$¥€]?\s*\d[\d,]*(?:\.\d{1,2})?)/i,
+    ];
+    for (const rx of amountPatterns) {
+        const match = source.match(rx);
+        const token = match?.[1];
+        const numeric = parseNumericValue(String(token || '').replace(/[^\d.,-]/g, ''));
+        if (numeric != null && numeric > 0 && numeric < 1_000_000_000) {
+            return { numeric, token: String(token || '').trim() };
+        }
+    }
+    const allNumeric = (source.match(/\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+\.\d{1,2}/g) || [])
+        .map(token => ({ token, numeric: parseNumericValue(token) }))
+        .filter(item => item.numeric != null && item.numeric > 0 && item.numeric < 1_000_000_000);
+    if (!allNumeric.length) return null;
+    allNumeric.sort((a, b) => b.numeric - a.numeric);
+    return allNumeric[0];
+}
+
+function extractReceiptReferenceNo(text) {
+    const source = String(text || '');
+    const match = source.match(/ref(?:erence)?\s*(?:no|#|number)?\.?\s*[:\-]?\s*([A-Z0-9][A-Z0-9 \-]{5,40})/i);
+    if (!match) return null;
+    return String(match[1] || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+}
+
+function extractReceiptTimestamp(text) {
+    const source = String(text || '');
+    const patterns = [
+        /\b([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s*(?:AM|PM))\b/i,
+        /\b(\d{4}[/-]\d{1,2}[/-]\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?)\b/i,
+        /\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s+\d{1,2}:\d{2}\s*(?:AM|PM)?)\b/i,
+    ];
+    for (const rx of patterns) {
+        const match = source.match(rx);
+        if (match?.[1]) return String(match[1]).trim();
+    }
+    return null;
+}
+
+function extractReceiptPayMethod(text) {
+    const source = String(text || '');
+    if (/gcash/i.test(source)) return 'GCash';
+    if (/paypal/i.test(source)) return 'PayPal';
+    if (/bank/i.test(source)) return 'Bank Transfer';
+    return null;
+}
+
+function parseReceiptOcrText(text) {
+    const normalized = normalizeReceiptText(text);
+    const amountInfo = pickReceiptAmount(normalized);
+    const currency = inferCurrencyFromReceiptText(normalized);
+    return {
+        rawText: normalized,
+        amount: amountInfo?.numeric ?? null,
+        amountToken: amountInfo?.token || null,
+        currency,
+        refNo: extractReceiptReferenceNo(normalized),
+        paidAt: extractReceiptTimestamp(normalized),
+        method: extractReceiptPayMethod(normalized),
+    };
+}
+
+async function runReceiptOcr(imageUrl) {
+    const result = await Tesseract.recognize(imageUrl, 'eng', {
+        logger: () => {},
+    });
+    const text = result?.data?.text || '';
+    const confidence = Number(result?.data?.confidence);
+    return {
+        text,
+        confidence: Number.isFinite(confidence) ? confidence : null,
+    };
+}
+
+async function handleAutoPaymentProofOcr(message) {
+    if (!message?.guildId || !message?.channelId) return false;
+    if (!message.attachments?.size) return false;
+    const state = loadPanelState();
+    const cfg = getPaymentOcrConfigForGuild(state, message.guildId);
+    if (!cfg.enabled || !cfg.channelId) return false;
+    if (cfg.channelId !== message.channelId) return false;
+    const images = [...message.attachments.values()].filter(isImageAttachment);
+    if (!images.length) return false;
+
+    let parsed = null;
+    let confidence = null;
+    let usedAttachment = null;
+    let lastError = null;
+    for (const att of images.slice(0, 3)) {
+        try {
+            const ocr = await runReceiptOcr(att.url);
+            const receipt = parseReceiptOcrText(ocr.text);
+            if (receipt.amount != null) {
+                parsed = receipt;
+                confidence = ocr.confidence;
+                usedAttachment = att;
+                break;
+            }
+        } catch (err) {
+            lastError = err;
+        }
+    }
+
+    if (!parsed || parsed.amount == null) {
+        await message.reply({
+            content: '⚠️ 결제 영수증 OCR에서 금액을 읽지 못했습니다. `/panel type:payment` 버튼 또는 `!confirm`으로 수동 입력해 주세요.',
+            allowedMentions: { repliedUser: false }
+        }).catch(() => {});
+        if (lastError) console.warn('[payment-ocr] parse-failed', lastError.message || lastError);
+        return true;
+    }
+
+    const trustConfidence = confidence == null ? 'N/A' : `${Math.round(confidence)}%`;
+    const status = confidence != null && confidence < cfg.minConfidence
+        ? `OCR_LOW_CONFIDENCE (${Math.round(confidence)}%)`
+        : 'OCR_AUTO_PENDING_REVIEW';
+    const amountText = Number(parsed.amount).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    const reasonParts = [
+        'Auto OCR receipt',
+        parsed.method ? `Method:${parsed.method}` : null,
+        parsed.refNo ? `Ref:${parsed.refNo}` : null,
+        parsed.paidAt ? `At:${parsed.paidAt}` : null,
+        `Msg:${message.id}`,
+    ].filter(Boolean);
+    const row = [
+        new Date().toLocaleString('ko-KR'),
+        'MEMBER_CONFIRM_OCR',
+        message.author.tag || message.author.username,
+        amountText,
+        parsed.currency || 'PHP',
+        reasonParts.join(' | ').slice(0, 500),
+        status,
+    ];
+    const res = await appendToSheet("'Payment Log'!A:G", row);
+    if (!res.ok) {
+        await message.reply({
+            content: `❌ OCR 결과 시트 저장 실패: ${res.error}`,
+            allowedMentions: { repliedUser: false }
+        }).catch(() => {});
+        return true;
+    }
+
+    const embed = new EmbedBuilder()
+        .setTitle('🧾 Payment Proof OCR Captured')
+        .setColor(status.startsWith('OCR_LOW') ? 0xf59e0b : 0x22c55e)
+        .setAuthor({ name: message.author.username, iconURL: message.author.displayAvatarURL() })
+        .addFields(
+            { name: '💵 Amount', value: `\`${amountText} ${parsed.currency}\``, inline: true },
+            { name: '🔎 OCR Confidence', value: `\`${trustConfidence}\``, inline: true },
+            { name: '📌 Status', value: `\`${status}\``, inline: true },
+            { name: '🧾 Ref No', value: `\`${parsed.refNo || 'N/A'}\``, inline: true },
+            { name: '🕒 Paid At', value: `\`${parsed.paidAt || 'N/A'}\``, inline: true },
+            { name: '💳 Method', value: `\`${parsed.method || 'N/A'}\``, inline: true },
+            { name: '🔗 Source', value: `[Open message](${message.url})`, inline: false },
+        )
+        .setFooter({ text: 'Saved to Payment Log (A:G) as OCR auto entry' })
+        .setTimestamp();
+    if (usedAttachment?.url) embed.setImage(usedAttachment.url);
+    await message.channel.send({
+        content: `✅ **OCR payment proof logged — ${message.author}**`,
+        embeds: [embed],
+        allowedMentions: { parse: [] }
+    }).catch(() => {});
+    return true;
+}
 
 function buildPaymentCurrencySelectRow() {
     const menu = new StringSelectMenuBuilder()
@@ -3728,6 +3971,7 @@ client.on('interactionCreate', async (interaction) => {
                     '**Start Here:** Announcements → `/join_verify` → `/help`\n\n' +
                     '**Reports:** `/report_kinah` `/report_levelup` (or panel buttons)\n' +
                     '**Salary:** `/salary_confirm` (or panel region buttons)\n' +
+                    '**Payment OCR:** `/payment_ocr_status` (Admin: `/payment_ocr_set`)\n' +
                     '**Join:** `/join_verify` — Country → Role\n' +
                     '**Character Verification:** `/myinfo_register character_name:<name>` → screenshot → staff approval\n\n' +
                     '**Boss:** `/preset` `/boss` `/cut` `/boss_fetch` `/boss_alert_mode`\n**MVP (Admin):** `/mvp` `/mvp_set`\n\n' +
@@ -4619,6 +4863,55 @@ client.on('interactionCreate', async (interaction) => {
                 content: `✅ Trust tier role mapped: **${tier.toUpperCase()}** → ${role}`,
                 flags: EPHEMERAL_FLAGS
             });
+        } else if (interaction.commandName === 'payment_ocr_set') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const channel = interaction.options.getChannel('channel', true);
+            const enabled = interaction.options.getBoolean('enabled');
+            const minConfidence = interaction.options.getInteger('min_confidence');
+            if (!channel.isTextBased()) {
+                await safeEphemeral(interaction, 'Please select a text/announcement channel.');
+                return;
+            }
+            const state = loadPanelState();
+            if (!state.paymentOcrConfigByGuild || typeof state.paymentOcrConfigByGuild !== 'object') state.paymentOcrConfigByGuild = {};
+            if (!state.paymentChannelIdByGuild || typeof state.paymentChannelIdByGuild !== 'object') state.paymentChannelIdByGuild = {};
+            const prev = getPaymentOcrConfigForGuild(state, interaction.guildId);
+            state.paymentOcrConfigByGuild[interaction.guildId] = {
+                enabled: enabled == null ? prev.enabled : Boolean(enabled),
+                channelId: channel.id,
+                minConfidence: minConfidence == null ? prev.minConfidence : clampNumber(minConfidence, 0, 100, 45),
+            };
+            state.paymentChannelIdByGuild[interaction.guildId] = channel.id;
+            savePanelState(state, true);
+            const cfg = getPaymentOcrConfigForGuild(state, interaction.guildId);
+            await interaction.reply({
+                content:
+                    `✅ Payment OCR automation updated.\n` +
+                    `• Channel: <#${cfg.channelId}>\n` +
+                    `• Enabled: **${cfg.enabled ? 'Yes' : 'No'}**\n` +
+                    `• Low-confidence threshold: **${cfg.minConfidence}%**\n` +
+                    `\n이제 이 채널에 영수증 이미지를 올리면 OCR 후 **Payment Log** 시트에 자동 적재됩니다.`,
+                flags: EPHEMERAL_FLAGS
+            });
+        } else if (interaction.commandName === 'payment_ocr_status') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            const state = loadPanelState();
+            const cfg = getPaymentOcrConfigForGuild(state, interaction.guildId);
+            const embed = new EmbedBuilder()
+                .setTitle('🧾 Payment OCR Status')
+                .setColor(cfg.enabled ? 0x22c55e : 0xf59e0b)
+                .setDescription(
+                    [
+                        `Enabled: **${cfg.enabled ? 'Yes' : 'No'}**`,
+                        `Channel: ${cfg.channelId ? `<#${cfg.channelId}>` : 'Not set'}`,
+                        `Low-confidence threshold: **${cfg.minConfidence}%**`,
+                        '',
+                        'Flow: Upload receipt image -> OCR parse -> append to `Payment Log` (A:G).',
+                    ].join('\n')
+                )
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
         } else if (interaction.commandName === 'aon_translate_set') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
@@ -4986,7 +5279,29 @@ client.on('interactionCreate', async (interaction) => {
                     if (m.id !== sent.id) await m.delete().catch(() => {});
                 }
                 const state = loadPanelState();
-                savePanelState({ ...state, paymentMsgId: sent.id, paymentChannelId: channel.id });
+                const paymentChannelIdByGuild = state.paymentChannelIdByGuild && typeof state.paymentChannelIdByGuild === 'object'
+                    ? { ...state.paymentChannelIdByGuild }
+                    : {};
+                paymentChannelIdByGuild[interaction.guildId] = channel.id;
+                const paymentOcrConfigByGuild = state.paymentOcrConfigByGuild && typeof state.paymentOcrConfigByGuild === 'object'
+                    ? { ...state.paymentOcrConfigByGuild }
+                    : {};
+                if (!paymentOcrConfigByGuild[interaction.guildId]) {
+                    paymentOcrConfigByGuild[interaction.guildId] = {
+                        enabled: true,
+                        channelId: channel.id,
+                        minConfidence: 45,
+                    };
+                } else if (!asSnowflake(paymentOcrConfigByGuild[interaction.guildId].channelId)) {
+                    paymentOcrConfigByGuild[interaction.guildId].channelId = channel.id;
+                }
+                savePanelState({
+                    ...state,
+                    paymentMsgId: sent.id,
+                    paymentChannelId: channel.id,
+                    paymentChannelIdByGuild,
+                    paymentOcrConfigByGuild,
+                });
                 await interaction.editReply({ content: '✅ Payment panel updated (1 only).' });
             } else if (kind === 'youtube') {
                 const embed = new EmbedBuilder()
@@ -7338,6 +7653,15 @@ client.on('messageCreate', async (message) => {
     await handleAonBotNewsTranslation(message).catch(() => {});
     if (message.author?.bot) return;
     const content = message.content?.trim() || '';
+
+    // ── Auto OCR payment proof (image -> Payment Log)
+    if (!content.toLowerCase().startsWith('!confirm')) {
+        const ocrHandled = await handleAutoPaymentProofOcr(message).catch(err => {
+            console.error('[payment-ocr]', err);
+            return false;
+        });
+        if (ocrHandled) return;
+    }
 
     // ── !yt [youtube-url]
     const ytMatch = content.match(/^!(?:yt|youtube)\s+(.+)$/i);
