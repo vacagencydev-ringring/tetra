@@ -255,6 +255,20 @@ function buildRuntimeStateRowsWithMerge(loaded) {
     const mergedPanel = { ...base, ...our };
     mergedPanel.welcomeConfig = { ...(base.welcomeConfig || {}), ...(our.welcomeConfig || {}) };
     mergedPanel.verifyCategoryIdByGuild = { ...(base.verifyCategoryIdByGuild || {}), ...(our.verifyCategoryIdByGuild || {}) };
+    mergedPanel.marketConfigByGuild = { ...(base.marketConfigByGuild || {}), ...(our.marketConfigByGuild || {}) };
+    mergedPanel.trustRoleMapByGuild = { ...(base.trustRoleMapByGuild || {}), ...(our.trustRoleMapByGuild || {}) };
+    mergedPanel.trustScoresByGuild = { ...(base.trustScoresByGuild || {}) };
+    for (const [gid, scores] of Object.entries(our.trustScoresByGuild || {})) {
+        mergedPanel.trustScoresByGuild[gid] = { ...(mergedPanel.trustScoresByGuild[gid] || {}), ...(scores || {}) };
+    }
+    mergedPanel.marketListingsByGuild = { ...(base.marketListingsByGuild || {}) };
+    for (const [gid, listings] of Object.entries(our.marketListingsByGuild || {})) {
+        mergedPanel.marketListingsByGuild[gid] = { ...(mergedPanel.marketListingsByGuild[gid] || {}), ...(listings || {}) };
+    }
+    mergedPanel.marketOpenTicketsByGuild = { ...(base.marketOpenTicketsByGuild || {}) };
+    for (const [gid, tickets] of Object.entries(our.marketOpenTicketsByGuild || {})) {
+        mergedPanel.marketOpenTicketsByGuild[gid] = { ...(mergedPanel.marketOpenTicketsByGuild[gid] || {}), ...(tickets || {}) };
+    }
 
     const mergedKinah = { guilds: { ...(loaded?.kinah?.guilds || {}) } };
     for (const [gid, d] of Object.entries(kinahState.guilds || {})) mergedKinah.guilds[gid] = d;
@@ -348,6 +362,20 @@ async function hydrateRuntimeStateFromSheet() {
         const merged = { ...sheet, ...local };
         merged.welcomeConfig = { ...(sheet.welcomeConfig || {}), ...(local.welcomeConfig || {}) };
         merged.verifyCategoryIdByGuild = { ...(sheet.verifyCategoryIdByGuild || {}), ...(local.verifyCategoryIdByGuild || {}) };
+        merged.marketConfigByGuild = { ...(sheet.marketConfigByGuild || {}), ...(local.marketConfigByGuild || {}) };
+        merged.trustRoleMapByGuild = { ...(sheet.trustRoleMapByGuild || {}), ...(local.trustRoleMapByGuild || {}) };
+        merged.trustScoresByGuild = { ...(sheet.trustScoresByGuild || {}) };
+        for (const [gid, scores] of Object.entries(local.trustScoresByGuild || {})) {
+            merged.trustScoresByGuild[gid] = { ...(merged.trustScoresByGuild[gid] || {}), ...(scores || {}) };
+        }
+        merged.marketListingsByGuild = { ...(sheet.marketListingsByGuild || {}) };
+        for (const [gid, listings] of Object.entries(local.marketListingsByGuild || {})) {
+            merged.marketListingsByGuild[gid] = { ...(merged.marketListingsByGuild[gid] || {}), ...(listings || {}) };
+        }
+        merged.marketOpenTicketsByGuild = { ...(sheet.marketOpenTicketsByGuild || {}) };
+        for (const [gid, tickets] of Object.entries(local.marketOpenTicketsByGuild || {})) {
+            merged.marketOpenTicketsByGuild[gid] = { ...(merged.marketOpenTicketsByGuild[gid] || {}), ...(tickets || {}) };
+        }
         merged.verifyCategoryId = local.verifyCategoryId || sheet.verifyCategoryId;
         saveJsonState(CONFIG.PANEL_STATE_PATH, merged);
         hydrated = true;
@@ -847,6 +875,305 @@ function hasManageGuild(interaction) {
 }
 
 const EPHEMERAL_FLAGS = MessageFlags.Ephemeral;
+
+const MARKET_LISTING_TYPES = ['WTS', 'WTB'];
+const MARKET_CURRENCIES = ['USD', 'KRW', 'PHP', 'EUR', 'JPY'];
+const TRUST_TIER_RULES = [
+    { key: 'gold', min: 25, label: 'Gold Pilot', emoji: '🥇' },
+    { key: 'silver', min: 10, label: 'Silver Pilot', emoji: '🥈' },
+    { key: 'bronze', min: 3, label: 'Bronze Pilot', emoji: '🥉' },
+];
+const FX_FALLBACK_USD_RATES = {
+    USD: 1,
+    KRW: 1350,
+    PHP: 56,
+    EUR: 0.92,
+    JPY: 150,
+};
+let fxRateCache = {
+    base: 'USD',
+    rates: { ...FX_FALLBACK_USD_RATES },
+    fetchedAt: 0,
+    source: 'fallback',
+};
+
+function clampNumber(value, min, max, fallback = min) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return fallback;
+    return Math.min(max, Math.max(min, num));
+}
+
+function asSnowflake(value) {
+    const id = String(value || '').trim();
+    return /^\d{17,20}$/.test(id) ? id : null;
+}
+
+function ensureMarketCollections(state, guildId) {
+    if (!state.marketListingsByGuild || typeof state.marketListingsByGuild !== 'object') state.marketListingsByGuild = {};
+    if (!state.marketOpenTicketsByGuild || typeof state.marketOpenTicketsByGuild !== 'object') state.marketOpenTicketsByGuild = {};
+    if (!state.trustScoresByGuild || typeof state.trustScoresByGuild !== 'object') state.trustScoresByGuild = {};
+    if (!state.marketConfigByGuild || typeof state.marketConfigByGuild !== 'object') state.marketConfigByGuild = {};
+    if (!state.trustRoleMapByGuild || typeof state.trustRoleMapByGuild !== 'object') state.trustRoleMapByGuild = {};
+
+    if (!state.marketListingsByGuild[guildId] || typeof state.marketListingsByGuild[guildId] !== 'object') {
+        state.marketListingsByGuild[guildId] = {};
+    }
+    if (!state.marketOpenTicketsByGuild[guildId] || typeof state.marketOpenTicketsByGuild[guildId] !== 'object') {
+        state.marketOpenTicketsByGuild[guildId] = {};
+    }
+    if (!state.trustScoresByGuild[guildId] || typeof state.trustScoresByGuild[guildId] !== 'object') {
+        state.trustScoresByGuild[guildId] = {};
+    }
+    if (!state.marketConfigByGuild[guildId] || typeof state.marketConfigByGuild[guildId] !== 'object') {
+        state.marketConfigByGuild[guildId] = {};
+    }
+    if (!state.trustRoleMapByGuild[guildId] || typeof state.trustRoleMapByGuild[guildId] !== 'object') {
+        state.trustRoleMapByGuild[guildId] = {};
+    }
+
+    return {
+        listings: state.marketListingsByGuild[guildId],
+        tickets: state.marketOpenTicketsByGuild[guildId],
+        trustScores: state.trustScoresByGuild[guildId],
+        marketConfigByGuild: state.marketConfigByGuild,
+        trustRoleMapByGuild: state.trustRoleMapByGuild,
+    };
+}
+
+function getMarketConfigForGuild(state, guildId) {
+    const raw = state?.marketConfigByGuild?.[guildId] || {};
+    return {
+        marketChannelId: asSnowflake(raw.marketChannelId),
+        ticketCategoryId: asSnowflake(raw.ticketCategoryId),
+        adminRoleId: asSnowflake(raw.adminRoleId),
+        feePercent: clampNumber(raw.feePercent, 0, 20, 3),
+    };
+}
+
+function getTrustRoleMapForGuild(state, guildId) {
+    const raw = state?.trustRoleMapByGuild?.[guildId] || {};
+    return {
+        bronze: asSnowflake(raw.bronze),
+        silver: asSnowflake(raw.silver),
+        gold: asSnowflake(raw.gold),
+    };
+}
+
+function getTrustScore(state, guildId, userId) {
+    const scores = state?.trustScoresByGuild?.[guildId];
+    const score = scores ? Number.parseInt(String(scores[userId] || 0), 10) : 0;
+    return Number.isFinite(score) ? Math.max(0, score) : 0;
+}
+
+function addTrustScore(state, guildId, userId, delta) {
+    const collections = ensureMarketCollections(state, guildId);
+    const current = Number.parseInt(String(collections.trustScores[userId] || 0), 10) || 0;
+    const next = Math.max(0, current + Number.parseInt(String(delta || 0), 10));
+    collections.trustScores[userId] = next;
+    return { previous: current, current: next };
+}
+
+function getTrustTier(score) {
+    const normalized = Math.max(0, Number.parseInt(String(score || 0), 10) || 0);
+    for (const tier of TRUST_TIER_RULES) {
+        if (normalized >= tier.min) return tier;
+    }
+    return null;
+}
+
+function formatTrustBadge(score) {
+    const tier = getTrustTier(score);
+    return tier ? `${tier.emoji} ${tier.label} (${score})` : `Unranked (${score})`;
+}
+
+async function syncTrustRolesForMember(guild, userId, roleMap, score) {
+    if (!guild || !userId || !roleMap) return;
+    const member = guild.members.cache.get(userId) || await guild.members.fetch(userId).catch(() => null);
+    if (!member) return;
+    const allRoleIds = ['bronze', 'silver', 'gold']
+        .map(k => asSnowflake(roleMap[k]))
+        .filter(Boolean);
+    if (!allRoleIds.length) return;
+    const tier = getTrustTier(score);
+    const targetRoleId = tier ? asSnowflake(roleMap[tier.key]) : null;
+    for (const roleId of allRoleIds) {
+        const hasRole = member.roles.cache.has(roleId);
+        if (roleId === targetRoleId && !hasRole) {
+            await member.roles.add(roleId, 'TETRA trust tier sync').catch(() => {});
+        } else if (roleId !== targetRoleId && hasRole) {
+            await member.roles.remove(roleId, 'TETRA trust tier sync').catch(() => {});
+        }
+    }
+}
+
+function isMarketAdmin(interaction, marketConfig) {
+    if (hasManageGuild(interaction)) return true;
+    const adminRoleId = asSnowflake(marketConfig?.adminRoleId);
+    if (!adminRoleId) return false;
+    return Boolean(interaction.member?.roles?.cache?.has(adminRoleId));
+}
+
+function createMarketListingId() {
+    const left = Date.now().toString(36).slice(-6);
+    const right = Math.random().toString(36).slice(2, 6);
+    return `${left}${right}`;
+}
+
+function slugifyChannelToken(input, fallback = 'user') {
+    const cleaned = String(input || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '')
+        .slice(0, 12);
+    return cleaned || fallback;
+}
+
+function formatCurrencyAmount(amount, currency) {
+    const numeric = Number(amount);
+    if (!Number.isFinite(numeric)) return `N/A ${currency || ''}`.trim();
+    try {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: String(currency || 'USD').toUpperCase(),
+            maximumFractionDigits: 2,
+        }).format(numeric);
+    } catch (_) {
+        return `${numeric.toLocaleString()} ${String(currency || '').toUpperCase()}`.trim();
+    }
+}
+
+function convertCurrencyWithUsdRates(amount, fromCurrency, toCurrency, rates) {
+    const amountNum = Number(amount);
+    if (!Number.isFinite(amountNum)) return null;
+    const from = String(fromCurrency || '').toUpperCase();
+    const to = String(toCurrency || '').toUpperCase();
+    const fromRate = Number(rates?.[from]);
+    const toRate = Number(rates?.[to]);
+    if (!Number.isFinite(fromRate) || !Number.isFinite(toRate) || fromRate <= 0 || toRate <= 0) return null;
+    const usd = amountNum / fromRate;
+    return usd * toRate;
+}
+
+async function getFxRatesUsdBase() {
+    const now = Date.now();
+    if (fxRateCache?.rates && now - Number(fxRateCache.fetchedAt || 0) < 30 * 60_000) {
+        return fxRateCache;
+    }
+    try {
+        const { data } = await axios.get('https://open.er-api.com/v6/latest/USD', {
+            timeout: 12_000,
+            maxRedirects: 2,
+            headers: { Accept: 'application/json' },
+        });
+        const rates = data?.rates;
+        if (data?.result === 'success' && rates && Number.isFinite(Number(rates.USD)) && Number.isFinite(Number(rates.KRW))) {
+            fxRateCache = {
+                base: 'USD',
+                rates,
+                fetchedAt: now,
+                source: 'open.er-api',
+            };
+            return fxRateCache;
+        }
+    } catch (_) {}
+    return fxRateCache;
+}
+
+async function getMarketPriceConversions(totalPrice, currency) {
+    const pack = await getFxRatesUsdBase();
+    const rates = pack?.rates || FX_FALLBACK_USD_RATES;
+    const curr = String(currency || 'USD').toUpperCase();
+    return {
+        usd: convertCurrencyWithUsdRates(totalPrice, curr, 'USD', rates),
+        krw: convertCurrencyWithUsdRates(totalPrice, curr, 'KRW', rates),
+        source: pack?.source || 'fallback',
+    };
+}
+
+function buildEscrowMath(totalPrice, feePercent) {
+    const amount = Number(totalPrice);
+    const fee = Number.isFinite(amount) ? amount * (Number(feePercent) / 100) : 0;
+    return {
+        fee,
+        net: Number.isFinite(amount) ? amount - fee : 0,
+    };
+}
+
+function buildMarketListingEmbed({ listingType, amount, totalPrice, currency, note, ownerTag, trustScore, feePercent, conversions }) {
+    const isWts = listingType === 'WTS';
+    const fee = buildEscrowMath(totalPrice, feePercent);
+    const title = isWts ? '💎 [WTS] Kinah for Sale' : '🛒 [WTB] Looking to Buy Kinah';
+    const sideLabel = isWts ? 'Seller' : 'Buyer';
+    const ccy = String(currency || 'USD').toUpperCase();
+    return new EmbedBuilder()
+        .setColor(isWts ? 0x00ffaa : 0x60a5fa)
+        .setTitle(title)
+        .setDescription(
+            [
+                `**${sideLabel}:** ${ownerTag}`,
+                `**Anti-Scam Policy:** All deals must go through TETRA escrow ticket. External/off-platform settlement is prohibited.`,
+            ].join('\n')
+        )
+        .addFields(
+            { name: '📦 Amount', value: `**${Number(amount || 0).toLocaleString()}** Kinah`, inline: true },
+            { name: '💰 Total Price', value: `**${formatCurrencyAmount(totalPrice, ccy)}**`, inline: true },
+            { name: '🏅 Trust Rating', value: `**${formatTrustBadge(trustScore)}**`, inline: true },
+            { name: '🛡️ Escrow Fee', value: `${feePercent.toFixed(1)}% (${formatCurrencyAmount(fee.fee, ccy)})`, inline: true },
+            { name: '📥 Net to Seller', value: formatCurrencyAmount(fee.net, ccy), inline: true },
+            { name: '🌐 FX Snapshot', value: `${formatCurrencyAmount(conversions?.usd, 'USD')} / ${formatCurrencyAmount(conversions?.krw, 'KRW')} (${conversions?.source || 'N/A'})`, inline: true },
+            ...(note ? [{ name: '📝 Note', value: note.slice(0, 400), inline: false }] : [])
+        )
+        .setFooter({ text: 'TETRA Safe Trade System • Click button below to open escrow ticket' })
+        .setTimestamp();
+}
+
+function buildMarketTicketEmbed({ listing, buyerId, sellerId, adminRoleId }) {
+    const rolePing = adminRoleId ? `<@&${adminRoleId}>` : '`Admin`';
+    return new EmbedBuilder()
+        .setColor(0xff007f)
+        .setTitle('🛡️ TETRA Safe Trade Room Initiated')
+        .setDescription(
+            [
+                `**Buyer:** <@${buyerId}>`,
+                `**Seller:** <@${sellerId}>`,
+                `**Listing:** ${listing.type} • ${Number(listing.amount || 0).toLocaleString()} Kinah • ${formatCurrencyAmount(listing.price, listing.currency)}`,
+                '',
+                '### 4-Step Escrow Flow',
+                `1) **Match / Ticket** — Buyer presses button, secure 3-party ticket is opened (${rolePing}, buyer, seller).`,
+                '2) **Hold** — Seller sends Kinah to TETRA escrow admin account first.',
+                '3) **Pay** — After admin hold confirmation, buyer sends payment (USD/KRW etc).',
+                '4) **Complete** — Seller confirms payment, admin delivers Kinah to buyer, bot adds Trust +1 and closes ticket.',
+                '',
+                `⚠️ **Do NOT pay before admin hold confirmation by ${rolePing}.**`,
+            ].join('\n')
+        )
+        .setFooter({ text: 'Anti-Scam / Zero Tolerance Policy Enforced' })
+        .setTimestamp();
+}
+
+function buildMarketTicketControlRows(channelId) {
+    return [
+        new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`market_hold_${channelId}`)
+                .setLabel('1) Hold Confirmed (Admin)')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId(`market_pay_${channelId}`)
+                .setLabel('2) Payment Confirmed (Seller)')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId(`market_complete_${channelId}`)
+                .setLabel('3) Complete + Trust (Admin)')
+                .setStyle(ButtonStyle.Secondary),
+        ),
+        new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`market_close_${channelId}`)
+                .setLabel('Close Ticket')
+                .setStyle(ButtonStyle.Danger),
+        ),
+    ];
+}
 
 // ═══════════════════════════════════════════════════════════
 // [TACTICS] Curated guides (ephemeral, user-only)
@@ -2919,6 +3246,96 @@ const commands = [
         .setDescription('Show kinah rate crawler settings and last state')
         .toJSON(),
     new SlashCommandBuilder()
+        .setName('market_setup')
+        .setDescription('Set global market and escrow ticket routing (Admin)')
+        .addChannelOption(o => o
+            .setName('market_channel')
+            .setDescription('Channel where /wts and /wtb listings are posted')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement))
+        .addChannelOption(o => o
+            .setName('ticket_category')
+            .setDescription('Category where escrow trade tickets are created')
+            .setRequired(true)
+            .addChannelTypes(ChannelType.GuildCategory))
+        .addRoleOption(o => o
+            .setName('admin_role')
+            .setDescription('TETRA escrow admin role')
+            .setRequired(true))
+        .addNumberOption(o => o
+            .setName('fee_percent')
+            .setDescription('Escrow fee percent (default 3.0, suggested 3-5)')
+            .setRequired(false)
+            .setMinValue(0)
+            .setMaxValue(20))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('market_status')
+        .setDescription('Show global market escrow setup and runtime status')
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('wts')
+        .setDescription('Post a Want-To-Sell (WTS) escrow listing')
+        .addIntegerOption(o => o.setName('amount').setDescription('Amount of Kinah').setRequired(true).setMinValue(1))
+        .addNumberOption(o => o.setName('price').setDescription('Total price').setRequired(true).setMinValue(0.01))
+        .addStringOption(o => o
+            .setName('currency')
+            .setDescription('Settlement currency')
+            .setRequired(true)
+            .addChoices(
+                { name: 'USD ($)', value: 'USD' },
+                { name: 'KRW (₩)', value: 'KRW' },
+                { name: 'PHP (₱)', value: 'PHP' },
+                { name: 'EUR (€)', value: 'EUR' },
+                { name: 'JPY (¥)', value: 'JPY' },
+            ))
+        .addStringOption(o => o.setName('note').setDescription('Optional note').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('wtb')
+        .setDescription('Post a Want-To-Buy (WTB) escrow listing')
+        .addIntegerOption(o => o.setName('amount').setDescription('Amount of Kinah').setRequired(true).setMinValue(1))
+        .addNumberOption(o => o.setName('price').setDescription('Total price').setRequired(true).setMinValue(0.01))
+        .addStringOption(o => o
+            .setName('currency')
+            .setDescription('Settlement currency')
+            .setRequired(true)
+            .addChoices(
+                { name: 'USD ($)', value: 'USD' },
+                { name: 'KRW (₩)', value: 'KRW' },
+                { name: 'PHP (₱)', value: 'PHP' },
+                { name: 'EUR (€)', value: 'EUR' },
+                { name: 'JPY (¥)', value: 'JPY' },
+            ))
+        .addStringOption(o => o.setName('note').setDescription('Optional note').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('trust')
+        .setDescription('Show trust score and tier')
+        .addUserOption(o => o.setName('user').setDescription('Target user').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('trust_add')
+        .setDescription('Adjust trust score for a user (Admin)')
+        .addUserOption(o => o.setName('user').setDescription('Target user').setRequired(true))
+        .addIntegerOption(o => o.setName('points').setDescription('Points to add/remove').setRequired(true).setMinValue(-10).setMaxValue(50))
+        .addStringOption(o => o.setName('reason').setDescription('Adjustment reason').setRequired(false))
+        .toJSON(),
+    new SlashCommandBuilder()
+        .setName('trust_role_set')
+        .setDescription('Bind trust tier to Discord role (Admin)')
+        .addStringOption(o => o
+            .setName('tier')
+            .setDescription('Trust tier')
+            .setRequired(true)
+            .addChoices(
+                { name: 'Bronze (>=3)', value: 'bronze' },
+                { name: 'Silver (>=10)', value: 'silver' },
+                { name: 'Gold (>=25)', value: 'gold' },
+            ))
+        .addRoleOption(o => o.setName('role').setDescription('Role to grant for the tier').setRequired(true))
+        .toJSON(),
+    new SlashCommandBuilder()
         .setName('aon_translate_set')
         .setDescription('Set channel route for AON Korean->English translation (Admin)')
         .addStringOption(o => o
@@ -3315,6 +3732,9 @@ client.on('interactionCreate', async (interaction) => {
                     '**Character Verification:** `/myinfo_register character_name:<name>` → screenshot → staff approval\n\n' +
                     '**Boss:** `/preset` `/boss` `/cut` `/boss_fetch` `/boss_alert_mode`\n**MVP (Admin):** `/mvp` `/mvp_set`\n\n' +
                     '**Kinah:** `/kinah_watch_now` `/kinah_watch_status`\n\n' +
+                    '**Global Market (Escrow):** `/wts` `/wtb` `/market_status`\n' +
+                    '**Market Admin:** `/market_setup` `/trust_add` `/trust_role_set`\n' +
+                    '**Trust:** `/trust`\n\n' +
                     '**Search (ephemeral):** `/character` `/item` `/collection` `/build`\n' +
                     '**DM Search:** `!char <name>`\n\n' +
                     '**Guides (ephemeral):** `/guide` `/homework` `/tactics` `/guidebook`\n' +
@@ -3991,6 +4411,214 @@ client.on('interactionCreate', async (interaction) => {
                 }
                 await interaction.editReply({ embeds: [embed, buildKinahStatusEmbed(guildState)] });
             }
+        } else if (interaction.commandName === 'market_setup') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const marketChannel = interaction.options.getChannel('market_channel', true);
+            const ticketCategory = interaction.options.getChannel('ticket_category', true);
+            const adminRole = interaction.options.getRole('admin_role', true);
+            const feePercent = clampNumber(interaction.options.getNumber('fee_percent') ?? 3, 0, 20, 3);
+            if (!marketChannel.isTextBased()) {
+                await safeEphemeral(interaction, 'market_channel must be a text or announcement channel.');
+                return;
+            }
+            if (ticketCategory.type !== ChannelType.GuildCategory) {
+                await safeEphemeral(interaction, 'ticket_category must be a category channel.');
+                return;
+            }
+            const state = loadPanelState();
+            const collections = ensureMarketCollections(state, interaction.guildId);
+            collections.marketConfigByGuild[interaction.guildId] = {
+                marketChannelId: marketChannel.id,
+                ticketCategoryId: ticketCategory.id,
+                adminRoleId: adminRole.id,
+                feePercent,
+            };
+            savePanelState(state, true);
+            await interaction.reply({
+                content:
+                    `✅ Global market setup saved.\n` +
+                    `• Market channel: <#${marketChannel.id}>\n` +
+                    `• Ticket category: **${ticketCategory.name}**\n` +
+                    `• Escrow admin role: <@&${adminRole.id}>\n` +
+                    `• Escrow fee: **${feePercent.toFixed(1)}%**`,
+                flags: EPHEMERAL_FLAGS
+            });
+        } else if (interaction.commandName === 'market_status') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            const state = loadPanelState();
+            const { listings, tickets } = ensureMarketCollections(state, interaction.guildId);
+            const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+            const openListingCount = Object.values(listings || {}).filter(item => item?.status === 'open').length;
+            const openTicketCount = Object.values(tickets || {}).filter(item => item?.status !== 'completed' && item?.status !== 'closed').length;
+            const configured = Boolean(marketConfig.marketChannelId && marketConfig.ticketCategoryId && marketConfig.adminRoleId);
+            const embed = new EmbedBuilder()
+                .setTitle('🌐 TETRA Global Market Status')
+                .setColor(configured ? 0x22c55e : 0xf59e0b)
+                .setDescription(
+                    [
+                        `Configured: **${configured ? 'Yes' : 'No'}**`,
+                        `Market channel: ${marketConfig.marketChannelId ? `<#${marketConfig.marketChannelId}>` : 'Not set'}`,
+                        `Ticket category: ${marketConfig.ticketCategoryId ? `<#${marketConfig.ticketCategoryId}>` : 'Not set'}`,
+                        `Escrow admin role: ${marketConfig.adminRoleId ? `<@&${marketConfig.adminRoleId}>` : 'Not set'}`,
+                        `Escrow fee: **${marketConfig.feePercent.toFixed(1)}%**`,
+                        `Open listings: **${openListingCount}**`,
+                        `Open tickets: **${openTicketCount}**`,
+                    ].join('\n')
+                )
+                .setFooter({ text: configured ? 'Anti-Scam escrow mode active' : 'Run /market_setup to activate escrow mode' })
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'wts' || interaction.commandName === 'wtb') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS }).catch(() => {});
+            const listingType = interaction.commandName === 'wts' ? 'WTS' : 'WTB';
+            const amount = interaction.options.getInteger('amount', true);
+            const price = interaction.options.getNumber('price', true);
+            const currency = String(interaction.options.getString('currency', true) || 'USD').toUpperCase();
+            const note = String(interaction.options.getString('note') || '').trim().slice(0, 400);
+            if (!MARKET_LISTING_TYPES.includes(listingType)) {
+                await interaction.editReply({ content: 'Invalid listing type.' }).catch(() => {});
+                return;
+            }
+            if (!MARKET_CURRENCIES.includes(currency)) {
+                await interaction.editReply({ content: `Unsupported currency. Use one of: ${MARKET_CURRENCIES.join(', ')}` }).catch(() => {});
+                return;
+            }
+            const state = loadPanelState();
+            const collections = ensureMarketCollections(state, interaction.guildId);
+            const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+            if (!marketConfig.marketChannelId || !marketConfig.ticketCategoryId || !marketConfig.adminRoleId) {
+                await interaction.editReply({ content: '❌ Escrow market is not configured. Admin must run `/market_setup` first.' }).catch(() => {});
+                return;
+            }
+            const listingChannel = interaction.guild.channels.cache.get(marketConfig.marketChannelId)
+                || await interaction.guild.channels.fetch(marketConfig.marketChannelId).catch(() => null);
+            if (!listingChannel || !listingChannel.isTextBased()) {
+                await interaction.editReply({ content: '❌ Market channel is missing or not text-based. Admin: run `/market_setup` again.' }).catch(() => {});
+                return;
+            }
+            const listingId = createMarketListingId();
+            const conversions = await getMarketPriceConversions(price, currency);
+            const trustScore = getTrustScore(state, interaction.guildId, interaction.user.id);
+            const listing = {
+                id: listingId,
+                type: listingType,
+                ownerId: interaction.user.id,
+                ownerTag: interaction.user.tag || interaction.user.username,
+                amount,
+                price,
+                currency,
+                note,
+                feePercent: marketConfig.feePercent,
+                createdAt: Date.now(),
+                status: 'open',
+                channelId: listingChannel.id,
+                messageId: null,
+                matchedAt: null,
+                matchedBy: null,
+                matchedTicketChannelId: null,
+                completedAt: null,
+            };
+            const embed = buildMarketListingEmbed({
+                listingType,
+                amount,
+                totalPrice: price,
+                currency,
+                note,
+                ownerTag: `${interaction.user}`,
+                trustScore,
+                feePercent: marketConfig.feePercent,
+                conversions,
+            });
+            const buttonLabel = listingType === 'WTS' ? '🤝 Purchase Request (Open Escrow)' : '🤝 Sell Offer (Open Escrow)';
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`market_buy_${listingId}`)
+                    .setLabel(buttonLabel)
+                    .setStyle(ButtonStyle.Success)
+            );
+            let sent;
+            try {
+                sent = await listingChannel.send({ embeds: [embed], components: [row] });
+            } catch (err) {
+                await interaction.editReply({ content: `❌ Failed to post listing: ${err.message}` }).catch(() => {});
+                return;
+            }
+            listing.messageId = sent.id;
+            collections.listings[listingId] = listing;
+            savePanelState(state, true);
+            await interaction.editReply({
+                content:
+                    `✅ ${listingType} listing posted to <#${listingChannel.id}>.\n` +
+                    `• Listing ID: \`${listingId}\`\n` +
+                    `• Ticket mode: 3-party escrow only\n` +
+                    `• Link: ${sent.url}`
+            }).catch(() => {});
+        } else if (interaction.commandName === 'trust') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            const target = interaction.options.getUser('user') || interaction.user;
+            const state = loadPanelState();
+            const score = getTrustScore(state, interaction.guildId, target.id);
+            const tier = getTrustTier(score);
+            const asc = [...TRUST_TIER_RULES].sort((a, b) => a.min - b.min);
+            const nextTier = asc.find(t => score < t.min);
+            const roleMap = getTrustRoleMapForGuild(state, interaction.guildId);
+            const tierRole = tier ? asSnowflake(roleMap[tier.key]) : null;
+            const embed = new EmbedBuilder()
+                .setTitle('🏅 Trust Rating')
+                .setColor(tier ? 0x22c55e : 0x94a3b8)
+                .setDescription(
+                    [
+                        `User: ${target}`,
+                        `Score: **${score}**`,
+                        `Tier: **${tier ? `${tier.emoji} ${tier.label}` : 'Unranked'}**`,
+                        `Tier role: ${tierRole ? `<@&${tierRole}>` : 'Not configured'}`,
+                        nextTier ? `Next tier: **${nextTier.label}** in ${nextTier.min - score} point(s)` : 'Next tier: Max tier reached',
+                    ].join('\n')
+                )
+                .setFooter({ text: 'Trust +1 is added automatically when escrow trade is completed by admin.' })
+                .setTimestamp();
+            await interaction.reply({ embeds: [embed], flags: EPHEMERAL_FLAGS });
+        } else if (interaction.commandName === 'trust_add') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            await interaction.deferReply({ flags: EPHEMERAL_FLAGS }).catch(() => {});
+            const target = interaction.options.getUser('user', true);
+            const delta = interaction.options.getInteger('points', true);
+            const reason = String(interaction.options.getString('reason') || 'Manual admin adjustment').slice(0, 200);
+            const state = loadPanelState();
+            const result = addTrustScore(state, interaction.guildId, target.id, delta);
+            const roleMap = getTrustRoleMapForGuild(state, interaction.guildId);
+            await syncTrustRolesForMember(interaction.guild, target.id, roleMap, result.current).catch(() => {});
+            savePanelState(state, true);
+            await interaction.editReply({
+                content:
+                    `✅ Trust updated for ${target}\n` +
+                    `• Change: ${delta >= 0 ? '+' : ''}${delta}\n` +
+                    `• Score: ${result.previous} → **${result.current}**\n` +
+                    `• Tier: ${formatTrustBadge(result.current)}\n` +
+                    `• Reason: ${reason}`
+            }).catch(() => {});
+        } else if (interaction.commandName === 'trust_role_set') {
+            if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
+            if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            const tier = interaction.options.getString('tier', true);
+            const role = interaction.options.getRole('role', true);
+            if (!['bronze', 'silver', 'gold'].includes(tier)) {
+                await safeEphemeral(interaction, 'Invalid tier.');
+                return;
+            }
+            const state = loadPanelState();
+            const collections = ensureMarketCollections(state, interaction.guildId);
+            const current = getTrustRoleMapForGuild(state, interaction.guildId);
+            current[tier] = role.id;
+            collections.trustRoleMapByGuild[interaction.guildId] = current;
+            savePanelState(state, true);
+            await interaction.reply({
+                content: `✅ Trust tier role mapped: **${tier.toUpperCase()}** → ${role}`,
+                flags: EPHEMERAL_FLAGS
+            });
         } else if (interaction.commandName === 'aon_translate_set') {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
@@ -4522,7 +5150,308 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isButton()) {
         try {
             const id = interaction.customId;
-            if (id === 'btn_tactics_open') {
+            if (id.startsWith('market_buy_')) {
+                if (!interaction.guildId || !interaction.guild) {
+                    await safeEphemeral(interaction, 'Guild only action.');
+                    return;
+                }
+                await interaction.deferReply({ flags: EPHEMERAL_FLAGS }).catch(() => {});
+                const listingId = id.replace(/^market_buy_/, '').trim();
+                if (!listingId) {
+                    await interaction.editReply({ content: 'Invalid listing id.' }).catch(() => {});
+                    return;
+                }
+                const state = loadPanelState();
+                const collections = ensureMarketCollections(state, interaction.guildId);
+                const listing = collections.listings[listingId];
+                if (!listing) {
+                    await interaction.editReply({ content: '❌ Listing not found or expired.' }).catch(() => {});
+                    return;
+                }
+                if (listing.status !== 'open') {
+                    const ticketMention = listing.matchedTicketChannelId ? `<#${listing.matchedTicketChannelId}>` : 'N/A';
+                    await interaction.editReply({ content: `⚠️ This listing is already matched.\nTicket: ${ticketMention}` }).catch(() => {});
+                    return;
+                }
+                if (listing.ownerId === interaction.user.id) {
+                    await interaction.editReply({ content: '❌ You cannot open escrow with your own listing.' }).catch(() => {});
+                    return;
+                }
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                if (!marketConfig.marketChannelId || !marketConfig.ticketCategoryId) {
+                    await interaction.editReply({ content: '❌ Escrow config is missing. Admin: run `/market_setup`.' }).catch(() => {});
+                    return;
+                }
+                const buyerId = listing.type === 'WTS' ? interaction.user.id : listing.ownerId;
+                const sellerId = listing.type === 'WTS' ? listing.ownerId : interaction.user.id;
+                if (!buyerId || !sellerId || buyerId === sellerId) {
+                    await interaction.editReply({ content: '❌ Failed to resolve buyer/seller for this listing.' }).catch(() => {});
+                    return;
+                }
+
+                const buyerMember = interaction.guild.members.cache.get(buyerId) || await interaction.guild.members.fetch(buyerId).catch(() => null);
+                const sellerMember = interaction.guild.members.cache.get(sellerId) || await interaction.guild.members.fetch(sellerId).catch(() => null);
+                const buyerToken = slugifyChannelToken(buyerMember?.displayName || 'buyer', 'buyer');
+                const sellerToken = slugifyChannelToken(sellerMember?.displayName || 'seller', 'seller');
+                const channelName = `trade-${listingId}-${buyerToken}-${sellerToken}`.slice(0, 95);
+                const permissionOverwrites = [
+                    { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    {
+                        id: client.user.id,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.EmbedLinks,
+                            PermissionFlagsBits.AttachFiles,
+                            PermissionFlagsBits.ManageChannels,
+                            PermissionFlagsBits.ManageMessages,
+                        ],
+                    },
+                    {
+                        id: buyerId,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.EmbedLinks,
+                            PermissionFlagsBits.AttachFiles,
+                        ],
+                    },
+                    {
+                        id: sellerId,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.EmbedLinks,
+                            PermissionFlagsBits.AttachFiles,
+                        ],
+                    },
+                ];
+                if (marketConfig.adminRoleId) {
+                    permissionOverwrites.push({
+                        id: marketConfig.adminRoleId,
+                        allow: [
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.ManageMessages,
+                        ],
+                    });
+                }
+
+                let ticketChannel;
+                try {
+                    ticketChannel = await interaction.guild.channels.create({
+                        name: channelName,
+                        type: ChannelType.GuildText,
+                        parent: marketConfig.ticketCategoryId || null,
+                        permissionOverwrites,
+                    });
+                } catch (err) {
+                    await interaction.editReply({ content: `❌ Failed to create escrow ticket: ${err.message}` }).catch(() => {});
+                    return;
+                }
+
+                if (!marketConfig.adminRoleId) {
+                    const manageRoles = interaction.guild.roles.cache.filter(r => r.permissions.has(PermissionFlagsBits.ManageGuild));
+                    for (const [, role] of manageRoles) {
+                        await ticketChannel.permissionOverwrites.create(role, {
+                            ViewChannel: true,
+                            SendMessages: true,
+                            ReadMessageHistory: true,
+                            ManageMessages: true,
+                        }).catch(() => {});
+                    }
+                }
+
+                listing.status = 'matched';
+                listing.matchedAt = Date.now();
+                listing.matchedBy = interaction.user.id;
+                listing.matchedTicketChannelId = ticketChannel.id;
+                collections.tickets[ticketChannel.id] = {
+                    channelId: ticketChannel.id,
+                    listingId,
+                    buyerId,
+                    sellerId,
+                    createdBy: interaction.user.id,
+                    createdAt: Date.now(),
+                    status: 'opened',
+                    holdConfirmedAt: null,
+                    sellerPaymentConfirmedAt: null,
+                    completedAt: null,
+                    closedAt: null,
+                    feePercent: Number.isFinite(Number(listing.feePercent)) ? Number(listing.feePercent) : 0,
+                };
+                savePanelState(state, true);
+
+                const marketChannel = interaction.guild.channels.cache.get(listing.channelId) || await interaction.guild.channels.fetch(listing.channelId).catch(() => null);
+                if (marketChannel && marketChannel.isTextBased() && listing.messageId) {
+                    const listingMsg = await marketChannel.messages.fetch(listing.messageId).catch(() => null);
+                    if (listingMsg) {
+                        const disabledRow = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`market_buy_${listingId}`)
+                                .setLabel('🔒 Matched (Escrow Ticket Open)')
+                                .setStyle(ButtonStyle.Secondary)
+                                .setDisabled(true)
+                        );
+                        await listingMsg.edit({ components: [disabledRow] }).catch(() => {});
+                    }
+                }
+
+                const introEmbed = buildMarketTicketEmbed({
+                    listing,
+                    buyerId,
+                    sellerId,
+                    adminRoleId: marketConfig.adminRoleId,
+                });
+                const mentionParts = [`<@${buyerId}>`, `<@${sellerId}>`];
+                if (marketConfig.adminRoleId) mentionParts.push(`<@&${marketConfig.adminRoleId}>`);
+                await ticketChannel.send({
+                    content: mentionParts.join(' '),
+                    embeds: [introEmbed],
+                    components: buildMarketTicketControlRows(ticketChannel.id),
+                }).catch(() => {});
+
+                await interaction.editReply({ content: `✅ Escrow ticket created: <#${ticketChannel.id}>` }).catch(() => {});
+            } else if (id.startsWith('market_hold_')) {
+                if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only action.'); return; }
+                const ticketChannelId = id.replace(/^market_hold_/, '').trim() || interaction.channelId;
+                const state = loadPanelState();
+                const collections = ensureMarketCollections(state, interaction.guildId);
+                const ticket = collections.tickets[ticketChannelId] || collections.tickets[interaction.channelId];
+                if (!ticket) { await safeEphemeral(interaction, '❌ Escrow ticket state not found.'); return; }
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                if (!isMarketAdmin(interaction, marketConfig)) {
+                    await safeEphemeral(interaction, '❌ Only escrow admin can confirm hold.');
+                    return;
+                }
+                if (ticket.completedAt) {
+                    await safeEphemeral(interaction, '⚠️ This ticket is already completed.');
+                    return;
+                }
+                if (ticket.holdConfirmedAt) {
+                    await safeEphemeral(interaction, '⚠️ Hold is already confirmed.');
+                    return;
+                }
+                ticket.holdConfirmedAt = Date.now();
+                ticket.status = 'hold_confirmed';
+                savePanelState(state, true);
+                await interaction.reply({ content: `✅ Admin hold confirmed. Buyer may proceed with payment now.\nBuyer: <@${ticket.buyerId}> • Seller: <@${ticket.sellerId}>` });
+            } else if (id.startsWith('market_pay_')) {
+                if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only action.'); return; }
+                const ticketChannelId = id.replace(/^market_pay_/, '').trim() || interaction.channelId;
+                const state = loadPanelState();
+                const collections = ensureMarketCollections(state, interaction.guildId);
+                const ticket = collections.tickets[ticketChannelId] || collections.tickets[interaction.channelId];
+                if (!ticket) { await safeEphemeral(interaction, '❌ Escrow ticket state not found.'); return; }
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                const isAdminClick = isMarketAdmin(interaction, marketConfig);
+                if (interaction.user.id !== ticket.sellerId && !isAdminClick) {
+                    await safeEphemeral(interaction, '❌ Only seller (or admin) can confirm payment receipt.');
+                    return;
+                }
+                if (!ticket.holdConfirmedAt) {
+                    await safeEphemeral(interaction, '⚠️ Hold is not confirmed yet. Wait for admin hold confirmation first.');
+                    return;
+                }
+                if (ticket.completedAt) {
+                    await safeEphemeral(interaction, '⚠️ This ticket is already completed.');
+                    return;
+                }
+                ticket.sellerPaymentConfirmedAt = Date.now();
+                ticket.status = 'payment_confirmed';
+                savePanelState(state, true);
+                await interaction.reply({ content: `✅ Seller confirmed payment receipt.\nAdmin can now finalize delivery and trust update via **Complete + Trust**.` });
+            } else if (id.startsWith('market_complete_')) {
+                if (!interaction.guildId || !interaction.guild) { await safeEphemeral(interaction, 'Guild only action.'); return; }
+                const ticketChannelId = id.replace(/^market_complete_/, '').trim() || interaction.channelId;
+                const state = loadPanelState();
+                const collections = ensureMarketCollections(state, interaction.guildId);
+                const ticket = collections.tickets[ticketChannelId] || collections.tickets[interaction.channelId];
+                if (!ticket) { await safeEphemeral(interaction, '❌ Escrow ticket state not found.'); return; }
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                if (!isMarketAdmin(interaction, marketConfig)) {
+                    await safeEphemeral(interaction, '❌ Only escrow admin can complete this trade.');
+                    return;
+                }
+                if (!ticket.holdConfirmedAt || !ticket.sellerPaymentConfirmedAt) {
+                    await safeEphemeral(interaction, '⚠️ You must complete Hold and Payment confirmation first.');
+                    return;
+                }
+                if (ticket.completedAt) {
+                    await safeEphemeral(interaction, '⚠️ This ticket is already completed.');
+                    return;
+                }
+                ticket.completedAt = Date.now();
+                ticket.closedAt = Date.now();
+                ticket.status = 'completed';
+                const listing = collections.listings[ticket.listingId];
+                if (listing) {
+                    listing.status = 'completed';
+                    listing.completedAt = Date.now();
+                }
+                const buyerTrust = addTrustScore(state, interaction.guildId, ticket.buyerId, 1);
+                const sellerTrust = addTrustScore(state, interaction.guildId, ticket.sellerId, 1);
+                const roleMap = getTrustRoleMapForGuild(state, interaction.guildId);
+                await syncTrustRolesForMember(interaction.guild, ticket.buyerId, roleMap, buyerTrust.current).catch(() => {});
+                await syncTrustRolesForMember(interaction.guild, ticket.sellerId, roleMap, sellerTrust.current).catch(() => {});
+                delete collections.tickets[ticket.channelId || interaction.channelId];
+                savePanelState(state, true);
+
+                const summary = new EmbedBuilder()
+                    .setTitle('✅ Escrow Trade Completed')
+                    .setColor(0x22c55e)
+                    .setDescription(
+                        [
+                            `Buyer: <@${ticket.buyerId}>`,
+                            `Seller: <@${ticket.sellerId}>`,
+                            `Listing: \`${ticket.listingId}\``,
+                            '',
+                            '**Trust Updated (+1 each)**',
+                            `• Buyer: ${buyerTrust.previous} → **${buyerTrust.current}** (${formatTrustBadge(buyerTrust.current)})`,
+                            `• Seller: ${sellerTrust.previous} → **${sellerTrust.current}** (${formatTrustBadge(sellerTrust.current)})`,
+                            '',
+                            'Ticket will auto-close in 10 seconds.',
+                        ].join('\n')
+                    )
+                    .setTimestamp();
+                await interaction.reply({ embeds: [summary] });
+                setTimeout(async () => {
+                    const ch = await client.channels.fetch(ticket.channelId || interaction.channelId).catch(() => null);
+                    if (ch && ch.type === ChannelType.GuildText) {
+                        await ch.delete('Escrow completed and trust synced').catch(() => {});
+                    }
+                }, 10_000);
+            } else if (id.startsWith('market_close_')) {
+                if (!interaction.guildId || !interaction.guild) { await safeEphemeral(interaction, 'Guild only action.'); return; }
+                const ticketChannelId = id.replace(/^market_close_/, '').trim() || interaction.channelId;
+                const state = loadPanelState();
+                const collections = ensureMarketCollections(state, interaction.guildId);
+                const ticket = collections.tickets[ticketChannelId] || collections.tickets[interaction.channelId];
+                if (!ticket) { await safeEphemeral(interaction, '❌ Escrow ticket state not found.'); return; }
+                const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
+                if (!isMarketAdmin(interaction, marketConfig)) {
+                    await safeEphemeral(interaction, '❌ Only escrow admin can close ticket.');
+                    return;
+                }
+                const listing = collections.listings[ticket.listingId];
+                if (listing && listing.status !== 'completed') {
+                    listing.status = 'closed';
+                    listing.closedAt = Date.now();
+                }
+                delete collections.tickets[ticket.channelId || interaction.channelId];
+                savePanelState(state, true);
+                await interaction.reply({ content: '🗄️ Ticket will close in 5 seconds.' });
+                setTimeout(async () => {
+                    const ch = await client.channels.fetch(ticket.channelId || interaction.channelId).catch(() => null);
+                    if (ch && ch.type === ChannelType.GuildText) {
+                        await ch.delete('Escrow ticket closed by admin').catch(() => {});
+                    }
+                }, 5_000);
+            } else if (id === 'btn_tactics_open') {
                 const row = buildTacticsCategorySelect(false);
                 await interaction.reply({
                     content: '**TACTICS** — Select a category.\n_Visible only to you_',
@@ -4762,6 +5691,8 @@ client.on('interactionCreate', async (interaction) => {
                         msg = `Interaction failed (bot may be starting up). Please try again in a moment.`;
                     } else if (id.startsWith('btn_salary')) {
                         msg = `Interaction failed. Please try again or use \`/salary_confirm\` (choose ${SUPPORTED_REGION_CODES}).`;
+                    } else if (id.startsWith('market_')) {
+                        msg = 'Escrow interaction failed. Please try again or ask admin to run `/market_status`.';
                     }
                     await interaction.reply({ content: msg, flags: EPHEMERAL_FLAGS });
                 }

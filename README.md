@@ -60,6 +60,20 @@ https://koreanbots.dev/bots/1436590099235340410
    - **`/guide`** — Member guide (English), all members can post, no Admin required
    - **`/panel type:guide_ko`** `guide_en` — Full guides (Admin only)
 
+9. **Global Trading Hub (Anti-Scam Escrow)**
+   - `/market_setup market_channel:<channel> ticket_category:<category> admin_role:<role> fee_percent:<0-20>` (Admin)
+   - `/market_status` — Check escrow setup and open listing/ticket counts
+   - `/wts amount:<kinah> price:<total> currency:<USD|KRW|PHP|EUR|JPY>` — Post WTS listing
+   - `/wtb amount:<kinah> price:<total> currency:<USD|KRW|PHP|EUR|JPY>` — Post WTB listing
+   - Listing button creates private 3-party escrow ticket (buyer + seller + admin role)
+   - Ticket workflow buttons:
+     - **Hold Confirmed (Admin)** → **Payment Confirmed (Seller)** → **Complete + Trust (Admin)**
+   - On complete: buyer/seller trust score auto +1, tier role sync (if configured), ticket auto-closes
+   - Trust commands:
+     - `/trust [user]` — View trust score and tier
+     - `/trust_add user:<user> points:<-10~50> reason:<text>` (Admin)
+     - `/trust_role_set tier:<bronze|silver|gold> role:<role>` (Admin)
+
 ## Environment Variables
 
 See `.env.example`:
