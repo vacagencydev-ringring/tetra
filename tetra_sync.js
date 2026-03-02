@@ -6708,12 +6708,7 @@ client.on('interactionCreate', async (interaction) => {
                     await interaction.reply({ content: '❌ Invalid region scope on this panel. Recreate panel with `/panel type:report`.', flags: EPHEMERAL_FLAGS });
                     return;
                 }
-                // #r・daily-report 채널에서 국가별 버튼이면 스크린샷 스레드용 모달 표시 (확장성: 채널 ID 매핑)
-                const dailyReportChannelId = forcedRegion ? DAILY_REPORT_CHANNEL_IDS[forcedRegion] : null;
-                if (dailyReportChannelId && interaction.channelId === dailyReportChannelId) {
-                    await interaction.showModal(buildDailyReportScreenshotModal(forcedRegion));
-                    return;
-                }
+                // 항상 팀 선택(Start/End + Kinah/Level-Up) 메뉴 표시. 제출 후 스레드는 createDailyReportThreadForInteraction에서 처리.
                 await interaction.reply({
                     content: forcedCfg
                         ? `📊 Select Start/End + Team for **${forcedCfg.code}**.`
