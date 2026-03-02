@@ -1740,12 +1740,12 @@ const client = new Client({
 // ═══════════════════════════════════════════════════════════
 /** Region(PH/IN/NP/CH/TW) → 타임존 & 시트 범위 */
 const REGION_CONFIGS = [
-    { value: 'ph', code: 'PH', label: 'Philippines', timeZone: 'Asia/Manila', emoji: '🇵🇭', aliases: ['philippines'] },
+    { value: 'ph', code: 'PH', label: 'Philippines', timeZone: 'Asia/Manila', offsetHours: 8, emoji: '🇵🇭', aliases: ['philippines'] },
     // Legacy compatibility: old "id/indonesia" values are mapped to IN.
-    { value: 'in', code: 'IN', label: 'India', timeZone: 'Asia/Kolkata', emoji: '🇮🇳', aliases: ['india', 'id', 'indonesia'] },
-    { value: 'np', code: 'NP', label: 'Nepal', timeZone: 'Asia/Kathmandu', emoji: '🇳🇵', aliases: ['nepal'] },
-    { value: 'ch', code: 'CH', label: 'China', timeZone: 'Asia/Shanghai', emoji: '🇨🇳', aliases: ['china'] },
-    { value: 'tw', code: 'TW', label: 'Taiwan', timeZone: 'Asia/Taipei', emoji: '🇹🇼', aliases: ['taiwan'] },
+    { value: 'in', code: 'IN', label: 'India', timeZone: 'Asia/Kolkata', offsetHours: 5.5, emoji: '🇮🇳', aliases: ['india', 'id', 'indonesia'] },
+    { value: 'np', code: 'NP', label: 'Nepal', timeZone: 'Asia/Kathmandu', offsetHours: 5.75, emoji: '🇳🇵', aliases: ['nepal'] },
+    { value: 'ch', code: 'CH', label: 'China', timeZone: 'Asia/Shanghai', offsetHours: 8, emoji: '🇨🇳', aliases: ['china'] },
+    { value: 'tw', code: 'TW', label: 'Taiwan', timeZone: 'Asia/Taipei', offsetHours: 8, emoji: '🇹🇼', aliases: ['taiwan'] },
 ];
 const SUPPORTED_REGION_CODES = REGION_CONFIGS.map(r => r.code).join('/');
 const MEMBER_ORGANIZED_HEADERS = ['Country', 'User ID', 'Discord Tag', 'Display Name', 'Role', 'Joined At', 'Character Name', 'Source Sheet', 'Refreshed At'];
@@ -1769,6 +1769,61 @@ function getRegionConfig(regionInput) {
 
 function getRegionChoices() {
     return REGION_CONFIGS.map(region => ({ name: `${region.label} (${region.code})`, value: region.value }));
+}
+
+/** #r・daily-report 국가별 채널 ID (확장 시 여기만 추가) */
+const DAILY_REPORT_CHANNEL_IDS = {
+    ph: '1475181907430866984',
+    in: '1475181922987802815',
+    np: '1476198937395466274',
+    ch: '1476204498090332325',
+    tw: '1476204477362077746',
+};
+const DAILY_REPORT_CHANNEL_ID_SET = new Set(Object.values(DAILY_REPORT_CHANNEL_IDS));
+const DAILY_REPORT_MODAL_PREFIX = 'modal_daily_report_';
+
+function isDailyReportChannel(channelId) {
+    return channelId && DAILY_REPORT_CHANNEL_ID_SET.has(String(channelId));
+}
+
+function getDailyReportRegionByChannelId(channelId) {
+    if (!channelId) return null;
+    const id = String(channelId);
+    for (const [region, cid] of Object.entries(DAILY_REPORT_CHANNEL_IDS)) {
+        if (cid === id) return region;
+    }
+    return null;
+}
+
+/** #r・daily-report 전용: 채널에 [✅ 유저명 - Report Logged] 임베드 게시 후 스레드 생성 + 스크린샷 안내 (API/권한 에러 대비 try-catch) */
+async function createDailyReportThreadForInteraction(interaction, displayName, detailText = '', regionCode = '') {
+    if (!interaction || !interaction.channelId || !isDailyReportChannel(interaction.channelId)) return;
+    const safeName = (displayName || 'User').replace(/[\x00-\x1F]/g, '').slice(0, 80) || 'User';
+    const desc = [detailText, regionCode].filter(Boolean).join(' · ') || '—';
+    const embed = new EmbedBuilder()
+        .setAuthor({ name: `${safeName} — Report Logged`, iconURL: (interaction.user && interaction.user.displayAvatarURL()) || null })
+        .setDescription(desc ? `**Details:** ${desc}` : null)
+        .setColor(0x57F287)
+        .setTimestamp()
+        .setFooter({ text: 'Daily Report · Screenshots in thread below' });
+    try {
+        const replyMsg = await interaction.followUp({ embeds: [embed], fetchReply: true });
+        const threadName = `📸 ${safeName}'s Screenshots`;
+        const thread = await replyMsg.startThread({
+            name: threadName.slice(0, 100),
+            type: ChannelType.PublicThread,
+            reason: 'Daily report screenshot thread',
+        });
+        await thread.send({
+            content: `${interaction.user} Please drop your in-game screenshots here! 📥`,
+            allowedMentions: { users: [interaction.user.id] },
+        });
+    } catch (err) {
+        console.error('[createDailyReportThreadForInteraction]', err);
+        try {
+            await interaction.followUp({ content: `❌ Failed to create thread: ${err.message}`, flags: EPHEMERAL_FLAGS });
+        } catch (_) {}
+    }
 }
 
 function escapeHtml(str) {
@@ -1945,6 +2000,113 @@ async function clearSheetRows(range) {
         return { ok: true };
     } catch (err) {
         return { ok: false, error: err.message };
+    }
+}
+
+/** 전주 월요일 00:00 UTC ~ 일요일 23:59:59.999 UTC 범위 (ms) */
+function getLastWeekRangeUTC() {
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    while (d.getUTCDay() !== 1) d.setUTCDate(d.getUTCDate() - 1);
+    d.setUTCDate(d.getUTCDate() - 7);
+    const startMs = d.getTime();
+    const endMs = startMs + 7 * 24 * 60 * 60 * 1000 - 1;
+    return { startMs, endMs };
+}
+
+/** 시트 타임스탬프 "YYYY-MM-DD HH:mm" (해당 지역 시간) → UTC ms. offsetHours: 지역이 UTC+offsetHours */
+function parseTimestampToUTC(tsStr, offsetHours) {
+    if (!tsStr || typeof tsStr !== 'string') return null;
+    const m = tsStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    const [, y, mo, day, h, min] = m;
+    const localMs = Date.UTC(Number(y), Number(mo) - 1, Number(day), Number(h), Number(min));
+    const utcMs = localMs - (offsetHours || 0) * 60 * 60 * 1000;
+    return utcMs;
+}
+
+/** 시트 Metric 컬럼(키나 Net, 쉼표 포맷) → 숫자. 파싱 실패 시 0 */
+function parseKinahNetFromMetric(value) {
+    if (value == null || value === '') return 0;
+    const s = String(value).replace(/,/g, '').trim();
+    const n = Number(s);
+    return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * 전 국가 Daily_Log 시트에서 전주(월~일) KinahEnd 행만 수집해
+ * 개인별 키나 Net 합계를 구하고 Top3 반환.
+ * @returns {{ ok: boolean, top3: Array<{ worker: string, totalNet: number }>, error?: string }}
+ */
+async function fetchWeeklyKinahNetTop3() {
+    const { startMs, endMs } = getLastWeekRangeUTC();
+    const workerTotals = new Map();
+
+    for (const region of REGION_CONFIGS) {
+        const range = `Daily_Log_${region.code}!A2:G`;
+        const read = await readSheetRows(range);
+        if (!read.ok) {
+            console.warn(`[mvp_top3] Daily_Log_${region.code} read failed:`, read.error);
+            continue;
+        }
+        const offsetHours = region.offsetHours ?? 8;
+        const rows = read.values || [];
+        for (const row of rows) {
+            const type = String(row[2] || '').trim();
+            if (type !== 'KinahEnd') continue;
+            const tsStr = String(row[0] || '').trim();
+            const utcMs = parseTimestampToUTC(tsStr, offsetHours);
+            if (utcMs == null || utcMs < startMs || utcMs > endMs) continue;
+            const worker = String(row[1] || '').trim();
+            if (!worker) continue;
+            const net = parseKinahNetFromMetric(row[5]);
+            workerTotals.set(worker, (workerTotals.get(worker) || 0) + net);
+        }
+    }
+
+    const sorted = [...workerTotals.entries()]
+        .map(([worker, totalNet]) => ({ worker, totalNet }))
+        .sort((a, b) => b.totalNet - a.totalNet);
+    const top3 = sorted.slice(0, 3);
+    return { ok: true, top3, all: sorted };
+}
+
+/** 월요일 12:00에 호출: 전주 키나 Net Top3를 수집해 REPORT_CHANNEL에 게시 */
+async function runWeeklyKinahTop3Job(client) {
+    const channelId = CONFIG.REPORT_CHANNEL;
+    if (!channelId || !client) return;
+    const ch = client.channels.cache.get(channelId) || await client.channels.fetch(channelId).catch(() => null);
+    if (!ch?.isTextBased()) {
+        console.warn('[mvp_top3] REPORT_CHANNEL not found or not text channel:', channelId);
+        return;
+    }
+    try {
+        const result = await fetchWeeklyKinahNetTop3();
+        if (!result.ok) {
+            await ch.send({ content: `❌ Weekly Kinah Top3 failed: ${result.error || 'Unknown'}` }).catch(() => {});
+            return;
+        }
+        const { startMs, endMs } = getLastWeekRangeUTC();
+        const startLabel = new Date(startMs).toISOString().slice(0, 10);
+        const endLabel = new Date(endMs).toISOString().slice(0, 10);
+        const lines = result.top3.length
+            ? result.top3.map((r, i) => {
+                const medal = ['🥇', '🥈', '🥉'][i] || `${i + 1}.`;
+                return `${medal} **${(r.worker || '—').replace(/\*/g, '')}** — ${formatBigIntWithCommas(BigInt(Math.round(r.totalNet)))} Net`;
+            })
+            : ['_No KinahEnd data for last week (Mon–Sun UTC)._'];
+        const embed = new EmbedBuilder()
+            .setTitle('📊 Weekly Kinah MVP — Top 3 (Net)')
+            .setDescription(`**Last week total** (${startLabel} ~ ${endLabel} Mon–Sun UTC)\nFrom all region Daily_Log sheets.\n\n${lines.join('\n')}`)
+            .setColor(0x57F287)
+            .setTimestamp()
+            .setFooter({ text: 'TETRA · Monday 12:00 job' });
+        await ch.send({ embeds: [embed] }).catch((err) => console.error('[mvp_top3] send failed:', err.message));
+    } catch (err) {
+        console.error('[mvp_top3]', err);
+        try {
+            await ch.send({ content: `❌ Weekly Kinah Top3 error: ${err.message}` }).catch(() => {});
+        } catch (_) {}
     }
 }
 
@@ -3386,6 +3548,10 @@ const commands = [
         .addStringOption(o => o.setName('time').setDescription('Time (HH:mm, e.g. 20:00)').setRequired(true))
         .toJSON(),
     new SlashCommandBuilder()
+        .setName('mvp_top3')
+        .setDescription('Run weekly Kinah Net Top3 now — 전주 월~일 전 국가 시트 수집 (Admin)')
+        .toJSON(),
+    new SlashCommandBuilder()
         .setName('kinah_watch_set')
         .setDescription('Configure kinah rate crawler and target channel (Admin)')
         .addChannelOption(o => o
@@ -3751,6 +3917,26 @@ function createLevelUpEndModal(region) {
         );
 }
 
+/** 국가별 Submit Report 모달 — 숫자 입력 후 제출 시 스레드 자동 생성용 */
+function buildDailyReportScreenshotModal(regionValue) {
+    const region = String(regionValue || 'ph').toLowerCase();
+    const cfg = getRegionConfig(region);
+    const code = cfg ? cfg.code : (region.toUpperCase().slice(0, 2));
+    return new ModalBuilder()
+        .setCustomId(`${DAILY_REPORT_MODAL_PREFIX}${region}`)
+        .setTitle(`Submit Report (${code})`)
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('report_number')
+                    .setLabel('Report # / Value (numbers)')
+                    .setPlaceholder('e.g. 1 or session count')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            )
+        );
+}
+
 function parseNonNegativeBigIntInput(raw) {
     const normalized = String(raw || '').replace(/[,\s]/g, '').trim();
     if (!/^\d+$/.test(normalized)) return null;
@@ -3789,7 +3975,7 @@ function buildDailySubmitButtonRowForRegion(regionValue = null) {
             .setCustomId(customId)
             .setLabel(label)
             .setEmoji('📊')
-            .setStyle(ButtonStyle.Primary)
+            .setStyle(ButtonStyle.Success)
     );
 }
 
@@ -3896,9 +4082,12 @@ function normalizeReceiptText(text) {
 
 function inferCurrencyFromReceiptText(text) {
     const t = String(text || '');
-    if (/₱|\bphp\b|gcash/i.test(t)) return 'PHP';
+    // PHP/Philippine 지표를 먼저 검사 (OCR이 ₱를 $로 잘못 읽는 경우가 많음)
+    if (/₱|\bphp\b|gcash|paymaya|\bmaya\s*wallet|bdo\b|bpi\b|peso|philippine|instapay|pesonet|cebuana|palawan|dragonpay|unionbank|metrobank|landbank/i.test(t)) return 'PHP';
     if (/₩|\bkrw\b/.test(t)) return 'KRW';
-    if (/\$|\busd\b/.test(t)) return 'USD';
+    // "USD" 또는 "dollar"가 명시된 경우만 USD. $ 기호만 있으면 OCR 오인(₱→$) 가능성이 있어 PHP 우선.
+    if (/\busd\b|\bdollar\b/i.test(t)) return 'USD';
+    if (/\$/.test(t)) return 'PHP'; // $만 있으면 페소로 추정 (기본값)
     if (/€|\beur\b/.test(t)) return 'EUR';
     if (/¥|\bjpy\b|\byen\b/.test(t)) return 'JPY';
     if (/₹|\binr\b/.test(t)) return 'INR';
@@ -4018,7 +4207,7 @@ async function handleAutoPaymentProofOcr(message) {
 
     if (!parsed || parsed.amount == null) {
         await message.reply({
-            content: '⚠️ 결제 영수증 OCR에서 금액을 읽지 못했습니다. `/panel type:payment` 버튼 또는 `!confirm`으로 수동 입력해 주세요.',
+            content: '⚠️ Could not read amount from receipt image. Use the **Submit Payment** button on the payment panel or `!confirm` to enter manually.',
             allowedMentions: { repliedUser: false }
         }).catch(() => {});
         if (lastError) console.warn('[payment-ocr] parse-failed', lastError.message || lastError);
@@ -4049,7 +4238,7 @@ async function handleAutoPaymentProofOcr(message) {
     const res = await appendToSheet("'Payment Log'!A:G", row);
     if (!res.ok) {
         await message.reply({
-            content: `❌ OCR 결과 시트 저장 실패: ${res.error}`,
+            content: `❌ Failed to save OCR result to sheet: ${res.error}`,
             allowedMentions: { repliedUser: false }
         }).catch(() => {});
         return true;
@@ -4278,6 +4467,12 @@ client.once('ready', async () => {
         });
         console.log('   Homework reset alerts enabled (Wed 5AM, Sun midnight)');
     }
+
+    // 월요일 12:00 — 전 국가 시트 수집, 전주(월~일) 키나 Net 합계 Top3 게시 (REPORT_CHANNEL). 서버 로컬 시간 기준.
+    schedule.scheduleJob('0 12 * * 1', async () => {
+        await runWeeklyKinahTop3Job(client).catch((err) => console.error('[mvp_top3] job', err.message));
+    });
+    console.log('   Weekly Kinah MVP Top3 job scheduled (Monday 12:00)');
 });
 
 client.on('guildCreate', async (guild) => {
@@ -4851,9 +5046,26 @@ client.on('interactionCreate', async (interaction) => {
                 saveBossState();
                 await interaction.reply({ content: `Event respawn multiplier set to ${multiplier}x.`, flags: EPHEMERAL_FLAGS });
             }
-        } else if (['mvp', 'mvp_set'].includes(interaction.commandName)) {
+        } else if (['mvp', 'mvp_set', 'mvp_top3'].includes(interaction.commandName)) {
             if (!interaction.guildId) { await safeEphemeral(interaction, 'Guild only command.'); return; }
             if (!hasManageGuild(interaction)) { await safeEphemeral(interaction, 'Manage Server permission is required.'); return; }
+            if (interaction.commandName === 'mvp_top3') {
+                await interaction.deferReply({ flags: EPHEMERAL_FLAGS });
+                try {
+                    await runWeeklyKinahTop3Job(client);
+                    const chId = CONFIG.REPORT_CHANNEL;
+                    await interaction.editReply({
+                        content: chId
+                            ? `✅ Weekly Kinah Net Top3 done. Posted to <#${chId}>.`
+                            : '✅ Top3 calculated. (REPORT_CHANNEL not set — skipped posting to channel.)',
+                        flags: EPHEMERAL_FLAGS
+                    }).catch(() => {});
+                } catch (err) {
+                    console.error('[mvp_top3]', err);
+                    await interaction.editReply({ content: `❌ Error: ${err.message}`, flags: EPHEMERAL_FLAGS }).catch(() => {});
+                }
+                return;
+            }
             const mvpGuild = ensureMvpGuildState(interaction.guildId);
             if (interaction.commandName === 'mvp') {
                 const sched = mvpGuild.schedule || {};
@@ -5538,29 +5750,58 @@ client.on('interactionCreate', async (interaction) => {
                     return;
                 }
                 const embed = new EmbedBuilder()
-                    .setTitle('📋 DAILY WORK LOG')
+                    .setTitle('📋 Daily Work Log')
                     .setDescription(
-                        '**Operational Excellence: TETRA Management**\n\n' +
-                        `Scope: **${scopedRegionCfg ? `${scopedRegionCfg.label} (${scopedRegionCfg.code})` : `All Regions (${SUPPORTED_REGION_CODES})`}**\n\n` +
-                        'Click **📊 Submit Report** -> choose Start/End + Team + Region.\n\n' +
-                        '• **Start Kinah**: Login time(auto), Start Kinah, Memo\n' +
-                        '• **End Kinah**: Logout time(auto), End Kinah, Spent Kinah, Memo\n' +
-                        '  - Uses saved start record for calculation:\n' +
-                        '    - `Net Profit = End - Start - Spent`\n' +
-                        '    - `On-hand Delta = End - Start`\n' +
-                        '    - `Gross Farmed = Delta + Spent`\n' +
-                        '• **Start Level-Up**: Login time(auto), Start Level, Start CP, Memo\n' +
-                        '• **End Level-Up**: Logout time(auto), End Level, End CP, Memo\n' +
-                        '  - `Level Gain` / `CP Gain` auto-calculated from start record\n\n' +
-                        `**Rules:** Numbers only, choose one of ${SUPPORTED_REGION_CODES}, submit Start before End.\n` +
-                        '_Data syncs to management database automatically._'
+                        `**${scopedRegionCfg ? `${scopedRegionCfg.emoji} ${scopedRegionCfg.label} (${scopedRegionCfg.code})` : `🌍 All Regions (${SUPPORTED_REGION_CODES})`}**\n\n` +
+                        '**👇 Click the button below to submit your work log.**'
                     )
-                    .setColor(0x5865F2);
+                    .setColor(0x6366F1)
+                    .addFields(
+                        {
+                            name: '📌 How to use (사용방법)',
+                            value: '1) Click **Submit Report** below → choose **Start** or **End** + **Kinah Team** or **Level-Up Team** + region.\n' +
+                                '2) Fill the modal with numbers only (login/logout time is auto).\n' +
+                                '3) **Submit both Start and End** for each session — Start first, then End. (시작·종료 시 모두 작성)',
+                            inline: false,
+                        },
+                        {
+                            name: '✅ One-time member verification (가입 후 최초 1회 회원인증)',
+                            value: 'Complete **member verification once** after joining (e.g. `/join_verify`, `/myinfo_register` if required). This ensures your reports are linked correctly.',
+                            inline: false,
+                        },
+                        {
+                            name: '⚠️ MVP selection (미작성 시 MVP 선정 누락 가능)',
+                            value: 'Weekly Kinah Net **Top 3 (MVP)** is calculated from Daily_Log data only. **If you do not submit reports, you may be excluded from MVP selection.** Submit Start + End to be counted.',
+                            inline: false,
+                        },
+                        {
+                            name: '📊 Submit Report',
+                            value: 'Start/End · **Kinah Team** or **Level-Up Team** · Numbers only; Net/Gain are auto-calculated.',
+                            inline: false,
+                        },
+                        {
+                            name: '⏱️ Kinah Team',
+                            value: '**Start:** Login time (auto), Start Kinah, Memo\n**End:** Logout time (auto), End Kinah, Spent Kinah → `Net = End − Start − Spent`',
+                            inline: false,
+                        },
+                        {
+                            name: '📈 Level-Up Team',
+                            value: '**Start:** Level, CP, Memo\n**End:** Level, CP → Level Gain / CP Gain auto-calculated',
+                            inline: false,
+                        },
+                        {
+                            name: '💡 Rule',
+                            value: `Numbers only · Choose one of ${SUPPORTED_REGION_CODES} · **Submit Start first, then End.**\n_Data syncs to management database automatically._`,
+                            inline: false,
+                        }
+                    )
+                    .setFooter({ text: 'TETRA · Daily Report' })
+                    .setTimestamp();
                 const submitRow = buildDailySubmitButtonRowForRegion(scopedRegionCfg?.value || null);
                 const files = [];
                 const state = loadPanelState();
                 const payload = { embeds: [embed], components: [submitRow], files: files.length ? files : undefined };
-                const isReportPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('DAILY WORK LOG') || m.components?.some(c => c.components?.some(b => b.customId?.startsWith('btn_daily_submit') || b.customId?.startsWith('btn_kinah') || b.customId?.startsWith('btn_levelup'))));
+                const isReportPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('Daily Work Log') || m.embeds[0]?.title?.includes('DAILY WORK LOG') || m.components?.some(c => c.components?.some(b => b.customId?.startsWith('btn_daily_submit') || b.customId?.startsWith('btn_kinah') || b.customId?.startsWith('btn_levelup'))));
                 let allReportPanels = (await channel.messages.fetch({ limit: 100 })).filter(isReportPanel);
                 for (const m of allReportPanels.values()) await m.delete().catch(() => {});
                 const sent = await channel.send(payload);
@@ -5576,23 +5817,22 @@ client.on('interactionCreate', async (interaction) => {
                 const embed = new EmbedBuilder()
                     .setTitle('💰 Kinah Rate')
                     .setDescription(
-                        '**AION2 Kinah Exchange Rate**\n\n' +
-                        '• Real-time rate from ItemBay / ItemMania (configurable)\n' +
-                        '• Auto-posts to this channel when rate changes (if crawler enabled)\n\n' +
-                        '**How to use:**\n' +
-                        '• Click **Fetch Kinah Rate** below — instant rate check (result only you see)\n' +
-                        '• Or use `/kinah_watch_now` — same as button\n' +
-                        '• `/kinah_watch_status` — View crawler config & last value\n\n' +
-                        '_Admin: Configure crawler with `/kinah_watch_preset` to enable auto-updates._'
+                        '**AION2 Kinah exchange rate at a glance.**\n_Real-time rate from ItemBay / ItemMania (configurable)_\n\n' +
+                        '**👇 Click the button below — result is visible only to you.**'
                     )
-                    .setColor(0x14b8a6)
+                    .setColor(0x14B8A6)
+                    .addFields(
+                        { name: '🔄 Auto-update', value: 'When Admin enables the crawler with `/kinah_watch_preset`, rate changes are posted to this channel automatically.', inline: false },
+                        { name: '📌 Commands', value: '`/kinah_watch_status` — Config & last rate\n`/kinah_watch_now` — Same as button (instant fetch)', inline: false }
+                    )
+                    .setFooter({ text: 'TETRA · Kinah Rate' })
                     .setTimestamp();
                 const row = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
                         .setCustomId('btn_kinah_rate_fetch')
                         .setLabel('Fetch Kinah Rate')
                         .setEmoji('💰')
-                        .setStyle(ButtonStyle.Primary)
+                        .setStyle(ButtonStyle.Success)
                 );
                 const isKinahPanel = m => m.author?.id === client.user?.id && (m.embeds[0]?.title?.includes('Kinah Rate') || m.components?.some(c => c.components?.some(b => b.customId === 'btn_kinah_rate_fetch')));
                 let allKinahPanels = (await channel.messages.fetch({ limit: 100 })).filter(isKinahPanel);
@@ -5607,23 +5847,19 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.editReply({ content: '✅ Kinah Rate panel updated (1 only).' });
             } else if (kind === 'market') {
                 const embed = new EmbedBuilder()
-                    .setTitle('🌐 글로벌 마켓 — 에스크로 거래 (Global Market · Escrow Trade)')
+                    .setTitle('🌐 글로벌 마켓 — 에스크로 거래 (Global Market · Escrow)')
                     .setDescription(
-                        '**키나를 안전하게 중개하는 글로벌 마켓(에스크로)입니다. (Anti-scam escrow trading for Kinah)**\n\n' +
-                        '**주요 명령어 (Commands):**\n' +
-                        '• **`/market_setup`** — 마켓 채널, 티켓 카테고리, 관리자 역할, 수수료 설정 (Configure market channel, ticket category, admin role, fee)\n' +
-                        '• **`/wts amount:<키나> price:<금액> currency:<통화>`** — 판매글 등록 (WTS listing · 마켓 채널로 전송)\n' +
-                        '• **`/wtb amount:<키나> price:<금액> currency:<통화>`** — 구매글 등록 (WTB listing · 마켓 채널로 전송)\n' +
-                        '• **`/market_status`** — 현재 설정, 수수료, 오픈된 글/티켓 상태 확인 (Check config, fee, open listings & tickets)\n\n' +
-                        '**에스크로 동작 방식 (How escrow works):**\n' +
-                        '1) 판매자가 `/wts` 를 실행하면 글로벌 마켓 채널에 판매글이 올라갑니다.\n' +
-                        '2) 구매자가 판매글의 **"🤝 구매 요청 (Purchase Request · Open Escrow)"** 버튼을 누르면\n' +
-                        '   → 구매자/판매자/관리자 3자만 보이는 비공개 티켓 방이 생성됩니다.\n' +
-                        '3) 관리자가 게임 내에서 판매자로부터 키나를 먼저 받습니다(**홀드**).\n' +
-                        '   판매자는 실제 돈 입금을 확인한 뒤, 관리자는 키나를 구매자에게 전달하고 티켓을 **거래 완료 + Trust** 버튼으로 닫습니다.\n\n' +
-                        '_관리자(Admins): 반드시 먼저 `/market_setup` 으로 환경을 설정한 뒤, 모든 거래를 에스크로로만 진행하도록 안내해주세요. (Always prefer escrow over direct trades.)_'
+                        '**키나를 안전하게 거래하는 에스크로 시스템입니다.**\n**Safe escrow trading for Kinah.**\n\n' +
+                        '**👇 Register with `/wts` or `/wtb`, then use the button under each listing to open an escrow ticket.**'
                     )
-                    .setColor(0x22c55e)
+                    .setColor(0x10B981)
+                    .addFields(
+                        { name: '📌 설정 (Admin)', value: '`/market_setup` — 마켓 채널, 티켓 카테고리, 관리자 역할, 수수료\n`/market_status` — 설정·수수료·오픈 글/티켓 확인', inline: false },
+                        { name: '📝 등록 (Listings)', value: '`/wts amount:<kinah> price:<amount> currency:<code>` — 판매 (WTS)\n`/wtb amount:<kinah> price:<amount> currency:<code>` — 구매 (WTB)', inline: false },
+                        { name: '🛡️ 에스크로 흐름 (Escrow flow)', value: '1) 구매자가 **🤝 구매 요청 (Purchase Request)** 버튼 → 비공개 티켓 생성\n2) 관리자: 게임 내에서 판매자로부터 키나 홀드\n3) 판매자: 실제 입금 확인 후 결제 확인\n4) 관리자: **Complete + Trust** 로 거래 종료 (또는 **거래 취소 / Cancel Trade**)', inline: false },
+                        { name: '💡 Tip', value: '_Always use escrow for trades. (에스크로로만 거래해 주세요.)_', inline: false }
+                    )
+                    .setFooter({ text: 'TETRA · Global Market' })
                     .setTimestamp();
                 const isMarketPanel = m => m.author?.id === client.user?.id && m.embeds[0]?.title?.includes('Global Market');
                 let allMarket = (await channel.messages.fetch({ limit: 100 })).filter(isMarketPanel);
@@ -5639,16 +5875,16 @@ client.on('interactionCreate', async (interaction) => {
                     .setTitle('⚔️ Field Boss & MVP')
                     .setDescription(
                         '**Track field boss spawns and MVP schedule.**\n\n' +
-                        '**Commands:**\n' +
-                        '• **`/boss`** — Full boss board\n' +
-                        '• **`/boss boss_name:<name>`** — Specific boss status (autocomplete)\n' +
-                        '• **`/cut boss_name:<name>`** — Record kill (uses current time)\n' +
-                        '• **`/cut boss_name:<name> killed_at:14:30`** — Record with custom time\n' +
-                        '• **`/mvp`** — View MVP schedule\n' +
-                        '• **`/boss_alert_mode mode:dm`** — Receive alerts via DM\n\n' +
-                        '_Admin: `/preset mode:combined` or `/boss_fetch` to load boss list._'
+                        '**👇 Use the commands below to check boss status, record kills, and set alerts.**'
                     )
-                    .setColor(0xef4444)
+                    .setColor(0xEF4444)
+                    .addFields(
+                        { name: '📋 Board / specific boss', value: '`/boss` — Full boss board\n`/boss boss_name:<name>` — Single boss (autocomplete)', inline: false },
+                        { name: '✂️ Record kill', value: '`/cut boss_name:<name>` — Record kill (current time)\n`/cut boss_name:<name> killed_at:14:30` — Record with custom time', inline: false },
+                        { name: '📅 MVP', value: '`/mvp` — View MVP schedule\n`/mvp_set day:<day> time:20:00` — Set MVP time per day (Admin)', inline: false },
+                        { name: '🔔 Alerts', value: '`/boss_alert_mode mode:dm` — Receive alerts via DM\n_Admin: `/preset` or `/boss_fetch` to load boss list._', inline: false }
+                    )
+                    .setFooter({ text: 'TETRA · Field Boss' })
                     .setTimestamp();
                 const isBossPanel = m => m.author?.id === client.user?.id && m.embeds[0]?.title?.includes('Field Boss');
                 let allBoss = (await channel.messages.fetch({ limit: 100 })).filter(isBossPanel);
@@ -5661,17 +5897,19 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.editReply({ content: '✅ Field Boss & MVP panel updated (1 only).' });
             } else if (kind === 'search') {
                 const embed = new EmbedBuilder()
-                    .setTitle('🔍 AION2 Search (Item · Character · Build · Collection)')
+                    .setTitle('🔍 AION2 Search')
                     .setDescription(
-                        '**Lookup AION2 info — results visible only to you (ephemeral).**\n\n' +
-                        '**Commands:**\n' +
-                        '• **`/character <name>`** — Character lookup by name or profile URL\n' +
-                        '• **`/item <keyword>`** — Item lookup\n' +
-                        '• **`/collection <stat>`** — Find equipment by stat (e.g. crit, accuracy)\n' +
-                        '• **`/build <class>`** — Find recommended builds & skill trees\n\n' +
-                        '**`!char <name>`** — Same as `/character`, results sent to your DM (channel stays clean)'
+                        '**Character · Item · Build · Collection lookup — results visible only to you (ephemeral).**\n\n' +
+                        '**👇 Use the slash commands below; results are shown only to you.**'
                     )
-                    .setColor(0x3b82f6)
+                    .setColor(0x3B82F6)
+                    .addFields(
+                        { name: '🛡️ Character', value: '`/character <name or profile URL>` — Level, CP, class, server, etc.', inline: false },
+                        { name: '📦 Item / stat', value: '`/item <keyword>` — Item search\n`/collection <stat>` — Find equipment by stat (e.g. crit, accuracy)', inline: false },
+                        { name: '⚔️ Build', value: '`/build <class or keyword>` — Recommended builds & skill trees', inline: false },
+                        { name: '💬 DM result', value: '`!char <name>` — Same as `/character`; result sent to your DM (keeps channel clean)', inline: false }
+                    )
+                    .setFooter({ text: 'TETRA · AION2 Search' })
                     .setTimestamp();
                 const isSearchPanel = m => m.author?.id === client.user?.id && m.embeds[0]?.title?.includes('AION2 Search');
                 let allSearch = (await channel.messages.fetch({ limit: 100 })).filter(isSearchPanel);
@@ -5684,16 +5922,18 @@ client.on('interactionCreate', async (interaction) => {
                 await interaction.editReply({ content: '✅ AION2 Search panel updated (1 only).' });
             } else if (kind === 'salary') {
                 const embed = new EmbedBuilder()
-                    .setTitle('💰 Salary Verification Notice')
+                    .setTitle('💰 Salary Verification')
                     .setDescription(
-                        '**Attention to all TETRA Staff:**\n' +
-                        'Your salary for this period has been officially processed.\n\n' +
-                        '**How to confirm (1-click, no typing):**\n' +
-                        '• Check your bank/wallet balance.\n' +
-                        `• Click one of **${SUPPORTED_REGION_CODES}** below — no form, no typing.\n\n` +
-                        'Thank you for your excellent performance.'
+                        '**Your salary for this period has been processed.**\n\n' +
+                        '**👇 Click your region below to confirm — 1-click, no typing.**'
                     )
-                    .setColor(0x57F287);
+                    .setColor(0x22C55E)
+                    .addFields(
+                        { name: '✅ How to confirm', value: '1) Check your bank/wallet balance.\n2) Click one of the **region buttons** below — done.', inline: false },
+                        { name: '💡 Tip', value: 'Thank you for your excellent performance.', inline: false }
+                    )
+                    .setFooter({ text: 'TETRA · Salary' })
+                    .setTimestamp();
                 const salaryButtons = REGION_CONFIGS.map(region =>
                     new ButtonBuilder()
                         .setCustomId(`btn_salary_${region.value}`)
@@ -5736,19 +5976,22 @@ client.on('interactionCreate', async (interaction) => {
                 const embed = new EmbedBuilder()
                     .setTitle('💎 Payment Confirmation')
                     .setDescription(
-                        '**Submit Member Payment Confirmation**\n\n' +
-                        '• Select currency (KRW, USD, PHP, etc.) then enter amount and description.\n' +
-                        '• If you need to attach a screenshot, post it separately after submitting.\n\n' +
-                        '👇 Click **Submit Payment** below.'
+                        '**Submit member payment confirmation.**\n\n' +
+                        '**👇 Click the button below → choose currency, enter amount & reason → saved to Payment Log.**'
                     )
-                    .setColor(0x7289DA)
+                    .setColor(0x8B5CF6)
+                    .addFields(
+                        { name: '📌 How', value: 'Select currency (KRW, USD, PHP, etc.), enter amount and description. To attach a screenshot, upload it after submitting.', inline: false },
+                        { name: '🤖 OCR', value: 'Upload a receipt image in this channel and it will be auto-parsed and appended to Payment Log. (Admin: `/payment_ocr_set` · `/payment_ocr_status`)', inline: false }
+                    )
+                    .setFooter({ text: 'TETRA · Payment' })
                     .setTimestamp();
                 const row = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
                         .setCustomId('btn_payment_confirm')
                         .setLabel('Submit Payment')
                         .setEmoji('💎')
-                        .setStyle(ButtonStyle.Primary)
+                        .setStyle(ButtonStyle.Success)
                 );
                 const isPaymentPanel = m => m.author?.id === client.user?.id && m.embeds[0]?.title?.includes('Payment Confirmation');
                 let allPaymentPanels = (await channel.messages.fetch({ limit: 100 })).filter(isPaymentPanel);
@@ -5787,19 +6030,18 @@ client.on('interactionCreate', async (interaction) => {
                 const embed = new EmbedBuilder()
                     .setTitle('🎬 Info YouTube — Translated Links')
                     .setDescription(
-                        '**Post translated links for Korean info videos**\n\n' +
-                        '• Auto-translate title (KO→EN)\n' +
-                        '• Generate EN subtitle/auto-translate watch link\n\n' +
-                        '👇 Click **Add Video** and enter a YouTube URL.'
+                        '**Post translated links for Korean info videos.**\n_KO→EN title · EN subtitle watch link_\n\n' +
+                        '**👇 Click Add Video and enter a YouTube URL.**'
                     )
                     .setColor(0xFF0000)
+                    .setFooter({ text: 'TETRA · YouTube' })
                     .setTimestamp();
                 const row = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
                         .setCustomId('btn_youtube_add')
                         .setLabel('Add Video')
                         .setEmoji('🎬')
-                        .setStyle(ButtonStyle.Primary)
+                        .setStyle(ButtonStyle.Success)
                 );
                 const isYoutubePanel = m => m.author?.id === client.user?.id && m.embeds[0]?.title?.includes('Info YouTube');
                 let allYtPanels = (await channel.messages.fetch({ limit: 100 })).filter(isYoutubePanel);
@@ -5816,24 +6058,25 @@ client.on('interactionCreate', async (interaction) => {
                 const embed = new EmbedBuilder()
                     .setTitle('📰 Link — Summarize & Translate')
                     .setDescription(
-                        '**Summarize and translate article links**\n\n' +
-                        '• Auto-summarize content (KO)\n' +
-                        '• Translate to English (KO→EN)\n' +
-                        '• Attach thumbnail image\n\n' +
-                        '👇 Click **Add Link** and enter a URL.\n\n' +
-                        'Supported: `inven.co.kr/board/aion2/*` or `inven.co.kr/webzine/news/?news=*`'
+                        '**Summarize and translate article links (KO→EN).**\n\n' +
+                        '**👇 Click Add Link and enter a URL. (Admin)**'
                     )
-                    .setColor(0xcc0000)
+                    .setColor(0x6366F1)
+                    .addFields(
+                        { name: '📌 Supported sites', value: '`inven.co.kr/board/aion2/*` · `inven.co.kr/webzine/news/*`', inline: false },
+                        { name: '⚙️ Settings', value: '**Set** — Choose TACTICS category (dungeon, pet, class, etc.). Admin: `/link_channel_set category:<category>`', inline: false }
+                    )
+                    .setFooter({ text: 'TETRA · Link' })
                     .setTimestamp();
                 const row = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
                         .setCustomId('btn_link_add')
                         .setLabel('Add Link')
                         .setEmoji('📰')
-                        .setStyle(ButtonStyle.Primary),
+                        .setStyle(ButtonStyle.Success),
                     new ButtonBuilder()
                         .setCustomId('btn_link_set')
-                        .setLabel('Set')
+                        .setLabel('Set category')
                         .setEmoji('⚙️')
                         .setStyle(ButtonStyle.Secondary)
                 );
@@ -5868,7 +6111,7 @@ client.on('interactionCreate', async (interaction) => {
                 if (!hasManageGuild(interaction)) { await interaction.editReply({ content: '❌ Admin permission required.' }); return; }
                 const embed = new EmbedBuilder()
                     .setTitle('📖 AION2 Official Guidebook')
-                    .setDescription('PlayNC 공식 가이드북 (클래스·스킬·시스템 안내)\n\n아래 버튼을 눌러 **영어** 가이드북으로 이동하세요.')
+                    .setDescription('PlayNC official guidebook (class, skill, system).\n\n**👇 Click the button below to open the English guidebook.**')
                     .setColor(0x5865F2)
                     .addFields({ name: '🔗 Link', value: `[Open Guidebook (EN)](${GUIDEBOOK_EN_URL})`, inline: false })
                     .setTimestamp();
@@ -5971,17 +6214,17 @@ client.on('interactionCreate', async (interaction) => {
                 const marketConfig = getMarketConfigForGuild(state, interaction.guildId);
                 const isAdminClick = isMarketAdmin(interaction, marketConfig);
                 if (listing.ownerId === interaction.user.id && !isAdminClick) {
-                    await interaction.editReply({ content: '❌ You cannot open escrow with your own listing.\n본인이 올린 매물에는 에스크로를 열 수 없습니다. (관리자는 테스트용으로만 본인 티켓을 열 수 있습니다.)' }).catch(() => {});
+                    await interaction.editReply({ content: '❌ You cannot open escrow with your own listing. (Admins may open a ticket for their own listing for testing.)' }).catch(() => {});
                     return;
                 }
                 if (!marketConfig.marketChannelId || !marketConfig.ticketCategoryId) {
-                    await interaction.editReply({ content: '❌ Escrow config is missing. Admin: run `/market_setup`.\n에스크로 설정이 되어 있지 않습니다. 먼저 `/market_setup` 을 실행해주세요.' }).catch(() => {});
+                    await interaction.editReply({ content: '❌ Escrow config is missing. Admin: run `/market_setup` first.' }).catch(() => {});
                     return;
                 }
                 const buyerId = listing.type === 'WTS' ? interaction.user.id : listing.ownerId;
                 const sellerId = listing.type === 'WTS' ? listing.ownerId : interaction.user.id;
                 if (!buyerId || !sellerId) {
-                    await interaction.editReply({ content: '❌ Failed to resolve buyer/seller for this listing.\n이 거래에 대한 구매자/판매자 정보를 찾을 수 없습니다.' }).catch(() => {});
+                    await interaction.editReply({ content: '❌ Failed to resolve buyer/seller for this listing.' }).catch(() => {});
                     return;
                 }
 
@@ -6256,11 +6499,11 @@ client.on('interactionCreate', async (interaction) => {
                 const isBuyerUser = interaction.user.id === ticket.buyerId;
                 const isSellerUser = interaction.user.id === ticket.sellerId;
                 if (!isAdminUser && !isBuyerUser && !isSellerUser) {
-                    await safeEphemeral(interaction, '❌ Only buyer, seller, or escrow admin can cancel this trade.\n이 거래는 구매자/판매자/에스크로 관리자만 취소할 수 있습니다.');
+                    await safeEphemeral(interaction, '❌ Only buyer, seller, or escrow admin can cancel this trade.');
                     return;
                 }
                 if (ticket.completedAt) {
-                    await safeEphemeral(interaction, '⚠️ This ticket is already completed and cannot be cancelled.\n이미 완료된 거래는 취소할 수 없습니다.');
+                    await safeEphemeral(interaction, '⚠️ This ticket is already completed and cannot be cancelled.');
                     return;
                 }
                 const listing = collections.listings[ticket.listingId];
@@ -6463,6 +6706,12 @@ client.on('interactionCreate', async (interaction) => {
                 const forcedCfg = forcedRegion ? getRegionConfig(forcedRegion) : null;
                 if (forcedRegion && !forcedCfg) {
                     await interaction.reply({ content: '❌ Invalid region scope on this panel. Recreate panel with `/panel type:report`.', flags: EPHEMERAL_FLAGS });
+                    return;
+                }
+                // #r・daily-report 채널에서 국가별 버튼이면 스크린샷 스레드용 모달 표시 (확장성: 채널 ID 매핑)
+                const dailyReportChannelId = forcedRegion ? DAILY_REPORT_CHANNEL_IDS[forcedRegion] : null;
+                if (dailyReportChannelId && interaction.channelId === dailyReportChannelId) {
+                    await interaction.showModal(buildDailyReportScreenshotModal(forcedRegion));
                     return;
                 }
                 await interaction.reply({
@@ -6901,6 +7150,44 @@ client.on('interactionCreate', async (interaction) => {
         if (interaction.user.id === client.user?.id) return;
         const customId = interaction.customId;
 
+        // ── #r・daily-report: Submit Report 모달 → 채널 임베드 + 스레드 생성 + 스크린샷 안내
+        if (customId.startsWith(DAILY_REPORT_MODAL_PREFIX)) {
+            const region = customId.slice(DAILY_REPORT_MODAL_PREFIX.length).trim().toLowerCase();
+            const regionCfg = getRegionConfig(region);
+            const displayName = (interaction.member?.displayName || interaction.user.globalName || interaction.user.username || 'User').trim();
+            const safeDisplayName = displayName.replace(/[\x00-\x1F]/g, '').slice(0, 80) || 'User';
+            const reportValue = (interaction.fields.getTextInputValue('report_number') || '').trim() || '—';
+            const embed = new EmbedBuilder()
+                .setAuthor({ name: `${safeDisplayName} — Report Logged`, iconURL: interaction.user.displayAvatarURL() })
+                .setDescription(`**Report # / Value:** ${reportValue}${regionCfg ? ` · **${regionCfg.code}**` : ''}`)
+                .setColor(0x57F287)
+                .setTimestamp()
+                .setFooter({ text: 'Daily Report · Screenshots in thread below' });
+            try {
+                const replyMsg = await interaction.reply({ embeds: [embed], fetchReply: true });
+                const threadName = `📸 ${safeDisplayName}'s Screenshots`;
+                const thread = await replyMsg.startThread({
+                    name: threadName.slice(0, 100),
+                    type: ChannelType.PublicThread,
+                    reason: 'Daily report screenshot thread',
+                });
+                await thread.send({
+                    content: `${interaction.user} Please drop your in-game screenshots here! 📥`,
+                    allowedMentions: { users: [interaction.user.id] },
+                });
+            } catch (err) {
+                console.error('[daily_report_modal]', err);
+                try {
+                    if (interaction.deferred) {
+                        await interaction.followUp({ content: `❌ Failed to create thread: ${err.message}`, flags: EPHEMERAL_FLAGS });
+                    } else {
+                        await interaction.reply({ content: `❌ Failed to create thread: ${err.message}`, flags: EPHEMERAL_FLAGS });
+                    }
+                } catch (_) {}
+            }
+            return;
+        }
+
         if (customId === 'modal_char_verify') {
             const characterName = (interaction.fields.getTextInputValue('character_name') || '').trim();
             if (!characterName) {
@@ -7137,6 +7424,7 @@ client.on('interactionCreate', async (interaction) => {
                         ? `✅ Start Kinah saved (${worker}) → ${regionCfg.code}\n• Login: **${timestamp}**\n• Start Kinah: **${formatBigIntWithCommas(startKinah)}**`
                         : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
                 });
+                if (res.ok) await createDailyReportThreadForInteraction(interaction, worker, `Start Kinah: ${formatBigIntWithCommas(startKinah)}`, regionCfg.code);
                 return;
             }
 
@@ -7214,6 +7502,7 @@ client.on('interactionCreate', async (interaction) => {
                         ? `✅ End Kinah submitted (${worker}) → ${regionCfg.code}\n• Logout: **${timestamp}**\n• Net: **${formatBigIntWithCommas(netProfit)}**\n• Gross: **${formatBigIntWithCommas(grossFarmed)}**`
                         : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
                 });
+                if (res.ok) await createDailyReportThreadForInteraction(interaction, worker, `Kinah End · Net: ${formatBigIntWithCommas(netProfit)}`, regionCfg.code);
                 return;
             }
 
@@ -7254,6 +7543,7 @@ client.on('interactionCreate', async (interaction) => {
                         ? `✅ Start Level-Up saved (${worker}) → ${regionCfg.code}\n• Login: **${timestamp}**\n• Start: **Lv.${startLevel} / CP ${startCp.toLocaleString()}**`
                         : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
                 });
+                if (res.ok) await createDailyReportThreadForInteraction(interaction, worker, `Lv.${startLevel} · CP ${startCp.toLocaleString()}`, regionCfg.code);
                 return;
             }
 
@@ -7329,6 +7619,7 @@ client.on('interactionCreate', async (interaction) => {
                         ? `✅ End Level-Up submitted (${worker}) → ${regionCfg.code}\n• Logout: **${timestamp}**\n• Level Gain: **${levelGain >= 0 ? '+' : ''}${levelGain}**\n• CP Gain: **${cpGain >= 0 ? '+' : ''}${cpGain}**`
                         : `❌ Failed. Create **Daily_Log_${regionCfg.code}** sheet.`
                 });
+                if (res.ok) await createDailyReportThreadForInteraction(interaction, worker, `Lv. ${levelGain >= 0 ? '+' : ''}${levelGain} · CP ${cpGain >= 0 ? '+' : ''}${cpGain}`, regionCfg.code);
                 return;
             }
             await interaction.editReply({ content: '❌ Unsupported report phase.' });
@@ -8512,6 +8803,20 @@ async function handleAonBotNewsTranslation(message) {
 client.on('messageCreate', async (message) => {
     await handleAonBotNewsTranslation(message).catch(() => {});
     if (message.author?.bot) return;
+
+    // ── #r・daily-report 메인 채널: 채팅/사진 직접 업로드 차단 → 1초 후 삭제 + 경고(7초 후 자동 삭제)
+    if (isDailyReportChannel(message.channelId) && !message.channel.isThread()) {
+        try {
+            setTimeout(() => message.delete().catch(() => {}), 1000);
+            const warn = await message.channel.send({
+                content: `${message.author} 🛑 Please use the [Submit Report] button and upload screenshots inside the Thread.`,
+                allowedMentions: { users: [message.author.id] },
+            }).catch(() => null);
+            if (warn) setTimeout(() => warn.delete().catch(() => {}), 7000);
+        } catch (_) {}
+        return;
+    }
+
     const content = message.content?.trim() || '';
 
     // ── Auto OCR payment proof (image -> Payment Log)
